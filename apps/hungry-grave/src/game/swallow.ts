@@ -26,6 +26,16 @@ interface Swallowable {
    */
   readonly id: number;
   readonly kind: FoodKind;
+  /**
+   * Where the body stood and how big it is, in field units, and the way it was
+   * moving. The rules pay nothing for any of it: they travel so the swallowed
+   * event can carry the fall its drawing needs (design record R5).
+   */
+  readonly x: number;
+  readonly y: number;
+  readonly halfExtent: number;
+  readonly vx: number;
+  readonly vy: number;
   // 0 to 1. Treasure is always 1: power-ups and feasts never decay (ADR 0004).
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
@@ -116,6 +126,18 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
       kind: food.kind,
       freshness: food.freshness,
       payout: food.payout,
+      // The one place the offset is taken, so the arithmetic lives once, and it
+      // is taken before payGrowth: the size on the event is the size at the tip
+      // and never the size the swallow just bought.
+      offsetX: food.x - state.grave.x,
+      offsetY: food.y - state.grave.y,
+      halfExtent: food.halfExtent,
+      vx: food.vx,
+      vy: food.vy,
+      graveSize: state.grave.size,
+      tier: food.tier,
+      treasureBody: food.treasureBody,
+      line: food.line,
     },
     { type: 'chimed', kind: food.kind, treasureBody: food.treasureBody },
   ];

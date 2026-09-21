@@ -16,6 +16,7 @@ import { Button } from '../ui/Button';
 import { BackgroundRenderer } from './game/BackgroundRenderer';
 import { BossRenderer } from './game/BossRenderer';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
+import { FallRenderer } from './game/FallRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
 import { FieldLayers } from './game/layering';
@@ -69,6 +70,13 @@ class ReplayScreen extends Container {
     standInArt: (alias) => this.props.standInArt(alias),
   });
   private readonly fieldRenderer = new FieldRenderer();
+  /**
+   * The food on its way into the hole, wired into this screen as well as the
+   * live one: a renderer wired into one of the two dressField sites and not the
+   * other is how a renderer ships unseen, and the lead-in's whole promise is
+   * that a replay shows what the run showed (design record R5).
+   */
+  private readonly falls = new FallRenderer();
   private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
@@ -130,6 +138,8 @@ class ReplayScreen extends Container {
     this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
+    // After the grave, because the container the falls draw into is its child.
+    this.falls.attach(this.grave.falls, this.fieldCaps());
   }
 
   public init(props: ReplayScreenProps): void {
@@ -179,6 +189,8 @@ class ReplayScreen extends Container {
   private beginDrawing(run: RunState | null): void {
     if (run === null) this.fieldRenderer.forgetPreviousRun();
     else this.fieldRenderer.attach(this.layers, run.caps);
+    if (run === null) this.falls.forgetPreviousRun();
+    else this.falls.attach(this.grave.falls, run.caps);
     this.stormRenderer.forgetPreviousRun();
   }
 
@@ -191,13 +203,14 @@ class ReplayScreen extends Container {
   private syncScreen(run: RunState, events: readonly SimEvent[]): void {
     this.field.visible = true;
     for (const event of events) {
+      if (event.type === 'swallowed') this.falls.swallowed(run, event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
-      // The loss announcement, mirrored from GameScreen.announce: wired into
-      // the live screen alone it would simply not play on a replay, and the
-      // lead-in's whole promise is that a replay shows what the run showed
-      // (#58). The row's own countdown is not mirrored because the replay
-      // carries no HUD at all.
+      // The weapon strip's blow-up, mirrored from GameScreen.announce: wired
+      // into the live screen alone it would simply not play on a replay, and
+      // the lead-in's whole promise is that a replay shows what the run showed
+      // (#58). The loss the live screen watches for is not mirrored, because
+      // its product is a HUD reading and this screen carries no HUD.
       if (event.type === 'weaponStripped') {
         this.stormRenderer.weaponStripped(run, event.lines);
       }
@@ -210,6 +223,7 @@ class ReplayScreen extends Container {
     );
     this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.falls.sync(run);
     this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
   }

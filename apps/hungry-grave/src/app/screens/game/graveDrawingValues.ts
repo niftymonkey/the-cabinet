@@ -190,6 +190,80 @@ const TUFT_ALPHA = 0.7;
  */
 const NEAR_LIP_FROM = 0.5;
 
+/**
+ * How long the tip takes and how long the drop takes, in seconds (design record
+ * R5, the prototype's build 7, which Mark played to his final values).
+ *
+ * They are seconds and never ticks, because what Mark tuned is how long the
+ * fall reads for; a fall is counted in the run's own ticks so that pause, the
+ * resume countdown and a replay all show the same fall, and the two are turned
+ * into ticks in the one place that counts them.
+ */
+const FALL_TIP_SECONDS = 0.3;
+const FALL_DROP_SECONDS = 0.75;
+
+/** How far a body has swung over by the time the tip is finished, in radians. */
+const FALL_TILT = 1.36;
+
+/**
+ * How far past the rim a body's middle has to be before the turn drops it in
+ * rather than lifting it out, as a share of the body's own half extent.
+ *
+ * Food tips on a share of its area, so its middle can still sit a little
+ * outside the edge when it goes. The tip slides it in by exactly the shortfall
+ * and no further, because a body goes over the edge where it is and sliding it
+ * to the middle of the hole is the read Mark rejected.
+ */
+const FALL_SLIP_SHARE = 0.6;
+
+/**
+ * How much of its ground speed a falling body loses each second, once the
+ * ground under it has ended. It is what makes a body arrive rather than be
+ * placed: the way it was pulled in with carries it on across the shaft and is
+ * spent against the wall.
+ */
+const FALL_DRAG = 2.4;
+
+/**
+ * The smallest a body folds to on its way in, as a share of its own size. Food
+ * longer than the opening folds to fit; the floor is there so that a body far
+ * longer than the mouth still goes in as itself rather than as a speck.
+ */
+const FALL_FOLD_FLOOR = 0.3;
+
+/**
+ * The share of itself a piece of food must have over the mouth before it starts
+ * to lean in (design record R5, the prototype's figure).
+ *
+ * The teeter is the tell for the swallow rule: without it a corpse lying 40%
+ * across the mouth tells the player nothing and a sliver left out reads as a
+ * missed swallow. It starts above zero so that food merely brushing the rim
+ * stands still, and it runs to the run's own tip threshold, which is read off
+ * the run and never from here.
+ */
+const TEETER_START = 0.12;
+
+/**
+ * How far a body leans toward the mouth at the threshold, in radians, and the
+ * tremble it carries there: how far it shakes and how many times a second.
+ *
+ * The prototype leaned a body four ways at once (a nudge, a squash, a shake and
+ * a darkening) on bodies 20 to 44 units long. A corpse here is 14 units, about
+ * twenty-five pixels of a phone at the field's own scale, so the lean rides two
+ * channels and both are opened up to survive that pixel grid: the prototype's
+ * one-degree tremble moves a corner of this body by a fifth of a pixel. How it
+ * reads in play is Mark's.
+ */
+const TEETER_TILT = 0.35;
+const TEETER_SHAKE = { radians: 0.1, hertz: 4.5 } as const;
+
+/**
+ * How much of its own brightness a body keeps at the threshold. It multiplies
+ * into the freshness tint rather than replacing it, so a body about to go in is
+ * still a body about to rot.
+ */
+const TEETER_DARKEN = 0.8;
+
 export {
   ART_REACH_OUTSIDE,
   BITE_REACH,
@@ -198,6 +272,12 @@ export {
   CORNER_EDGE_WIDTH,
   FACE_BANDS,
   FACE_MOON,
+  FALL_DRAG,
+  FALL_DROP_SECONDS,
+  FALL_FOLD_FLOOR,
+  FALL_SLIP_SHARE,
+  FALL_TILT,
+  FALL_TIP_SECONDS,
   GRAVE_VIEW,
   LIP_BITES,
   MARGIN_DARK_ALPHA,
@@ -207,6 +287,10 @@ export {
   MARGIN_SWELL,
   NEAR_LIP_FROM,
   OVERHANGING_GRASS,
+  TEETER_DARKEN,
+  TEETER_SHAKE,
+  TEETER_START,
+  TEETER_TILT,
   TUFT_ALPHA,
   TUFT_BLADES,
   TUFT_FAN,

@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { damageBoss, spawnBoss } from '../bosses/phases';
+import { CORPSE_HALF_EXTENT } from '../corpses';
 import type { ScoreInput, SimEvent } from '../events';
 import { MOB_TYPES, damageMob, spawnMob } from '../mobs';
 import type { RunState } from '../run';
@@ -25,10 +26,24 @@ import { SIZE_CEILING, SIZE_FLOOR, TRASH_CORPSE_PAYOUT } from '../tuning';
 /** An id no body of any offer holds, so a hand-built food takes no option. */
 const NO_BODY = 0;
 
+/**
+ * Where a hand-built piece of food is lying and how fast, which the fall's own
+ * drawing reads off the swallowed event (design record R5). None of it changes
+ * a payout, so every food below shares one still body at the origin.
+ */
+const LYING_STILL = {
+  x: 0,
+  y: 0,
+  halfExtent: CORPSE_HALF_EXTENT,
+  vx: 0,
+  vy: 0,
+};
+
 /** A body of the given tier, as the value the swallow takes. */
 function food(tier: 'trash' | 'rich'): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'corpse',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,

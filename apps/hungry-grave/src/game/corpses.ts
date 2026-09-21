@@ -178,6 +178,11 @@ const asSwallowable = (corpse: Corpse): Swallowable => {
   return {
     id: corpse.id,
     kind: corpse.kind,
+    x: corpse.x,
+    y: corpse.y,
+    halfExtent: corpse.halfExtent,
+    vx: corpse.vx,
+    vy: corpse.vy,
     freshness: corpse.freshness,
     payout: corpse.payout,
     tier: corpse.tier,

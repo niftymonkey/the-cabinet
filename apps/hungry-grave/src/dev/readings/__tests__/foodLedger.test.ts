@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   advanceCorpses,
+  CORPSE_HALF_EXTENT,
   cullCorpses,
   spawnCorpse,
   spawnFeast,
@@ -63,6 +64,11 @@ describe('food ledger', () => {
       accumulator,
       swallow(run, {
         id: 1,
+        x: 0,
+        y: 0,
+        halfExtent: CORPSE_HALF_EXTENT,
+        vx: 0,
+        vy: 0,
         kind: 'feast',
         freshness: 1,
         payout: PAYOUT,

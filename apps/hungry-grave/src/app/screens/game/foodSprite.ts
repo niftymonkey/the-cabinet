@@ -7,6 +7,7 @@ import { TICK_HZ } from '../../../game/clock';
 import type { Corpse } from '../../../game/corpses';
 import { CORPSE_HALF_EXTENT } from '../../../game/corpses';
 import type { WeaponLine } from '../../../game/lines/roster';
+import type { CorpseTier } from '../../../game/mobs';
 import { CORPSE_TIERS, PALETTE } from '../../palette';
 
 // The dark companion every mob body and corpse draws with (section 4.15.2).
@@ -22,18 +23,21 @@ const polygon = (sides: number, radius: number, turn = 0): number[] => {
   return points;
 };
 
-const drawCorpse = (into: Graphics, corpse: Corpse): void => {
-  const tier = CORPSE_TIERS[corpse.tier];
+const paintCorpseBody = (into: Graphics, tier: CorpseTier): void => {
   into
-    .clear()
     .poly(polygon(6, CORPSE_HALF_EXTENT))
-    .fill({ color: tier.hex })
+    .fill({ color: CORPSE_TIERS[tier].hex })
     .poly(polygon(6, CORPSE_HALF_EXTENT))
     .stroke({
       width: SPRITE_STROKE,
       color: PALETTE.foodOutline.hex,
       alignment: 0.5,
     });
+};
+
+const drawCorpse = (into: Graphics, corpse: Corpse): void => {
+  into.clear();
+  paintCorpseBody(into, corpse.tier);
 };
 
 // How dark a corpse fades to at empty, as a share of its declared colour.
@@ -298,18 +302,15 @@ const drawOptionlessBody = (into: Graphics, extent: number): void => {
  * The per-tick rebuild is bounded by the handful of power-ups alive at once, never
  * a wave.
  */
-const drawTreasureBody = (
+const paintTreasureBody = (
   into: Graphics,
-  corpse: Corpse,
-  tick: number,
+  line: WeaponLine | undefined,
+  extent: number,
 ): void => {
-  const extent = POWER_UP_DRAW_HALF_EXTENT * powerUpBreath(tick, corpse.id);
-  into.clear();
-  if (corpse.line === undefined) {
+  if (line === undefined) {
     drawOptionlessBody(into, extent);
     return;
   }
-  const line = corpse.line;
   drawPowerUpIcon(into, line, extent);
   into.fill({ color: PALETTE.powerUp.hex });
   drawPowerUpIcon(into, line, extent);
@@ -320,14 +321,55 @@ const drawTreasureBody = (
   });
 };
 
+const drawTreasureBody = (
+  into: Graphics,
+  corpse: Corpse,
+  tick: number,
+): void => {
+  into.clear();
+  paintTreasureBody(
+    into,
+    corpse.line,
+    POWER_UP_DRAW_HALF_EXTENT * powerUpBreath(tick, corpse.id),
+  );
+};
+
+/** What a piece of food looks like, carried as values rather than as a body. */
+interface FoodLook {
+  readonly tier: CorpseTier;
+  readonly treasureBody: boolean;
+  readonly line?: WeaponLine;
+}
+
+/**
+ * A piece of food drawn from what it looked like rather than from the body it
+ * was, for the fall, whose body left the field on the tick it tipped (design
+ * record R5).
+ *
+ * Treasure draws at its own peak and takes no breath: the breath is what parts
+ * a power-up lying on the field from the still bodies round it, and a body on
+ * its way into the hole has nothing to be told apart from.
+ */
+const drawFoodBody = (into: Graphics, look: FoodLook): void => {
+  into.clear();
+  if (!look.treasureBody) {
+    paintCorpseBody(into, look.tier);
+    return;
+  }
+  paintTreasureBody(into, look.line, POWER_UP_DRAW_HALF_EXTENT);
+};
+
 export {
   drawCorpse,
+  drawFoodBody,
   drawTreasureBody,
   drawPowerUpIcon,
   freshnessBrightness,
   freshnessTint,
+  greyTint,
   polygon,
   POWER_UP_DRAW_HALF_EXTENT,
   FLICKER_HALF_PERIOD,
   SPRITE_STROKE,
 };
+export type { FoodLook };

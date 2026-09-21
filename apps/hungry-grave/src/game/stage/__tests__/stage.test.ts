@@ -488,6 +488,15 @@ const TWO_WHOLE_STAGES_MS = 60000;
  */
 const ONE_ASSERTION_PER_TICK_MS = 30000;
 
+/**
+ * The budget for the determinism test, which plays a whole section twice. The
+ * two plays cost about 1.8 seconds on their own, measured the same on `main`,
+ * and stretch past vitest's five when a full `pnpm verify` runs 170 files beside
+ * it on a busy machine: it timed out at 5.3 seconds there and never on an
+ * assertion.
+ */
+const TWO_WHOLE_SECTIONS_MS = 30000;
+
 describe('the three sections and their boundary events (ADR 0050)', () => {
   it('runs three sections, with the Banshee, the set piece and the Undertaker as their boundary events', () => {
     // ADR 0050: "The Banshee ends the first, a swarm set piece ends the second,
@@ -1427,23 +1436,29 @@ describe('a spawn the mob cap refuses (ADR 0048, ADR 0056)', () => {
 });
 
 describe('determinism (ADRs 0006 and 0012)', () => {
-  it('gives an identical spawn sequence for an identical seed, over a whole section', () => {
-    const ticks = lastWaveAt(PROCESSION_WAVES) * TICK_HZ;
-    const first = playStage(4242, stillHand, ticks);
-    const second = playStage(4242, stillHand, ticks);
-    expect(first.arrivals).toEqual(second.arrivals);
-    expect(
-      first.state.mobs.map((mob) => `${mob.alive} ${mob.id} ${mob.x} ${mob.y}`),
-    ).toEqual(
-      second.state.mobs.map(
-        (mob) => `${mob.alive} ${mob.id} ${mob.x} ${mob.y}`,
-      ),
-    );
-    expect(first.state.streams.spawns.drawn).toBe(
-      second.state.streams.spawns.drawn,
-    );
-    expect(first.state.streams.spawns.drawn).toBeGreaterThan(0);
-  });
+  it(
+    'gives an identical spawn sequence for an identical seed, over a whole section',
+    () => {
+      const ticks = lastWaveAt(PROCESSION_WAVES) * TICK_HZ;
+      const first = playStage(4242, stillHand, ticks);
+      const second = playStage(4242, stillHand, ticks);
+      expect(first.arrivals).toEqual(second.arrivals);
+      expect(
+        first.state.mobs.map(
+          (mob) => `${mob.alive} ${mob.id} ${mob.x} ${mob.y}`,
+        ),
+      ).toEqual(
+        second.state.mobs.map(
+          (mob) => `${mob.alive} ${mob.id} ${mob.x} ${mob.y}`,
+        ),
+      );
+      expect(first.state.streams.spawns.drawn).toBe(
+        second.state.streams.spawns.drawn,
+      );
+      expect(first.state.streams.spawns.drawn).toBeGreaterThan(0);
+    },
+    TWO_WHOLE_SECTIONS_MS,
+  );
 });
 
 describe('the stage standing a rate (ADR 0060)', () => {

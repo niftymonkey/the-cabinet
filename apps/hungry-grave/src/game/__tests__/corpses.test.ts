@@ -282,6 +282,13 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
       tier: MOB_TYPES.revenant.corpseTier,
       treasureBody: false,
       line: undefined,
+      // Where it was lying, how big it is and how fast it was moving, which
+      // the swallowed event carries out to the fall (design record R5).
+      x: corpse.x,
+      y: corpse.y,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
     });
     // The id travels because the offer names the body that went in by id, and
     // an id is a value like every other field here. What must not travel is the

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
-import { asSwallowable } from '../corpses';
+import { asSwallowable, CORPSE_HALF_EXTENT } from '../corpses';
 import type { SimEvent } from '../events';
 import type { WeaponLine } from '../lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -21,6 +21,7 @@ import {
   RESERVOIR_CAPACITY,
   SIZE_CEILING,
   SIZE_FLOOR,
+  SIZE_START,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
 import type { TuningRecord } from '../tuningRecord';
@@ -29,9 +30,23 @@ import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 /** An id no body of any offer holds, so a hand-built food takes no option. */
 const NO_BODY = 0;
 
+/**
+ * Where a hand-built piece of food is lying and how fast, which the fall's own
+ * drawing reads off the swallowed event (design record R5). None of it changes
+ * a payout, so every food below shares one still body at the origin.
+ */
+const LYING_STILL = {
+  x: 0,
+  y: 0,
+  halfExtent: CORPSE_HALF_EXTENT,
+  vx: 0,
+  vy: 0,
+};
+
 function corpse(freshness: number): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'corpse',
     freshness,
     payout: TRASH_CORPSE_PAYOUT,
@@ -44,6 +59,7 @@ function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
   // Treasure never decays, so a power-up always arrives fully fresh (ADR 0004).
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -57,6 +73,7 @@ function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
 function bodyWithNoOption(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -69,6 +86,7 @@ function bodyWithNoOption(): Swallowable {
 function fallenRung(line: WeaponLine): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'fallenRung',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -81,6 +99,7 @@ function fallenRung(line: WeaponLine): Swallowable {
 function feast(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'feast',
     freshness: 1,
     payout: FEAST_PAYOUT,
@@ -93,6 +112,7 @@ function feast(): Swallowable {
 function richCorpse(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'corpse',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -305,7 +325,56 @@ describe('the swallow', () => {
       kind: 'corpse',
       freshness: 0.4,
       payout: food.payout,
+      offsetX: -run.grave.x,
+      offsetY: -run.grave.y,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
+      graveSize: SIZE_START,
+      tier: 'trash',
+      treasureBody: false,
+      line: undefined,
     });
+  });
+
+  it("a swallowed event carries the food's place as an offset from the grave's centre", () => {
+    // Design record R5: the fall is anchored in the grave's proportions, so
+    // the event says where the food was against the grave rather than where it
+    // was on the field. The subtraction lives in swallow.ts alone.
+    const run = createRun(1);
+    run.grave.x = 200;
+    run.grave.y = 500;
+    const food = { ...corpse(1), x: 214, y: 486 };
+    const event = find(swallow(run, food), 'swallowed');
+    expect(event.offsetX).toBe(14);
+    expect(event.offsetY).toBe(-14);
+  });
+
+  it("a swallowed event carries the food's half extent, its way and the grave's size at the tip", () => {
+    // The size is the one the grave had when the food went over, never the one
+    // the swallow just bought: a feast pays 30.375 of size on this tick, and a
+    // fall anchored against the grown size would start in mid-hole.
+    const run = createRun(1);
+    const before = run.grave.size;
+    const food = { ...feast(), halfExtent: 20, vx: 30, vy: -12 };
+    const event = find(swallow(run, food), 'swallowed');
+    expect(event.halfExtent).toBe(20);
+    expect(event.vx).toBe(30);
+    expect(event.vy).toBe(-12);
+    expect(event.graveSize).toBe(before);
+    expect(run.grave.size).toBeGreaterThan(before);
+  });
+
+  it("a swallowed event carries the food's look, so the drawing code never has to hold the corpse", () => {
+    // Slots are reused inside a fall's lifetime, so a fall that held the body
+    // would draw whatever killed next. The look travels as values, exactly as
+    // the freshness and the payout already do.
+    const run = createRun(1);
+    const taken = find(swallow(run, fallenRung('bell')), 'swallowed');
+    expect(taken.treasureBody).toBe(true);
+    expect(taken.line).toBe('bell');
+    expect(find(swallow(run, richCorpse()), 'swallowed').tier).toBe('rich');
+    expect(find(swallow(run, corpse(1)), 'swallowed').tier).toBe('trash');
   });
 
   it('a fully fresh feast at an empty reservoir fills it exactly and splashes nothing (entry 5.11)', () => {
@@ -456,6 +525,7 @@ describe('a fallen rung swallowed (ADR 0055)', () => {
     const run = createRun(1);
     const noLine: Swallowable = {
       id: NO_BODY,
+      ...LYING_STILL,
       kind: 'fallenRung',
       freshness: 1,
       payout: TRASH_CORPSE_PAYOUT,

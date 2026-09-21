@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { bossPhases, damageBoss, spawnBoss } from '../../../game/bosses/phases';
+import { CORPSE_HALF_EXTENT } from '../../../game/corpses';
 import type { SimEvent } from '../../../game/events';
 import { hitGrave } from '../../../game/grave';
 import { MAX_LEVEL } from '../../../game/lines/roster';
@@ -30,9 +31,23 @@ import {
 
 const SEED = 20260917;
 
+/**
+ * Where a hand-built piece of food is lying and how fast, which the fall's own
+ * drawing reads off the swallowed event (design record R5). None of it changes
+ * a payout, so every food below shares one still body at the origin.
+ */
+const LYING_STILL = {
+  x: 0,
+  y: 0,
+  halfExtent: CORPSE_HALF_EXTENT,
+  vx: 0,
+  vy: 0,
+};
+
 /** A body of the given tier, as the value the swallow takes. */
 const food = (tier: 'trash' | 'rich'): Swallowable => ({
   id: 0,
+  ...LYING_STILL,
   kind: 'corpse',
   freshness: 1,
   payout: TRASH_CORPSE_PAYOUT,

@@ -27,6 +27,7 @@ import { bindKeyPress } from '../keyBinding';
 import { BackgroundRenderer } from './BackgroundRenderer';
 import { BELCH_SIZE, BelchButton } from './BelchButton';
 import { BossRenderer } from './BossRenderer';
+import { FallRenderer } from './FallRenderer';
 import { FieldRenderer } from './FieldRenderer';
 import { boundaryReadout, fieldClip } from './fieldFrame';
 import { createFramePolicy } from './framePolicy';
@@ -171,6 +172,12 @@ class GameScreen extends Container {
   private readonly fieldRenderer = new FieldRenderer();
   private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
+  /**
+   * The food on its way into the hole. It draws into the grave's own falls
+   * container, inside the cut and under the turf (design record R5), and this
+   * screen is where that hop is declared.
+   */
+  private readonly falls = new FallRenderer();
 
   private readonly hud = createRunHud();
   /**
@@ -320,6 +327,7 @@ class GameScreen extends Container {
    */
   private beginDrawing(run: RunState): void {
     this.fieldRenderer.attach(this.layers, run.caps);
+    this.falls.attach(this.grave.falls, run.caps);
   }
 
   // The field's own furniture, put back after any clear() (see reset).
@@ -331,6 +339,8 @@ class GameScreen extends Container {
     this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
+    // After the grave, because the container the falls draw into is its child.
+    this.falls.attach(this.grave.falls, this.fieldCaps());
   }
 
   public init(props: GameScreenProps) {
@@ -516,6 +526,7 @@ class GameScreen extends Container {
     );
     this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.falls.sync(run);
     this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
     this.belchButton.sync(run.reservoir / RESERVOIR_CAPACITY, run.tick);
@@ -530,6 +541,7 @@ class GameScreen extends Container {
     for (const event of events) {
       this.props.playSound(event);
       this.props.playMusic(event);
+      if (event.type === 'swallowed') this.falls.swallowed(run, event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
       if (event.type === 'weaponStripped') {

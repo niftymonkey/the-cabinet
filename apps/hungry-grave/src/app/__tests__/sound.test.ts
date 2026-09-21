@@ -62,7 +62,20 @@ const SRC = resolve(import.meta.dirname, '..', '..');
 
 /** One of every event the sim can emit, so the ignored ones are checked as a set. */
 const EVERY_EVENT: SimEvent[] = [
-  { type: 'swallowed', kind: 'corpse', freshness: 1, payout: 1 },
+  {
+    type: 'swallowed',
+    kind: 'corpse',
+    freshness: 1,
+    payout: 1,
+    offsetX: 0,
+    offsetY: 0,
+    halfExtent: 7,
+    vx: 0,
+    vy: 0,
+    graveSize: 27,
+    tier: 'trash',
+    treasureBody: false,
+  },
   { type: 'chimed', kind: 'corpse', treasureBody: false },
   { type: 'chimed', kind: 'powerUp', treasureBody: true },
   { type: 'chimed', kind: 'feast', treasureBody: false },

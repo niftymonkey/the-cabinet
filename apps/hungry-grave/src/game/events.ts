@@ -4,18 +4,39 @@ import type { GraveHitSource } from './grave';
 import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
-import type { DamageSource, MobType } from './mobs';
+import type { CorpseTier, DamageSource, MobType } from './mobs';
 import type { ShoveSource } from './shove';
 import type { BossKind, DirectorCard } from './stage/waves';
 import type { SectionMusic, SectionName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
-// Food went in.
+/**
+ * Food went in: everything the rules knew at the tip, so the drawing code can
+ * show the fall without holding the body (design record R5).
+ *
+ * The place is an offset from the grave's centre and the grave's own size rides
+ * beside it, because a fall is anchored in the grave's proportions: a feast
+ * pays 30.375 of size on this very tick, and a place in field units would start
+ * the next frame in mid-hole rather than at the rim the food crossed.
+ */
 interface Swallowed {
   readonly type: 'swallowed';
   readonly kind: FoodKind;
   readonly freshness: number;
   readonly payout: number;
+  // Where the food's centre was, from the grave's centre, in field units.
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly halfExtent: number;
+  // The way it was moving when it tipped, in field units a second.
+  readonly vx: number;
+  readonly vy: number;
+  // The grave's size on the tip tick, before the swallow's own growth.
+  readonly graveSize: number;
+  // What it looked like, so a fall draws the food that went in and never a stand-in.
+  readonly tier: CorpseTier;
+  readonly treasureBody: boolean;
+  readonly line?: WeaponLine;
 }
 
 /**
@@ -760,4 +781,5 @@ export type {
   SectionMusic,
   SetPieceClosing,
   SimEvent,
+  Swallowed,
 };

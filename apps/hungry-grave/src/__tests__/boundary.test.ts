@@ -152,6 +152,28 @@ const BOUNDARIES: Boundary[] = [
     mayReachInTests: [],
     mayImport: [],
   },
+  /**
+   * The fall: where a falling thing draws, as a pure function of its age
+   * (design record R5). No pixi at all, not even a type import, for the reason
+   * the projection above carries: its tests run without a renderer, and slice
+   * 5's ending scene drops the Undertaker down the same shaft.
+   *
+   * It reaches the projection it is built on, the drawing values it is tuned
+   * by, the tick rate its seconds are counted in, and the sim's own graveWidth
+   * so the mouth it falls into is the mouth the rules use.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/fall.ts'],
+    mayReach: [
+      'app/screens/game/graveProjection',
+      'app/screens/game/graveDrawingValues',
+      'game/clock',
+      'game/grave',
+    ],
+    mayReachInTests: [],
+    mayImport: [],
+  },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
