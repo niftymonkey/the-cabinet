@@ -10,6 +10,8 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
+import type { Corpse } from '../../game/corpses';
+import { createCorpsePool } from '../../game/corpses';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { apcaLc, hsv, luma, observerLuma } from '../color';
 import { BOUNDARY_STROKE, fitField } from '../layout';
@@ -24,6 +26,11 @@ import {
   PALETTE,
   SPRITE_OUTLINE,
 } from '../palette';
+import {
+  FLICKER_HALF_PERIOD,
+  freshnessBrightness,
+  greyTint,
+} from '../screens/game/foodSprite';
 import { LAYER_ORDER } from '../screens/game/layering';
 
 /** APCA's stated minimum for fine-detail pictograms, which is what a bullet is. */
@@ -1260,6 +1267,76 @@ const SPRITE_OVER_THE_GROUND: Record<string, string> = {
     'groundNight 26.24, groundSpeckle 29.38, groundCold 22.60, groundWet 21.73, groundDamp 34.34, groundCrack 35.65, groundGravel 48.35, graveTurf 36.25, graveTurfDark 21.82',
 };
 
+/**
+ * The five points of a corpse's fade this record measures, from killed to
+ * empty. The last is the floor of freshness itself, which is where a corpse
+ * stays for the whole of its last-chance flicker.
+ */
+const FADE_POINTS: { at: string; freshness: number }[] = [
+  { at: 'fresh', freshness: 1 },
+  { at: '0.75', freshness: 0.75 },
+  { at: '0.50', freshness: 0.5 },
+  { at: '0.25', freshness: 0.25 },
+  { at: 'floor', freshness: 0 },
+];
+
+/** A corpse staged at one freshness, off the run's own pool. */
+function staleCorpse(freshness: number): Corpse {
+  const corpse = createCorpsePool(1)[0];
+  if (corpse === undefined) throw new Error('the pool staged no corpse');
+  corpse.decays = true;
+  corpse.freshness = freshness;
+  return corpse;
+}
+
+/**
+ * How bright a corpse draws at this freshness, with the flicker at its bright
+ * half.
+ *
+ * Two ticks a half-period apart always straddle the flicker whatever a corpse's
+ * own id offsets it by, so the brighter of the two is the colour the fade rule
+ * alone decides. The dark half is that colour dimmed further, so recording it
+ * would record the same three decisions twice.
+ */
+function brightestAt(freshness: number): number {
+  const corpse = staleCorpse(freshness);
+  return Math.max(
+    freshnessBrightness(corpse, 0),
+    freshnessBrightness(corpse, FLICKER_HALF_PERIOD),
+  );
+}
+
+/** The top of one eight-bit colour channel, which a tint of white leaves alone. */
+const CHANNEL_TOP = 255;
+
+/** A colour with a tint multiplied in, which is what PixiJS draws. */
+function tinted(hex: number, tint: number): number {
+  const shade = (shift: number): number =>
+    Math.round(
+      (((hex >> shift) & 0xff) * ((tint >> shift) & 0xff)) / CHANNEL_TOP,
+    );
+  return (shade(16) << 16) | (shade(8) << 8) | shade(0);
+}
+
+/**
+ * What a corpse reads over the field's base earth as it goes stale, in APCA Lc,
+ * best of the body and the outline round it, at the five points above.
+ *
+ * It is a measurement and not a threshold, in the same idiom as the sprite
+ * table above and for the same reason: a corpse's declared colour, the fade
+ * rule in `foodSprite.ts` and the ground's own earth all decide these figures
+ * together, and none of the three can move without a figure here moving with
+ * it. Slice 8 is why it exists. The fade is a multiply toward nothing and the
+ * earth is no longer the near-black tile it was picked against, so the body's
+ * own value crosses the ground's part way down and comes back out the far side
+ * as a dark shape; below that crossing the outline is what carries the number,
+ * which is why the last three figures barely move.
+ */
+const CORPSE_DOWN_THE_FADE: Record<string, string> = {
+  trash: 'fresh 35.21, 0.75 20.27, 0.50 14.72, 0.25 15.06, floor 15.24',
+  rich: 'fresh 36.11, 0.75 20.78, 0.50 14.72, 0.25 15.06, floor 15.24',
+};
+
 describe('the ground in the field (design record R4)', () => {
   it("the ground's colours are the prototype's", () => {
     // Mark's ruling of 2026-09-21: the prototype's ground goes on the whole
@@ -1328,6 +1405,30 @@ describe('the ground in the field (design record R4)', () => {
       }),
     );
     expect(measured).toEqual(SPRITE_OVER_THE_GROUND);
+  });
+
+  it('records what a corpse reads over the ground all the way down its fade', () => {
+    // The table above measures a sprite at its declared colour, and a corpse is
+    // never only that: freshness multiplies it down to a quarter, so the one
+    // figure it records is the first tick of a corpse's life. What a player has
+    // to find is the corpse at the freshness it is actually swallowed at.
+    const outline = PALETTE[SPRITE_OUTLINE.corpse];
+    const measured = Object.fromEntries(
+      Object.entries(CORPSE_TIERS).map(([tier, body]) => [
+        tier,
+        FADE_POINTS.map(({ at, freshness }) => {
+          const tint = greyTint(brightestAt(freshness));
+          const best = Math.max(
+            Math.abs(apcaLc(tinted(body.hex, tint), PALETTE.groundNight.hex)),
+            Math.abs(
+              apcaLc(tinted(outline.hex, tint), PALETTE.groundNight.hex),
+            ),
+          );
+          return `${at} ${best.toFixed(2)}`;
+        }).join(', '),
+      ]),
+    );
+    expect(measured).toEqual(CORPSE_DOWN_THE_FADE);
   });
 });
 

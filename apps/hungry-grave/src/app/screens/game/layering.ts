@@ -23,6 +23,8 @@ const LAYER_ORDER = [
   'mobBodies',
   'treasure',
   'hitDim',
+  // Empty until #155, Territory's countdown, which is the caller ADR 0014 gives
+  // this layer: the rim is where a player is shown when Territory fires next.
   'graveRim',
   'fieldBoundary',
   'mobFire',

@@ -126,6 +126,9 @@ const PALETTE = {
   graveCrumbTop: { hex: 0x5e6a7c, luma: 41.08 },
   // The line of shadow the turf throws just inside the edge.
   graveTurfShadow: { hex: 0x020407, luma: 1.49 },
+  // The band round the lip that shows when Territory fires next, which nothing
+  // draws until #155 builds the countdown. It is priced here all the same,
+  // because it is what the pair below and its exceptions are measured for.
   graveRim: { hex: 0x93a7bd, luma: 64.45 },
   graveGlow: { hex: 0xd8a941, luma: 67.25 },
 

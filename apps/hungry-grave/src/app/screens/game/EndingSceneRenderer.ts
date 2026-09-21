@@ -140,9 +140,12 @@ class EndingSceneRenderer {
     for (let line = 0; line < ENDING_FURROWS.lines; line++) {
       this.traceFurrow(scene, line, spanX / span, spanY / span, reach);
     }
+    // The seam earth, because a gouge shows the earth the light never reaches.
+    // The ground's own dark rows do not separate from the field's base earth at
+    // this alpha at all, which is a measurement and not a preference.
     this.furrows.stroke({
       width: ENDING_FURROWS.width,
-      color: PALETTE.graveSoilShadow.hex,
+      color: PALETTE.graveSeam.hex,
       alpha: ENDING_FURROWS.alpha,
       cap: 'round',
     });

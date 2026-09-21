@@ -100,8 +100,13 @@ const BAKE_PIXELS_PER_UNIT = { min: 1, max: 6 } as const;
 
 /**
  * How far the grave's size has to move from the size last baked before the
- * hole is baked again, in field units (the prototype's stepWorld). A swallow
- * pays about a tenth of a unit, so the hole is baked about every fourth one.
+ * hole is baked again, in field units (the prototype's stepWorld).
+ *
+ * What sets the cadence is the swell and not the swallow: the size now climbs
+ * continuously at the run's own `growth.swellPerSecond` for as long as anything
+ * is owed, so a record that moves that row moves how often this bakes. The art
+ * is stretched between bakes, which is what lets the step be widened without a
+ * visible change.
  */
 const HOLE_REBUILD_STEP = 0.4;
 
@@ -223,14 +228,13 @@ const ENDING_DRAG_EASE = 2;
 /**
  * The furrows his hands leave in the ground behind him: how many, how far
  * apart they sit across the way he is dragged as a share of his own width, how
- * wide each one draws in field units, and how much of the soil shadow they
+ * wide each one draws in field units, and how much of the earth's own dark they
  * carry.
  *
- * They wear graveSoilShadow, which against the stand-in ground tile draws
- * lighter rather than darker: measured on a phone at device scale 3, a furrow
- * reads 31,37,50 over a ground of 17,22,31. Turned earth catching the moon is
- * the read, and it is the one that survives a ground this dark; a darker
- * furrow is what the trodden margin already tried, and it vanishes.
+ * The alpha is what the row it draws in was chosen against, so the two cannot
+ * be read apart: what a furrow reads at is the row laid at this share over the
+ * field's base earth, and the row was picked for that mixture. Moving the alpha
+ * moves the mark's contrast as surely as moving the colour does.
  */
 const ENDING_FURROWS = {
   lines: 4,

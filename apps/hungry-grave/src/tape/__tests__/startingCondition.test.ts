@@ -15,6 +15,7 @@ import type { StartingConditions } from '../../game/run';
 import { birthrightLevels, uniformLevels } from '../../game/run';
 import { SIGNAL_FULL, SIGNAL_RAN_LIVE } from '../../game/signalLock';
 import { SIZE_FLOOR, SIZE_START } from '../../game/tuning';
+import type { TuningRow } from '../../game/tuningRecord';
 import { DEFAULT_TUNING, tuningRows } from '../../game/tuningRecord';
 import {
   resolveStartingCondition,
@@ -48,6 +49,17 @@ function withoutRow(name: string): StartingConditionBlock {
 /** The same block with one row written differently. */
 function rowWritten(name: string, value: number): StartingConditionBlock {
   return BLOCK.map((entry) => (entry.name === name ? { name, value } : entry));
+}
+
+/**
+ * The same row at a legal value this build is not compiled with.
+ *
+ * A purse counts whole bodies, so its move is a whole one; every other row is a
+ * quantity, and halving one keeps a share inside the 0 to 1 the resolver
+ * requires and a positive row above the zero it refuses.
+ */
+function movedValue(row: TuningRow): number {
+  return row.name.endsWith('Purse') ? row.value + 1 : row.value / 2;
 }
 
 /** Why a block was refused, or a failure naming what it resolved to instead. */
@@ -133,6 +145,28 @@ describe('a block this build can start a run with', () => {
     if (resolved.outcome !== 'implemented') return;
     expect(resolved.conditions).toEqual(staged);
     expect(DEFAULT_TUNING.score.trashKillScore).not.toBe(250);
+  });
+
+  it('resolves every tuning row to the value the block states, one by one', () => {
+    // The other half of the fence above: that one holds the rows the header
+    // requires against the record's nesting, and this one holds the record the
+    // header resolves to against the same walk, so a row a tape names and the
+    // replay fills from the build's own default cannot pass. ADR 0027's promise
+    // is that a tape replays under the record it names, whatever this build
+    // compiles, and a row read back as the default is that promise broken with
+    // the header still saying otherwise.
+    for (const row of tuningRows(DEFAULT_TUNING)) {
+      const moved = movedValue(row);
+      const resolved = resolveStartingCondition(rowWritten(row.name, moved));
+
+      expect(resolved.outcome).toBe('implemented');
+      if (resolved.outcome !== 'implemented') return;
+      expect(
+        tuningRows(resolved.conditions.tuning).find(
+          (resolvedRow) => resolvedRow.name === row.name,
+        ),
+      ).toEqual({ name: row.name, value: moved });
+    }
   });
 
   it('resolves a roster naming fewer lines than this build has, and fields exactly those', () => {

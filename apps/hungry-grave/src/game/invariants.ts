@@ -311,11 +311,14 @@ const checkSize = (state: RunState, faults: Fault[]): void => {
  * Rounding room on the grave's true size, in size units, on the reservoir's own
  * terms.
  *
- * growGrave measures the room as the ceiling less the size and the debt and
- * then adds what it took back onto the debt, and (c - s - o) + o can exceed
- * that room by an ulp in binary64. The tolerance is far smaller than the
- * smallest growth any food can pay, so a grave that has really grown past the
- * ceiling can never hide under it.
+ * The true size is a sum of two fields, and two sites move growth between them
+ * in binary64: growGrave measures the room as the ceiling less the sum and adds
+ * what it took onto the debt, and takeInOwedGrowth moves the same figure the
+ * other way, re-deriving the size as the sum less what is still owed. A sum
+ * recovered through either round trip is the exact figure or an ulp off it.
+ *
+ * The room is far smaller than the smallest growth any food can pay, so a grave
+ * that has really grown past the ceiling can never hide under it.
  */
 const OWED_TOLERANCE = 1e-9;
 

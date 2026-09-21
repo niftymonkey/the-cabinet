@@ -11,6 +11,7 @@ import type { BossKilled } from '../../../../game/events';
 import type { Grave } from '../../../../game/grave';
 import { createGrave } from '../../../../game/grave';
 import { SIZE_START } from '../../../../game/tuning';
+import { PALETTE } from '../../../palette';
 import { drawBoss } from '../bossSprite';
 import { EndingSceneRenderer } from '../EndingSceneRenderer';
 import { ENDING_BEATS } from '../graveDrawingValues';
@@ -67,7 +68,33 @@ function bodyOutline(sprite: Graphics): number[] {
   return poly.data[0] as number[];
 }
 
+/** The colour the furrows were stroked in, read off the drawing itself. */
+function furrowColour(layers: FieldLayers): number {
+  const furrows = layers.layer('ground').children[0] as Graphics;
+  const stroked = furrows.context.instructions.find(
+    (each) => each.action === 'stroke',
+  );
+  if (stroked === undefined) throw new Error('the furrows recorded no stroke');
+  const { style } = stroked.data as { style: { color: number } };
+  return style.color;
+}
+
 describe("the Undertaker's ending scene on screen", () => {
+  it('scrapes the furrows in an earth darker than the ground they are cut into', () => {
+    // R6: the claw marks read as gouges torn into the ground. Slice 8 put the
+    // prototype's earth under them, which is far brighter than the near-black
+    // tile the colour was picked against, so which way round the two sit is
+    // what says the marks are gouges rather than lost in the field. The
+    // furrows are the only thing the scene leaves behind, so a row that stops
+    // reading takes the whole tell with it and nothing else can show it.
+    const { layers, renderer } = attached();
+    renderer.begin(KILLED, parked());
+    renderer.show(ENDING_BEATS.drag);
+
+    expect(furrowColour(layers)).toBe(PALETTE.graveSeam.hex);
+    expect(PALETTE.graveSeam.luma).toBeLessThan(PALETTE.groundNight.luma);
+  });
+
   it('the furrows draw in the ground, the dragged body over the field, and the falling body inside the hole', () => {
     // ADR 0014's stack decides all three. The furrows go under everything, so
     // the grave passes over them as it takes him; the dragged body goes where
