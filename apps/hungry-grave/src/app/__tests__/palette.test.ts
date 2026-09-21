@@ -68,12 +68,12 @@ const RIM_BAND_MAX = 4;
 /**
  * The colours in PALETTE that are not sprites the player tells apart mid-dodge.
  *
- * The stand-in ground joins night and nightSpeckle here rather than beside the
- * bodies, because it is what those two were: the ground the field stands on,
- * drawn in the bottom layer under everything. The Waking's own source is on the
- * same list for the reason the design record gives it, that it is background
- * art by construction, and what holds it readable is the bespoke check below
- * rather than the pair table, exactly as the field's boundary is held.
+ * The ground joins night and nightSpeckle here rather than beside the bodies,
+ * because it is what those two were: the ground the field stands on, drawn in
+ * the bottom layer under everything. The Waking's own source is on the same
+ * list for the reason the design record gives it, that it is background art by
+ * construction, and what holds it readable is the bespoke check below rather
+ * than the pair table, exactly as the field's boundary is held.
  */
 const NOT_SPRITES = [
   'hudInk',
@@ -81,6 +81,19 @@ const NOT_SPRITES = [
   'night',
   'nightSpeckle',
   'fieldFrame',
+  /**
+   * The prototype's own ground, which slice 8 paints over the whole field: the
+   * base earth, the wide patches, the grain's two flecks, the cracks and the
+   * gravel. It is what a sprite is read on and never a thing told apart from a
+   * sprite mid-dodge.
+   */
+  'groundNight',
+  'groundSpeckle',
+  'groundCold',
+  'groundWet',
+  'groundDamp',
+  'groundCrack',
+  'groundGravel',
   'standInGroundDressCold',
   'standInGroundDressWet',
   'standInVigilTint',
@@ -89,12 +102,18 @@ const NOT_SPRITES = [
   /**
    * The grave's own art, which slice 6 ports from the prototype: the soil
    * layers, seams, spade marks, stones, roots and washes on the cut faces, the
-   * trodden margin and its crumbs, the turf's shadow and the darker grass
-   * blade. They draw in the graveMouth layer under every sprite, mostly
-   * translucent over one another, and no player tells one from another
-   * mid-dodge. What a sprite drawn over the grave is measured against is the
-   * three rows that stay in SPRITE_LAYER: graveHole, graveWall and graveTurf.
+   * trodden margin and its crumbs, and the turf's shadow. They draw in the
+   * graveMouth layer under every sprite, mostly translucent over one another,
+   * and no player tells one from another mid-dodge. What a sprite drawn over
+   * the grave is measured against is the two rows that stay in SPRITE_LAYER:
+   * graveHole and graveWall.
    */
+  /**
+   * The two grass blades are here because slice 8 made them ground cover: the
+   * prototype's `paintGround` draws its tufts in exactly these two rows, so the
+   * grass is over the whole field rather than a sprite at the grave's lip.
+   */
+  'graveTurf',
   'graveTurfDark',
   'graveSoilShadow',
   'graveSubsoil',
@@ -117,12 +136,32 @@ const NOT_SPRITES = [
   'graveTurfShadow',
 ];
 
-/** The stand-in ground's own colours, in the order the run meets them. */
+/** The ground's own colours, in the order the run meets them. */
 const STAND_IN_GROUND = [
-  'nightSpeckle',
+  'groundNight',
+  'groundCold',
+  'groundWet',
+  'groundDamp',
   'standInGroundDressCold',
   'standInGroundDressWet',
   'standInVigilTint',
+] as const;
+
+/**
+ * Every colour the ground's painters draw with (`groundPainting.ts`), which is
+ * the whole field a sprite crosses. The two grass rows are the tufts, which are
+ * the prototype's own `COLOR.moss` and `COLOR.mossDark`.
+ */
+const GROUND_COLOURS = [
+  'groundNight',
+  'groundSpeckle',
+  'groundCold',
+  'groundWet',
+  'groundDamp',
+  'groundCrack',
+  'groundGravel',
+  'graveTurf',
+  'graveTurfDark',
 ] as const;
 
 /**
@@ -176,22 +215,26 @@ const OVER_THE_MOUTH =
   'a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it';
 
 /**
- * The grave's own cut earth and grass as backgrounds (design record R4), in the
+ * The grave's own cut earth as a background (design record R4), in the
  * prototype's colours since slice 6.
  *
  * The mouth used to be one flat `graveHole`, and a hole a player can see into
  * cannot be that: the cut faces have to part from the black or the grave is
  * the empty rectangle the ticket exists to get rid of. `graveWall` is the
- * brightest earth the cut shows, the pale subsoil band at luma 29.06, and
- * `graveTurf` the lighter of the two grass blades at 50.37. Both draw under
- * washes, the depth fade and blade strokes a pixel or two wide, so the declared
- * value is the brightest either one reaches.
+ * brightest earth the cut shows, the pale subsoil band at luma 29.06, drawn
+ * under washes and the depth fade, so the declared value is the brightest it
+ * reaches.
+ *
+ * It is a permanent reason and no longer a deferral. Since slice 8 the field
+ * carries the prototype's own ground at luma 30.54, so the cut earth is under
+ * the earth it is cut into, which is where the bracket always said it belonged.
+ * Every figure below is a function of two sprite colours and the ground is not
+ * a term in any of them; what the ground settles is the argument, that a sprite
+ * over this colour is crossing a sloped face inside a hole and is read against
+ * the field it is crossing.
  */
 const OVER_THE_CUT =
-  "the grave's own cut earth, drawn inside the mouth under a wash and the depth fade, so the declared value is the brightest the wall reaches";
-
-const OVER_THE_TURF =
-  'the grass hanging in over the lip, blades a pixel or two wide, so what a sprite crosses is mostly the ground or the hole between them';
+  "the grave's own cut earth, a sloped face inside a hole and under the ground it is cut into, drawn beneath a wash and the depth fade, so the declared value is the brightest the wall reaches and a sprite over it is read against the field it crosses";
 
 /**
  * Claimed ground over the grave's own art, and it is the one pair this step
@@ -199,8 +242,8 @@ const OVER_THE_TURF =
  *
  * `territoryGround`'s value was solved to the tenth of a luma point against the
  * mouth, where it measures Lc 45.92 with 0.92 to spare, and a mouth a player
- * can see into spends that margin: 32.66 over the pale subsoil and 36.25 over a
- * grass blade, in the prototype's colours. The ground cannot buy it back by
+ * can see into spends that margin: 32.66 over the pale subsoil, in the
+ * prototype's colours. The ground cannot buy it back by
  * going brighter, because a mob body sits at luma 66.63 against the band's
  * ceiling of 68, and the grave's side of the pair is the prototype's until the
  * colour decision.
@@ -214,19 +257,6 @@ const OVER_THE_TURF =
  */
 const CLAIMED_GROUND_OVER_THE_CUT =
   'claimed ground is read by the field it covers, not by the sliver of it lying across a hole: the pair costs 2.6 points against the mouth, and neither side can buy them back (the ground is 1.4 under the band ceiling, the wall is at the ground tile it is cut into)';
-
-/**
- * The grave in the prototype's own colours, which slice 6 ports unchanged on
- * Mark's ruling: the grave is the prototype's picture first, and whether any
- * colour moves is decided once he has seen it. The prototype chose its earth
- * and grass against a brighter ground than this field's, so the pale subsoil
- * (`graveWall`, luma 29.06) and the lighter blade (`graveTurf`, luma 50.37)
- * sit in the middle of the band, where a sprite's light half and its dark
- * companion both fall short of Lc 45 over them. Each pair below carries its
- * own figure, and every one of them is reopened by the colour decision.
- */
-const GROUND_DECIDED_AFTER_SLICE_6 =
-  'the ground is decided after slice 6 (Mark, 2026-09-21)';
 
 /**
  * The rim is no longer drawn since slice 6, which took the prototype's grave
@@ -294,138 +324,53 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   // Out of the mouth.
   { pair: ['skull', 'graveHole'], because: `44.47: ${OVER_THE_MOUTH}` },
   { pair: ['splash', 'graveHole'], because: `40.85: ${OVER_THE_MOUTH}` },
-  // Over the grave's own cut earth and turf, which slice 3 draws for the first
-  // time. The same three the mouth already cost, plus claimed ground.
+  // Over the grave's own cut earth, which slice 3 draws for the first time and
+  // slice 8 settled: the field now carries the prototype's own ground, so the
+  // cut earth is under the earth it is cut into and the bracket is closed.
   {
     pair: ['undertaker', 'graveWall'],
-    because: `12.07: ${MID_BAND_BODY}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['undertaker', 'graveTurf'],
-    because: `36.25: ${MID_BAND_BODY}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `12.07: ${MID_BAND_BODY}, and ${OVER_THE_CUT}`,
   },
   {
     pair: ['skull', 'graveWall'],
-    because: `31.17: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['skull', 'graveTurf'],
-    because: `36.25: ${OVER_THE_SKULL}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `31.17: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
   },
   {
     pair: ['splash', 'graveWall'],
-    because: `27.55: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['splash', 'graveTurf'],
-    because: `36.25: ${OVER_THE_SPLASH}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `27.55: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
   },
   {
     pair: ['territoryGround', 'graveWall'],
-    because: `32.66: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['territoryGround', 'graveTurf'],
-    because: `36.25: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `32.66: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_CUT}`,
   },
   // Over the grave in the prototype's colours (slice 6), each with its figure.
   {
     pair: ['graveRim', 'graveWall'],
-    because: `40.13: ${RIM_NOT_DRAWN}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `40.13: ${RIM_NOT_DRAWN}, and ${OVER_THE_CUT}`,
   },
-  {
-    pair: ['graveRim', 'graveTurf'],
-    because: `38.03: ${RIM_NOT_DRAWN}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['graveGlow', 'graveTurf'],
-    because: `38.03: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['corpse', 'graveWall'],
-    because: `36.53: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['corpse', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
+  { pair: ['corpse', 'graveWall'], because: `36.53: ${OVER_THE_CUT}` },
   {
     pair: ['corpseRevenant', 'graveWall'],
-    because: `37.42: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+    because: `37.42: ${OVER_THE_CUT}`,
   },
-  {
-    pair: ['corpseRevenant', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['feast', 'graveWall'],
-    because: `43.98: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['feast', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['powerUp', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['mob', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['banshee', 'graveWall'],
-    because: `44.10: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['banshee', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['territory', 'graveWall'],
-    because: `40.36: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['territory', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['wisp', 'graveWall'],
-    because: `42.86: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['wisp', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['bellRing', 'graveWall'],
-    because: `44.11: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['bellRing', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['belchEruption', 'graveWall'],
-    because: `44.07: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-  {
-    pair: ['belchEruption', 'graveTurf'],
-    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
+  { pair: ['feast', 'graveWall'], because: `43.98: ${OVER_THE_CUT}` },
+  { pair: ['banshee', 'graveWall'], because: `44.10: ${OVER_THE_CUT}` },
+  { pair: ['territory', 'graveWall'], because: `40.36: ${OVER_THE_CUT}` },
+  { pair: ['wisp', 'graveWall'], because: `42.86: ${OVER_THE_CUT}` },
+  { pair: ['bellRing', 'graveWall'], because: `44.11: ${OVER_THE_CUT}` },
+  { pair: ['belchEruption', 'graveWall'], because: `44.07: ${OVER_THE_CUT}` },
 ];
 
 /**
  * Cut earth the top end of the grave's own bracket is allowed to fail on, each
- * with its reason. The prototype's subsoil was chosen under the prototype's
- * brighter ground, and it stands above this field's until the ground is decided.
+ * with its reason.
+ *
+ * It is empty, and empty is what makes the check below mean what it says. The
+ * prototype's subsoil was chosen under the prototype's own ground, and slice 8
+ * put that ground on the field, so `graveWall` at luma 29.06 is under the base
+ * earth at 30.54 and needs no exception.
  */
-const CUT_EARTH_ABOVE_THE_GROUND: { name: string; because: string }[] = [
-  {
-    name: 'graveWall',
-    because: `29.06 over nightSpeckle's 13.99: ${GROUND_DECIDED_AFTER_SLICE_6}`,
-  },
-];
+const CUT_EARTH_ABOVE_THE_GROUND: { name: string; because: string }[] = [];
 
 /**
  * Colours with no hue for assertion 10 to measure. `hsv` reports hue 0 for a
@@ -449,7 +394,6 @@ const NO_HUE_AT_ALL: { name: string; because: string }[] = [
 const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   graveHole: 'graveMouth',
   graveWall: 'graveMouth',
-  graveTurf: 'graveMouth',
   graveRim: 'graveRim',
   graveGlow: 'graveRim',
   mob: 'mobBodies',
@@ -483,12 +427,12 @@ const DARK_HALVES: { name: string; because: string }[] = [
   {
     name: 'graveWall',
     because:
-      'the cut earth inside the mouth, whose bright counterpart is the rim above it; it is capped below the ground tile it is cut into, so nothing below luma 13.71 exists to companion it',
+      'the cut earth inside the mouth, whose bright counterpart is the rim above it; it is capped below the ground it is cut into at luma 30.54, and a companion the 20 luma beneath it that the span asks for would be the black the cut already falls away into',
   },
   {
     name: 'graveTurf',
     because:
-      'ground cover lying beside the mouth, drawn translucent so the ground shows through, and capped by the food layer clearing Lc 45 over it; a companion 20 luma below it would be the black it is drawn on',
+      "ground cover over the whole field since slice 8, drawn as the prototype's own tufts at alpha 0.7 so the earth shows through; it is the ground a sprite is read on and not a thing told apart from one, so it has no bright half to companion",
   },
   { name: 'foodOutline', because: 'the companion the food layers all share' },
   { name: 'mobDark', because: "a mob body's own dark half" },
@@ -520,6 +464,10 @@ const BACKGROUNDS: [string, PaletteEntry][] = [
   ['nightSpeckle', PALETTE.nightSpeckle],
   ['fieldFrame', PALETTE.fieldFrame],
   ['graveHole', PALETTE.graveHole],
+  ...GROUND_COLOURS.map((name): [string, PaletteEntry] => [
+    name,
+    PALETTE[name],
+  ]),
   ['standInGroundDressCold', PALETTE.standInGroundDressCold],
   ['standInGroundDressWet', PALETTE.standInGroundDressWet],
   ['standInVigilTint', PALETTE.standInVigilTint],
@@ -1145,10 +1093,11 @@ describe('the source scan over the modules that draw during a run (ADR 0014)', (
   );
 });
 
-/** The two modules that draw the stand-in ground, which the scan above must reach. */
+/** The modules that draw the ground, which the scan above must reach. */
 const GROUND_MODULES = [
   join(APP, 'screens', 'game', 'BackgroundRenderer.ts'),
   join(APP, 'screens', 'game', 'groundDressing.ts'),
+  join(APP, 'screens', 'game', 'groundPainting.ts'),
 ];
 
 /** Every PALETTE entry a module names, read out of its source. */
@@ -1181,7 +1130,7 @@ describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
     }
   });
 
-  it('gives the departure the highest saturation of the four ground colours, so the addition is the event', () => {
+  it("gives the departure the highest saturation of the ground's own colours, so the addition is the event", () => {
     // Downwell's move, from the design record's section 7: two sections on the
     // base palette with dressing changes only, and the fourth colour held back.
     const saturations = STAND_IN_GROUND.map((name) => hsv(PALETTE[name].hex).s);
@@ -1258,6 +1207,159 @@ const PROTOTYPE_GRAVE_COLOURS: Record<string, number> = {
   graveTurfShadow: 0x020407,
 };
 
+/**
+ * Every colour the prototype's ground painters draw with, as the prototype
+ * writes it: the rows of `COLOR` that `paintGround` reads (build 7,
+ * `apps/hungry-grave/src/prototypes/grave-fall/index.html` on
+ * `prototype/148-grave-fall`, lines 308 to 326 and 1364 to 1474).
+ *
+ * `COLOR.moss` and `COLOR.mossDark` are not repeated here. They are the tufts'
+ * own colours and PROTOTYPE_GRAVE_COLOURS already pins them as `graveTurf` and
+ * `graveTurfDark`, which is the point: one grass, one pair of rows.
+ */
+const PROTOTYPE_GROUND_COLOURS: Record<string, number> = {
+  groundNight: 0x454f5d,
+  groundSpeckle: 0x66748a,
+  groundCold: 0x56657a,
+  groundWet: 0x466050,
+  groundDamp: 0x2c3644,
+  groundCrack: 0x28313d,
+  groundGravel: 0x8d9cae,
+};
+
+/**
+ * Every pair of a sprite and a ground colour the three-channel check is allowed
+ * to fail on, with the reason it is allowed. A pair without a written reason is
+ * not an exception, it is a defect.
+ *
+ * There is one, and it is the single place in slice 8 where the ruling's own
+ * "a sprite that fails is fixed, never excepted" cannot be honoured: both
+ * halves of the pair are frozen by a Mark ruling, the grave's by slice 6 and
+ * the ground's by slice 8, so neither colour can move.
+ */
+const GROUND_COLLISIONS: { pair: [string, string]; because: string }[] = [
+  {
+    pair: ['graveWall', 'groundNight'],
+    because:
+      "luma 1.48, hue 2.8, saturation 0.035: the cut earth's brightest band is the ground's own earth seen in section, which is what it is meant to be, and what tells the wall from the ground is the black beside it and the lip above it rather than its own value",
+  },
+];
+
+/**
+ * What the best half of each sprite pair reads against every colour the ground
+ * draws, in APCA Lc.
+ *
+ * It is a measurement and not a threshold. Its promise is that no sprite colour
+ * and no ground colour can move without a number moving with it, which is what
+ * makes the cost of a ground decision visible in a diff instead of in a
+ * screenshot nobody takes. Slice 8 is where these figures first exist: over the
+ * near-black tile the field used to carry, a corpse read Lc 47.04 where it now
+ * reads 35.21 over the base earth.
+ */
+const SPRITE_OVER_THE_GROUND: Record<string, string> = {
+  graveRim:
+    'groundNight 38.82, groundSpeckle 31.16, groundCold 30.43, groundWet 34.31, groundDamp 46.92, groundCrack 48.23, groundGravel 50.13, graveTurf 38.03, graveTurfDark 34.40',
+  graveGlow:
+    'groundNight 45.05, groundSpeckle 31.16, groundCold 36.67, groundWet 40.55, groundDamp 53.16, groundCrack 54.47, groundGravel 50.13, graveTurf 38.03, graveTurfDark 40.63',
+  corpse:
+    'groundNight 35.21, groundSpeckle 29.38, groundCold 26.83, groundWet 30.71, groundDamp 43.32, groundCrack 44.63, groundGravel 48.35, graveTurf 36.25, graveTurfDark 30.79',
+  corpseRevenant:
+    'groundNight 36.11, groundSpeckle 29.38, groundCold 27.73, groundWet 31.60, groundDamp 44.21, groundCrack 45.52, groundGravel 48.35, graveTurf 36.25, graveTurfDark 31.69',
+  feast:
+    'groundNight 42.67, groundSpeckle 29.38, groundCold 34.29, groundWet 38.16, groundDamp 50.77, groundCrack 52.09, groundGravel 48.35, graveTurf 36.25, graveTurfDark 38.25',
+  powerUp:
+    'groundNight 45.05, groundSpeckle 30.14, groundCold 36.67, groundWet 40.55, groundDamp 53.16, groundCrack 54.47, groundGravel 48.35, graveTurf 36.25, graveTurfDark 40.63',
+  mob: 'groundNight 46.69, groundSpeckle 31.78, groundCold 38.31, groundWet 42.18, groundDamp 54.79, groundCrack 56.10, groundGravel 48.35, graveTurf 36.25, graveTurfDark 42.27',
+  banshee:
+    'groundNight 42.79, groundSpeckle 29.38, groundCold 34.41, groundWet 38.28, groundDamp 50.89, groundCrack 52.21, groundGravel 48.35, graveTurf 36.25, graveTurfDark 38.37',
+  undertaker:
+    'groundNight 13.53, groundSpeckle 29.38, groundCold 22.60, groundWet 18.47, groundDamp 18.25, groundCrack 19.57, groundGravel 48.35, graveTurf 36.25, graveTurfDark 18.37',
+  skull:
+    'groundNight 29.86, groundSpeckle 29.38, groundCold 22.60, groundWet 25.35, groundDamp 37.96, groundCrack 39.27, groundGravel 48.35, graveTurf 36.25, graveTurfDark 25.43',
+  territory:
+    'groundNight 39.04, groundSpeckle 29.38, groundCold 30.66, groundWet 34.54, groundDamp 47.15, groundCrack 48.46, groundGravel 48.35, graveTurf 36.25, graveTurfDark 34.62',
+  territoryGround:
+    'groundNight 31.35, groundSpeckle 29.38, groundCold 22.97, groundWet 26.84, groundDamp 39.45, groundCrack 40.76, groundGravel 48.35, graveTurf 36.25, graveTurfDark 26.93',
+  wisp: 'groundNight 41.55, groundSpeckle 29.38, groundCold 33.17, groundWet 37.04, groundDamp 49.66, groundCrack 50.97, groundGravel 48.35, graveTurf 36.25, graveTurfDark 37.13',
+  bellRing:
+    'groundNight 42.79, groundSpeckle 29.38, groundCold 34.41, groundWet 38.29, groundDamp 50.90, groundCrack 52.21, groundGravel 48.35, graveTurf 36.25, graveTurfDark 38.37',
+  belchEruption:
+    'groundNight 42.76, groundSpeckle 29.38, groundCold 34.38, groundWet 38.25, groundDamp 50.87, groundCrack 52.18, groundGravel 48.35, graveTurf 36.25, graveTurfDark 38.34',
+  splash:
+    'groundNight 26.24, groundSpeckle 29.38, groundCold 22.60, groundWet 21.73, groundDamp 34.34, groundCrack 35.65, groundGravel 48.35, graveTurf 36.25, graveTurfDark 21.82',
+};
+
+describe('the ground in the field (design record R4)', () => {
+  it("the ground's colours are the prototype's", () => {
+    // Mark's ruling of 2026-09-21: the prototype's ground goes on the whole
+    // field, its colours included, and a colour decision comes after he has
+    // seen it.
+    const declared = Object.fromEntries(
+      Object.keys(PROTOTYPE_GROUND_COLOURS).map((name) => [
+        name,
+        PALETTE[name as keyof typeof PALETTE]?.hex,
+      ]),
+    );
+    expect(declared).toEqual(PROTOTYPE_GROUND_COLOURS);
+  });
+
+  it('keeps every sprite apart from every colour the ground draws', () => {
+    // The ground is not a sprite, so the pair table above does not reach it,
+    // and since slice 8 it is nine colours over the whole field rather than one
+    // near-black tile. This is that table's own three-channel rule, asked of
+    // every sprite against every one of them.
+    const failures: string[] = [];
+    for (const [name, entry] of spriteEntries()) {
+      const sprite = hsv(entry.hex);
+      for (const ground of GROUND_COLOURS) {
+        const earth = hsv(PALETTE[ground].hex);
+        const tooClose =
+          Math.abs(entry.luma - PALETTE[ground].luma) <
+            SPRITE_SEPARATION.luma &&
+          hueGap(sprite.h, earth.h) < SPRITE_SEPARATION.hue &&
+          Math.abs(sprite.s - earth.s) < SPRITE_SEPARATION.saturation;
+        const named = GROUND_COLLISIONS.some(
+          ({ pair, because }) =>
+            because.length > 0 && pair[0] === name && pair[1] === ground,
+        );
+        if (tooClose && !named) failures.push(`${name} over ${ground}`);
+      }
+    }
+    expect(failures).toEqual([]);
+
+    // And the exception is a real pair rather than a name nobody measures.
+    for (const { pair } of GROUND_COLLISIONS) {
+      expect(`${pair[0]} declared ${pair[0] in PALETTE}`).toBe(
+        `${pair[0]} declared true`,
+      );
+      expect(
+        `${pair[1]} in the ground ${GROUND_COLOURS.includes(pair[1] as (typeof GROUND_COLOURS)[number])}`,
+      ).toBe(`${pair[1]} in the ground true`);
+    }
+  });
+
+  it('records what every sprite reads over the ground it is drawn on', () => {
+    const measured = Object.fromEntries(
+      Object.entries(SPRITE_OUTLINE).map(([name, companion]) => {
+        const light = PALETTE[name as keyof typeof PALETTE];
+        const dark = PALETTE[companion];
+        return [
+          name,
+          GROUND_COLOURS.map((ground) => {
+            const over = PALETTE[ground].hex;
+            const best = Math.max(
+              Math.abs(apcaLc(light.hex, over)),
+              Math.abs(apcaLc(dark.hex, over)),
+            );
+            return `${ground} ${best.toFixed(2)}`;
+          }).join(', '),
+        ];
+      }),
+    );
+    expect(measured).toEqual(SPRITE_OVER_THE_GROUND);
+  });
+});
+
 describe('the grave in the ground (design record R4)', () => {
   it("the grave's colours are the prototype's", () => {
     // Slice 6: Mark ruled the grave is the prototype's picture exactly, and a
@@ -1275,12 +1377,13 @@ describe('the grave in the ground (design record R4)', () => {
     // The two ends of the bracket that decided the value, and they are one
     // rule: earth cut to face sideways keeps less moon than earth lying face
     // up, and a face the player cannot tell from the mouth's own black is the
-    // empty rectangle this step exists to get rid of. The exception table above
-    // prices the top end; without this, the bottom end is prose in a JSDoc.
+    // empty rectangle this step exists to get rid of.
     //
-    // The top end is excepted while the grave wears the prototype's colours:
-    // the check stays, and it binds again the moment the exception goes.
-    const underTheGround = PALETTE.graveWall.luma <= PALETTE.nightSpeckle.luma;
+    // The ground it is cut into is the field's own base earth, which slice 8
+    // took from the prototype. The top end was excepted while the field kept a
+    // near-black tile under the prototype's grave; the exception table is empty
+    // now, so both ends bind.
+    const underTheGround = PALETTE.graveWall.luma <= PALETTE.groundNight.luma;
     const excepted = CUT_EARTH_ABOVE_THE_GROUND.some(
       ({ name, because }) => name === 'graveWall' && because.length > 0,
     );
