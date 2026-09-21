@@ -36,12 +36,7 @@ import { MOB_TYPES, MOB_TYPE_NAMES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun, uniformLevels } from '../../run';
 import { swallow } from '../../swallow';
-import {
-  FEAST_PAYOUT,
-  FRESHNESS_SECONDS,
-  SCROLL_SPEED,
-  SIZE_CEILING,
-} from '../../tuning';
+import { FRESHNESS_SECONDS, SCROLL_SPEED, SIZE_CEILING } from '../../tuning';
 import type { TuningRecord } from '../../tuningRecord';
 import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
 import {
@@ -715,7 +710,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // And the same rig with a feast in it does charge, so the absence above is
     // a rule rather than a run where nothing could have paid.
     const fed = atTheSource();
-    spawnFeast(fed.state, fed.state.grave.x, fed.state.grave.y, FEAST_PAYOUT);
+    spawnFeast(fed.state, fed.state.grave.x, fed.state.grave.y);
     const feast = fed.state.corpses.find((corpse) => corpse.alive)!;
     const charged = swallow(fed.state, asSwallowable(feast));
     expect(only(charged, 'reservoirCharged').length).toBeGreaterThan(0);

@@ -1,16 +1,8 @@
 import type { ICanvas } from 'pixi.js';
-import {
-  CanvasSource,
-  Container,
-  DOMAdapter,
-  Graphics,
-  Sprite,
-  Texture,
-} from 'pixi.js';
+import { CanvasSource, Container, DOMAdapter, Sprite, Texture } from 'pixi.js';
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
-import { PALETTE } from '../../palette';
 import type { GraveCanvas } from './graveCanvas';
 import { clamp } from './graveCanvas';
 import {
@@ -22,60 +14,6 @@ import { paintLip } from './graveLip';
 import { mouthPolygon } from './graveMouth';
 import { paintPit } from './graveWalls';
 import type { FieldLayers } from './layering';
-
-/**
- * The width of the band the reservoir's glow rides,
- * in field units, stroked inward from the hitbox's own edge.
- *
- * It is the band the grave's pale rim used to draw on, kept at its width so
- * the glow draws exactly where it did; the rim itself went in
- * slice 6, because the prototype has none and a bright ring round an opening
- * reads as a kerb rather than as dug earth.
- *
- * Do not derive this from BOUNDARY_STROKE's reasoning. That path gives 8, and
- * at SIZE_FLOOR two 8-unit bands leave 2 units of mouth on an 18-unit grave:
- * the grave stops being a hole exactly when the player most needs to read it.
- * Not thinner than about 2 CSS pixels on the phone, which is 2.77 units,
- * borrowing WCAG 2.2 SC 2.4.13's focus indicator area loosely as the nearest
- * published figure for a thin outline a person must see. And not thicker than
- * 4, so that at SIZE_FLOOR the mouth's interior stays wider than a power-up. 3
- * is the only integer in that bracket with margin at both ends.
- *
- * It is a field unit and not a share of the opening, which is why the glow is
- * redrawn on a size change: a stroke scaled with the grave would
- * thin exactly where this bracket needs it most.
- */
-const GRAVE_RIM_STROKE = 3;
-
-/**
- * The reservoir's glow is the band wearing treasure's colour, drawn inside the
- * hitbox's own edge rather than as a ring of its own.
- *
- * It takes no width beyond the band, which is what ADR 0003 requires: that ADR
- * makes the drawn grave the health bar and graveHitbox is exactly the sim rect,
- * so the visible outer edge has to equal the hitbox. A glow standing outside it
- * would make the grave read wider than the box the player passes under.
- */
-// How fast the glow pulses at a full reservoir, in ticks per cycle.
-const GLOW_PULSE_TICKS = 40;
-
-// How far the pulse swings, as a share of full brightness.
-const GLOW_PULSE_DEPTH = 0.35;
-
-/**
- * How bright the glow draws at this much charge, and this far into a pulse.
- *
- * Below full it builds with the fullness alone, so the player reads the meter on
- * the thing they are already looking at. At full it pulses, which is the concept
- * doc's own language for the feast beat, and pulsing rather than brightening
- * further is what makes full a state rather than the top of a ramp.
- */
-const glowAlpha = (fullness: number, tick: number): number => {
-  const charge = Math.max(0, Math.min(1, fullness));
-  if (charge < 1) return charge;
-  const phase = (tick % GLOW_PULSE_TICKS) / GLOW_PULSE_TICKS;
-  return 1 - GLOW_PULSE_DEPTH * (1 - Math.cos(phase * Math.PI * 2)) * 0.5;
-};
 
 /**
  * What the bake reads off the renderer each frame: how wide the stage is in
@@ -148,12 +86,8 @@ const replaceArt = (art: Container, sprite: Sprite): void => {
 };
 
 /**
- * The grave on screen: the prototype's hole, baked to two canvases (the cut
- * and its walls beneath the falls, the ground at the lip above them), with the
- * reservoir's glow above the food on the band inside the hitbox's edge.
- *
- * Two layers rather than one, because ADR 0014's stack puts graveMouth beneath
- * the food and graveRim above it, and one container cannot be in two layers.
+ * The grave on screen: the prototype's hole, baked to two canvases, the cut and
+ * its walls beneath the falls, and the ground at the lip above them.
  *
  * The hole is baked afresh once the size has moved past HOLE_REBUILD_STEP, as
  * the prototype's rebuildHole is, because several of its details are a screen
@@ -161,10 +95,6 @@ const replaceArt = (art: Container, sprite: Sprite): void => {
  * stretched to the size the sim says, so the grave grows with every swallow. The bake needs the
  * view's pixels per field unit, which only the renderer knows, so it happens in
  * the renderer's own pass (onRender) rather than in sync.
- *
- * The glow takes a number from 0 to 1 and never the RunState. Handing a renderer
- * live sim state is the thing the rest of this design works to avoid, and
- * fullness is everything it needs.
  */
 class GraveRenderer {
   private readonly pitArt = new Container();
@@ -179,11 +109,9 @@ class GraveRenderer {
    */
   public readonly falls = new Container();
   private readonly lipArt = new Container();
-  private readonly glow = new Graphics();
   private wantedSize: number | null = null;
   private baked: Baked | null = null;
   private warnedUnmeasured = false;
-  private glowSize: number | null = null;
 
   constructor() {
     this.pitArt.onRender = (renderer) => this.bakeForThisFrame(renderer);
@@ -199,14 +127,12 @@ class GraveRenderer {
    */
   public attach(layers: FieldLayers): void {
     layers.layer('graveMouth').addChild(this.pitArt, this.falls, this.lipArt);
-    layers.layer('graveRim').addChild(this.glow);
   }
 
   public detach(): void {
     this.pitArt.removeFromParent();
     this.falls.removeFromParent();
     this.lipArt.removeFromParent();
-    this.glow.removeFromParent();
   }
 
   /**
@@ -214,21 +140,13 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * Position is free. The size is recorded for the next bake, and the glow is
-   * rebuilt only when the size changes, which is on a swallow or a hit.
+   * Position is free, and the size is recorded for the next bake.
    */
-  public sync(grave: Grave, reservoirFullness: number, tick: number): void {
+  public sync(grave: Grave): void {
     this.wantedSize = grave.size;
-    if (grave.size !== this.glowSize) {
-      this.redrawGlow(grave.size);
-      this.glowSize = grave.size;
-    }
-    for (const piece of [this.pitArt, this.falls, this.lipArt, this.glow]) {
+    for (const piece of [this.pitArt, this.falls, this.lipArt]) {
       piece.position.set(grave.x, grave.y);
     }
-    // Alpha rather than a redraw, because the charge changes on every swallow
-    // and the geometry only changes with the size.
-    this.glow.alpha = glowAlpha(reservoirFullness, tick);
   }
 
   /**
@@ -310,22 +228,6 @@ class GraveRenderer {
     );
     this.baked = { size, viewScale, pixelsPerUnit };
   }
-
-  /**
-   * The band in treasure's colour, drawn once per size and then only faded.
-   * It strokes inward, so the grave's outer edge is the hitbox at every charge.
-   */
-  private redrawGlow(size: number): void {
-    const width = graveWidth(size);
-    this.glow
-      .clear()
-      .rect(-width / 2, -size, width, size * 2)
-      .stroke({
-        width: GRAVE_RIM_STROKE,
-        color: PALETTE.graveGlow.hex,
-        alignment: 1,
-      });
-  }
 }
 
-export { glowAlpha, GraveRenderer, GRAVE_RIM_STROKE };
+export { GraveRenderer };

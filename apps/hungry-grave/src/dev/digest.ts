@@ -503,6 +503,21 @@ const runScenario = (): ScenarioResult => {
  * score, the reservoir, mobs at 5, shots at 0, corpses at 1, skulls at 2, wisps
  * at 0, kills at 2, the `drawn` record, the levels record and every one of the
  * eight stream cursors.
+ *
+ * Re-pinned on 2026-09-21 for the grave swelling into its growth rather than
+ * popping (Mark's ruling of that day, #148). The checksum moved from
+ * `348708066` and it is the only field that moved. The cause is mechanical:
+ * the grave carries the growth it has been paid and not yet taken in,
+ * `WITNESS_VERSION` reads 13, and one more number per tick folds into the
+ * checksum. **The size holds at 24.10125**, which is the thing to watch here:
+ * the scenario's one swallow is a fresh trash corpse worth 0.10125, the swell
+ * takes 0.075 a tick, so the debt is paid off two ticks after the tip and the
+ * grave stands at the same size 600 ticks later that it stood at before. The
+ * reservoir holds at 0.10125 for the same reason it always did: that swallow is
+ * a corpse and not a feast, so entry 5.11's slam never fires here. Everything
+ * else held: tick 600, the seed, the grave's position, the score, mobs at 5,
+ * shots at 0, corpses at 1, skulls at 2, wisps at 0, kills at 2, the `drawn`
+ * record, the levels record and every one of the eight stream cursors.
  */
 const GOLDEN: Digest = {
   tick: 600,
@@ -534,7 +549,7 @@ const GOLDEN: Digest = {
     wisps: 0,
     bell: 0,
   },
-  checksum: 348708066,
+  checksum: -477743852,
 };
 
 export { runScenario, GOLDEN };

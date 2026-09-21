@@ -544,7 +544,7 @@ class GameScreen extends Container {
    * renderer live sim state is what the rest of this design works to avoid.
    */
   private syncScreen(run: RunState): void {
-    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
+    this.grave.sync(run.grave);
     this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.falls.sync(run);

@@ -278,6 +278,51 @@ type SwallowTuning = {
 };
 
 /**
+ * How the grave's size is paid and how fast it arrives (Mark's ruling of
+ * 2026-09-21: the grave swells as it eats rather than sitting still and then
+ * popping).
+ *
+ * A group of its own rather than two rows on the swallow's, because what these
+ * two decide is the size on screen: the swallow's rows decide which food goes
+ * in at all, and a reading that moves the grave's growth reads these two
+ * together and neither of those.
+ */
+type GrowthTuning = {
+  /**
+   * What a feast pays in growth, in fresh trash corpses.
+   *
+   * Stated in corpses because that is the unit the whole food economy is
+   * stated in (`tuning.ts`'s CORPSES_TO_CEILING and TRASH_CORPSE_PAYOUT), so a
+   * feast is read against the mowing it stands for rather than against a bare
+   * count of size units.
+   *
+   * Forty-five is the share the feast paid on the day entry 5.11 ruled it, nine
+   * corpses of an eighty-corpse climb, carried across to a climb of four
+   * hundred. Before this row the feast was written as the reservoir's own count
+   * of 300, which is 75% of the whole climb from the starting size to the
+   * ceiling paid on one tick: that single payment is the pop Mark saw, and the
+   * two figures stopped being one number when it came down.
+   *
+   * At or below zero is refused (`refuseUnpayableFeast`). A feast that pays
+   * nothing is not a feast, and a negative one would shrink the grave through a
+   * path that has nothing to do with a hit.
+   */
+  feastInCorpses: number;
+  /**
+   * How fast the grave takes in the growth it is owed, in size units a second.
+   *
+   * At 4.5 the largest single swallow, a fully fresh feast at 4.55625 units,
+   * takes about a second to come in, and no tick moves the grave by more than
+   * 0.075 units, which is well under a tenth of one.
+   *
+   * At or below zero is refused (`refuseFrozenSwell`): at zero the grave would
+   * never take in anything it was paid and would never grow again at all, which
+   * is the state the ruling exists to end.
+   */
+  swellPerSecond: number;
+};
+
+/**
  * Every magnitude a batch reading can move, grouped by the module that owns it
  * (CONTEXT.md Tuning record, ADR 0064).
  *
@@ -291,6 +336,7 @@ type TuningRecord = {
   stage: StageTuning;
   score: ScoreTuning;
   swallow: SwallowTuning;
+  growth: GrowthTuning;
 };
 
 /**
@@ -304,6 +350,7 @@ interface TuningOverlay {
   stage?: Partial<StageTuning>;
   score?: Partial<ScoreTuning>;
   swallow?: Partial<SwallowTuning>;
+  growth?: Partial<GrowthTuning>;
 }
 
 /** One row under the one addressable name every text surface uses for it. */
@@ -341,6 +388,10 @@ const DEFAULT_TUNING: TuningRecord = {
     pullReach: 24,
     pullStrength: 125,
     pullResponse: 4.6,
+  },
+  growth: {
+    feastInCorpses: 45,
+    swellPerSecond: 4.5,
   },
 };
 
@@ -442,12 +493,35 @@ const refusePullBelowZero = (swallow: SwallowTuning): void => {
 };
 
 /**
+ * The growth group's own bounds (Mark's ruling of 2026-09-21), and both ends of
+ * the ruling turn it off in opposite directions.
+ *
+ * A feast that pays nothing is not a feast and a negative one would shrink the
+ * grave through a path that has nothing to do with a hit; a swell of nothing
+ * leaves the grave owed growth it can never take in, which is exactly the
+ * standing-still the ruling exists to end. A record comes from a document, so
+ * both are rejected here rather than repaired.
+ */
+const refuseUnpaidGrowth = (growth: GrowthTuning): void => {
+  const rows = {
+    feastInCorpses: growth.feastInCorpses,
+    swellPerSecond: growth.swellPerSecond,
+  };
+  for (const [row, value] of Object.entries(rows)) {
+    if (value > 0) continue;
+    throw new Error(
+      `growth.${row} is written as ${value}, at or below zero: a feast that pays nothing is not a feast, and a grave that swells at nothing never grows again`,
+    );
+  }
+};
+
+/**
  * The complete record an overlay stands for, every absent row filled from the
  * default.
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the five bounds above and nothing else, and a record our own code
+ * refuses is the six bounds above and nothing else, and a record our own code
  * produced cannot fail any of them, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
@@ -455,12 +529,14 @@ const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
     stage: { ...DEFAULT_TUNING.stage, ...overlay.stage },
     score: { ...DEFAULT_TUNING.score, ...overlay.score },
     swallow: { ...DEFAULT_TUNING.swallow, ...overlay.swallow },
+    growth: { ...DEFAULT_TUNING.growth, ...overlay.growth },
   };
   refuseInvertedQuietInterval(resolved.stage);
   refuseZeroQuietIntervalMinimum(resolved.stage);
   refuseZeroBossHealthRate(resolved.score);
   refuseUnplayableTipThreshold(resolved.swallow);
   refusePullBelowZero(resolved.swallow);
+  refuseUnpaidGrowth(resolved.growth);
   return resolved;
 };
 
@@ -487,6 +563,7 @@ const tuningRows = (record: TuningRecord): TuningRow[] =>
 
 export { DEFAULT_TUNING, resolveTuning, tuningRows };
 export type {
+  GrowthTuning,
   ScoreTuning,
   StageTuning,
   SwallowTuning,

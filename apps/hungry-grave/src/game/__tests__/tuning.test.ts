@@ -13,11 +13,11 @@ import { BOSS_KINDS } from '../stage/waves';
 import {
   BASE_SPEED,
   CORPSES_TO_CEILING,
-  FEAST_PAYOUT,
   FRESHNESS_PAYOUT_FLOOR,
   FRESHNESS_SECONDS,
   INVULNERABLE_TICKS,
   RESERVOIR_CAPACITY,
+  RESERVOIR_IN_CORPSES,
   SCROLL_SPEED,
   SIZE_CEILING,
   SIZE_FLOOR,
@@ -85,24 +85,44 @@ describe('the tuning derivations', () => {
   it('freshness scales every payout down to a quarter and never to zero (ADR 0004)', () => {
     expect(FRESHNESS_PAYOUT_FLOOR).toBe(0.25);
   });
-  it("the reservoir's capacity is the Banshee feast's payout exactly, so the beat is arithmetically reachable (entry 5.11)", () => {
-    // Entry 5.11's identity is the ruling and it holds: the same swallow that
-    // feeds slams the reservoir full, so capacity is the feast's payout
-    // exactly and a fully fresh feast wastes nothing. A flat 100 here would
-    // have made the beat arithmetically impossible, because a full reservoir
-    // would then cost more cumulative growth than the entire floor-to-ceiling
-    // range.
+  it("the reservoir's capacity is the corpses of mowing its own row names, and the ceiling still costs more mowing than a full reservoir pays", () => {
+    // Entry 5.11's ruling did not move: the same swallow that feeds slams the
+    // reservoir full. What moved is where that identity is written. It used to
+    // be arithmetic, the capacity spelled as the feast's own payout, and the
+    // feast's growth came down on Mark's ruling of 2026-09-21 while the belch's
+    // cadence stayed exactly where it was. So the identity is now a rule in
+    // swallow.ts, which swallow.test.ts asserts as behaviour, and the capacity
+    // is its own row in the one unit the whole food economy is stated in.
     //
-    // The feast's own size in corpses is the magnitude and it moved with the
-    // economy: entry 5.11's 8 to 10 corpses was a reading of a reservoir of 9,
-    // and the reservoir is now stated in corpses of expected mowing
-    // (docs/research/weapon-growth-per-level-precedent.md is the weapon half;
-    // the economy half is the design record's section 4 table and its section
-    // 9, "about 300"). The ruling did not move; what it is measured in did.
-    const corpses = FEAST_PAYOUT / TRASH_CORPSE_PAYOUT;
-    expect(corpses).toBeCloseTo(300, 9);
-    expect(RESERVOIR_CAPACITY).toBe(FEAST_PAYOUT);
+    // A flat 100 here would still be arithmetically impossible: a full
+    // reservoir would cost more cumulative growth than the whole
+    // floor-to-ceiling range.
+    // A whole number of corpses, which is the derivation and not the
+    // magnitude: dividing the capacity by the corpse's own unit hands the row
+    // straight back while the capacity is written as that row times that unit,
+    // so what this can catch is a capacity written as a flat figure instead.
+    const corpses = RESERVOIR_CAPACITY / TRASH_CORPSE_PAYOUT;
+    expect(corpses).toBeCloseTo(Math.round(corpses), 9);
+    expect(corpses).toBeCloseTo(RESERVOIR_IN_CORPSES, 9);
+    expect(RESERVOIR_IN_CORPSES).toBeLessThan(CORPSES_TO_CEILING);
     expect(RESERVOIR_CAPACITY).toBeLessThan(SIZE_CEILING - SIZE_FLOOR);
+  });
+
+  it('a feast pays growth worth the share of the whole climb it was ruled at, nine corpses of eighty, whatever the economy is stated in', () => {
+    // Entry 5.11 ruled the feast at nine fresh trash corpses of a climb that
+    // cost eighty, and Mark's ruling of 2026-09-21 is that the grave grows as
+    // it eats rather than popping. The share is what survives both: the economy
+    // has since been restated in four hundred corpses, and a feast is the same
+    // fraction of the climb it always was.
+    //
+    // What it is against is the pop. While the feast's growth was written as
+    // the reservoir's own count it paid 75% of the whole climb on one tick.
+    const climb = SIZE_CEILING - SIZE_START;
+    const growth = DEFAULT_TUNING.growth.feastInCorpses * TRASH_CORPSE_PAYOUT;
+    expect(growth / climb).toBeCloseTo(9 / 80, 9);
+    expect(
+      DEFAULT_TUNING.growth.feastInCorpses / CORPSES_TO_CEILING,
+    ).toBeCloseTo(9 / 80, 9);
   });
 });
 

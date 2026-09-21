@@ -134,10 +134,8 @@ const POWER_UP_BREATH_TICKS = Math.round(2.75 * TICK_HZ);
  *
  * The breath is what separates a power-up from the still corpses around it, and it is
  * spent on size alone. Brightness was played against it on 2026-08-25 and ruled
- * out: steady-bright means treasure (ADR 0004), the corpse's last-chance flicker
- * owns the value channel, and graveGlow is exempted from sharing this colour on
- * the written grounds that the glow pulses where a power-up is steady. A size pulse
- * leaves all three standing.
+ * out: steady-bright means treasure (ADR 0004), and the corpse's last-chance
+ * flicker owns the value channel. A size pulse leaves both standing.
  *
  * It only ever dips inward, because the peak is the ceiling: "keep 24 as the
  * maximum and have the size breath move inward from there" (Mark, 2026-08-25).

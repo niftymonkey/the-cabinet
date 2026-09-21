@@ -20,6 +20,8 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Fall**: What follows the tip: the food drops into the dark, shrinks, darkens, and never lands. The grave has no bottom. _Avoid_: poof, vanish, sink.
 
+**Swell**: The grave taking in the growth a swallow paid it, over the ticks after the tip, so that no swallow ever pops. The payout still lands whole at the tip and the grave is owed it at once; the size is the part that takes time. _Avoid_: grow instantly, jump, inflate, lerp.
+
 **Dive**: The move that swallows: steering the grave under what it wants until the thing falls in. It is ordinary steering rather than a move of its own, so every payout is bought with position: growth, weapon levels and the belch's charge alike, and the way back from a rung the floor ladder took is the same verb as the way up. _Avoid_: dash, lunge, plunge, dip, special move.
 
 **Size**: The grave's one scalar, its half-height; width follows at a fixed aspect. Size is health: swallowing grows it, hits shrink it. _Avoid_: health, HP, radius, scale.

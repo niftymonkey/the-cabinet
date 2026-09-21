@@ -538,8 +538,16 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * alone. The pull gives the hand back food the swallow rule took, so it grows
  * faster again and meets the later waves differently once more, and 404 is the
  * seed that crosses no carrier under either.
+ *
+ * Re-measured for the grave's swell (Mark's ruling of 2026-09-21, #148), and
+ * 202 came back in, so two of the five are never paid. The mechanism is the
+ * size: a feast is worth a ninth of what it was and every swallow's growth now
+ * arrives over about a second rather than on one tick, so this hand is a
+ * smaller target for the whole of every run and meets each later wave at a
+ * different size and a different tick. Which waves a lane passes through is
+ * what decides whether it crosses a carrier, and that is every entry above.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [404];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -659,8 +667,14 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
  * draws one at the rim toward the mouth at 125 a second, so the catches the
  * swallow rule turned into passes are catches again, and those two are the
  * seeds that outlast the stage's budget and end holding what they caught.
+ *
+ * Re-measured for the grave's swell (Mark's ruling of 2026-09-21, #148), and
+ * 101 went out again, on the size rather than on the catch. 101 is no longer
+ * paid at all under this hand (the set above), so there is no rung on its lane
+ * to catch, and the cause of that is the same smaller grave meeting different
+ * waves. 303 still catches and still outlasts the stage's budget.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 303];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [303];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

@@ -317,7 +317,6 @@ describe('the pull (grave-in-the-ground R3)', () => {
       feasting,
       leftOfTheRim(feasting, 12, CORPSE_HALF_EXTENT),
       feasting.grave.y,
-      1,
     );
     const feast = requireDefined(
       feasting.corpses.find((each) => each.alive),
@@ -429,7 +428,7 @@ describe('the pull (grave-in-the-ground R3)', () => {
     corpse.freshness = FRESHNESS_PER_TICK / 2;
     step(STILL);
 
-    spawnFeast(state, 60, 300, 1);
+    spawnFeast(state, 60, 300);
     const next = requireDefined(state.corpses[0], 'no corpse pool slot 0');
 
     expect(carried).toBeGreaterThan(0);

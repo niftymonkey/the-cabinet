@@ -52,7 +52,15 @@ interface Chimed {
   readonly treasureBody: boolean;
 }
 
-// The grave grew. Size is the new size, so a renderer needs nothing else.
+/**
+ * The grave grew. Size is the new size, so a renderer needs nothing else.
+ *
+ * It fires from the swell rather than from the swallow, once a tick, carrying
+ * what the grave took in on that tick (Mark's ruling of 2026-09-21: the grave
+ * swells as it eats rather than popping). A swallow is paid its whole growth on
+ * the tip tick and the size is what takes time, so the amount here is a slice
+ * of a payment and never the payment.
+ */
 interface Grew {
   readonly type: 'grew';
   readonly amount: number;

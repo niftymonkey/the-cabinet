@@ -1,6 +1,7 @@
 // The grave's size, its motion, and the consequence of mob fire meeting it.
 // Hides ADR 0003 entirely: no other module knows what a hit costs.
 
+import { TICK_HZ } from './clock';
 import type { MoveCommand } from './command';
 import { POWER_UP_HALF_EXTENT, spawnFallenRung } from './corpses';
 import type { SimEvent } from './events';
@@ -44,6 +45,8 @@ interface Grave {
   size: number;
   // Ticks of invulnerability left. Zero means a hit lands.
   invulnerable: number;
+  // Growth the grave has been paid and has not yet taken in (glossary: swell).
+  owed: number;
   /**
    * Whether the floor ladder has already spent its score rung without yet
    * having it back (design record `show-what-you-have.md` R4).
@@ -79,6 +82,7 @@ const createGrave = (size: number = SIZE_START): Grave => {
     y: START_Y,
     size: started,
     invulnerable: 0,
+    owed: 0,
     scoreRungBled: false,
   };
 };
@@ -144,26 +148,53 @@ const moveGrave = (grave: Grave, command: MoveCommand): void => {
 const SCORE_RUNG_REARM_SIZE = SIZE_FLOOR + HIT_SHRINK;
 
 /**
- * Grows the grave and returns whatever did not fit under the ceiling, as
- * overflow (ADR 0003). A wider grave can end up straddling an edge it was
- * pressed against, so the containment runs again here rather than waiting for
- * the next move command.
+ * Pays the grave growth it now owes itself, and returns whatever did not fit
+ * under the ceiling, as overflow (ADR 0003).
  *
- * Growing a full hit's worth off the floor is also what gives the score rung
- * back (design record R4), and it lands here because this is where growth
- * lands: the rule reads end to end in the module that owns the ladder.
+ * The payment lands on the tip tick exactly as design record R2 says, and the
+ * size is what takes time: the grave is owed the growth at once and swells into
+ * it (Mark's ruling of 2026-09-21). The room is measured against the size plus
+ * what is already owed, so the overflow is the same figure on the same tick it
+ * was before, and two swallows a tick apart cannot both be paid the same room.
  */
 const growGrave = (grave: Grave, amount: number): number => {
-  const grown = grave.size + amount;
-  grave.size = Math.min(grown, SIZE_CEILING);
-  if (grave.size >= SCORE_RUNG_REARM_SIZE) grave.scoreRungBled = false;
-  containGrave(grave);
-  return Math.max(0, grown - SIZE_CEILING);
+  const room = Math.max(0, SIZE_CEILING - (grave.size + grave.owed));
+  const taken = Math.min(amount, room);
+  grave.owed += taken;
+  return amount - taken;
 };
 
-// One tick of the grave: invulnerability counts down.
-const ageGrave = (grave: Grave): void => {
+/**
+ * One tick of the grave taking in the growth it is owed, at the run's own rate.
+ *
+ * The per-second value becomes a per-tick value here, where it is read, which
+ * is the convention design record R3 already states for the pull.
+ *
+ * Growing a full hit's worth off the floor is what gives the score rung back
+ * (design record R4), and it is read here rather than where the growth was paid
+ * because this is where the size actually changes. A wider grave can end up
+ * straddling an edge it was pressed against, so the containment runs again here
+ * rather than waiting for the next move command.
+ */
+const takeInOwedGrowth = (grave: Grave, swellPerSecond: number): SimEvent[] => {
+  const taken = Math.min(grave.owed, swellPerSecond / TICK_HZ);
+  if (taken <= 0) return [];
+  // The size is the true size less what is still owed, rather than a running
+  // sum of slices. A sum drifts: forty slices of 0.075 off the floor land at
+  // 20.999999999999971 rather than 21, and the score rung the size has to reach
+  // is a hard comparison that a hair under never satisfies.
+  const trueSize = grave.size + grave.owed;
+  grave.owed -= taken;
+  grave.size = trueSize - grave.owed;
+  if (grave.size >= SCORE_RUNG_REARM_SIZE) grave.scoreRungBled = false;
+  containGrave(grave);
+  return [{ type: 'grew', amount: taken, size: grave.size }];
+};
+
+// One tick of the grave: invulnerability counts down, and the grave swells into what it is owed.
+const ageGrave = (grave: Grave, swellPerSecond: number): SimEvent[] => {
   if (grave.invulnerable > 0) grave.invulnerable -= 1;
+  return takeInOwedGrowth(grave, swellPerSecond);
 };
 
 /**
@@ -372,8 +403,16 @@ const runFloorLadder = (state: RunState): SimEvent[] => {
 const hitGrave = (state: RunState, source: GraveHitSource): SimEvent[] => {
   const grave = state.grave;
   if (grave.invulnerable > 0) return [];
-  const atFloor = grave.size <= SIZE_FLOOR;
-  if (!atFloor) grave.size = Math.max(SIZE_FLOOR, grave.size - HIT_SHRINK);
+  // The floor is the grave's true size, its size plus the growth it is owed:
+  // a hit that left the owed growth alone would be undone by the swell within
+  // a second, and one that only ate the owed growth would be invisible.
+  const trueSize = grave.size + grave.owed;
+  const atFloor = trueSize <= SIZE_FLOOR;
+  if (!atFloor) {
+    const taken = Math.min(HIT_SHRINK, trueSize - SIZE_FLOOR);
+    grave.size = Math.max(SIZE_FLOOR, grave.size - taken);
+    grave.owed = trueSize - taken - grave.size;
+  }
   grave.invulnerable = INVULNERABLE_TICKS;
   const hit: SimEvent = {
     type: 'graveHit',

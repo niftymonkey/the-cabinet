@@ -352,7 +352,9 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   // After the cull, because an offer is lost on the tick its last body leaves
   // the field and the cull is what takes it (ADR 0034).
   events.push(...loseOffer(state));
-  ageGrave(state.grave);
+  events.push(
+    ...ageGrave(state.grave, state.conditions.tuning.growth.swellPerSecond),
+  );
   advanceDirectorSignal(state, events);
   state.tick += 1;
   state.stage.sectionTick += 1;

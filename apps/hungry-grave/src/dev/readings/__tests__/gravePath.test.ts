@@ -32,10 +32,18 @@ const PINNED_SIZE = 40;
 // A grave two and a half times its starting size, which is a run going well.
 const GROWN_SIZE = SIZE_START * 2.5;
 
+/** The grave taking in every bit of growth it is owed, at the run's own rate (Mark's ruling of 2026-09-21). */
+const takeIn = (run: RunState): void => {
+  while (run.grave.owed > 0) {
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+  }
+};
+
 /** One landed hit, with the invulnerability window it opens counted back down. */
 const land = (run: RunState): void => {
   hitGrave(run, 'shambler');
-  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++) ageGrave(run.grave);
+  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
 };
 
 /** Puts the grave's centre where the case wants it, through the sim's own mover. */
@@ -128,6 +136,7 @@ describe('grave path', () => {
 
     // And back out of it, which is the half a spiral never has.
     growGrave(run.grave, HIT_SHRINK);
+    takeIn(run);
     observeGravePath(accumulator, run);
     expect(run.grave.size).toBeGreaterThan(SIZE_FLOOR);
 

@@ -147,9 +147,14 @@ describe('freshness (ADR 0004)', () => {
     const corpse = corpseOf(state);
     corpse.freshness = 0;
 
-    const events = swallow(state, asSwallowable(corpse));
-    const grew = events.find((event) => event.type === 'grew');
-    expect(grew?.amount).toBeCloseTo(corpse.payout * FRESHNESS_PAYOUT_FLOOR, 9);
+    // The growth is what the grave is owed on the tip tick and swells into over
+    // the ticks after it (Mark's ruling of 2026-09-21), so the payment is read
+    // off the debt rather than off the size or off a grew event.
+    swallow(state, asSwallowable(corpse));
+    expect(state.grave.owed).toBeCloseTo(
+      corpse.payout * FRESHNESS_PAYOUT_FLOOR,
+      9,
+    );
   });
 
   it('an empty corpse is taken under, and one leaving the bottom edge with value left is lost instead', () => {
@@ -180,7 +185,7 @@ describe('freshness (ADR 0004)', () => {
     // Nothing in this dispatch spawns one. The mechanism lands here so the boss
     // dispatch authors a shed rather than inventing a never-decaying flag.
     const state = quietRun();
-    spawnFeast(state, 60, 40, 5);
+    spawnFeast(state, 60, 40);
     const feast = corpseOf(state);
     expect(feast.decays).toBe(false);
 
@@ -607,7 +612,7 @@ describe('a corpse a shove is carrying (design record R10)', () => {
     dirty(0);
     leaveCorpse(state, killAt(state, 'shambler', 60, 200));
     dirty(0);
-    spawnFeast(state, 120, 200, 4);
+    spawnFeast(state, 120, 200);
     dirty(0);
     spawnPowerUp(state, 180, 200, 'wisps');
 

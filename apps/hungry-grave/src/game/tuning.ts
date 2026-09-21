@@ -107,22 +107,23 @@ const CORPSES_TO_CEILING = 400;
 const TRASH_CORPSE_PAYOUT = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
 
 /**
- * Decision-log entry 5.11: the Banshee's feast pays growth worth a stated count
- * of fresh trash corpses, and the same swallow slams the reservoir full.
+ * What a full reservoir costs, in fresh trash corpses of expected mowing.
  *
- * The count is the reservoir stated in corpses, because the reservoir is
- * written as this payout and the two are one row. What it is against: a belch
- * roughly every forty seconds at Crowd rates rather than every two, so the
- * belch is a cadence the player waits for and spends rather than a reflex.
+ * What it is against: a belch roughly every forty seconds at Crowd rates rather
+ * than every two, so the belch is a cadence the player waits for and spends
+ * rather than a reflex.
+ *
+ * It is written out here rather than taken off the feast's own payout, which is
+ * how it was stated while the two were one number. Entry 5.11's identity is
+ * kept and it moved from arithmetic into a rule: the swallow of a feast slams
+ * the reservoir full, stated once in `swallow.ts` where the charge is paid. The
+ * feast's growth came down on Mark's ruling of 2026-09-21, and a capacity
+ * written as that growth would have come down with it.
  */
-const FEAST_PAYOUT = 300 * TRASH_CORPSE_PAYOUT;
+const RESERVOIR_IN_CORPSES = 300;
 
-/**
- * Entry 5.11 again: the same swallow slams the reservoir full. Capacity is the
- * feast's payout exactly, so a fully fresh feast fills the reservoir and wastes
- * nothing, and the run's most choreographed beat is true by construction.
- */
-const RESERVOIR_CAPACITY = FEAST_PAYOUT;
+// Entry 5.11: what a full reservoir holds, in size units, at the corpse's own unit.
+const RESERVOIR_CAPACITY = RESERVOIR_IN_CORPSES * TRASH_CORPSE_PAYOUT;
 
 /**
  * Freshness scales a payout down to a floor and never to zero (ADR 0004).
@@ -151,6 +152,6 @@ export {
   INVULNERABLE_TICKS,
   CORPSES_TO_CEILING,
   TRASH_CORPSE_PAYOUT,
-  FEAST_PAYOUT,
+  RESERVOIR_IN_CORPSES,
   RESERVOIR_CAPACITY,
 };

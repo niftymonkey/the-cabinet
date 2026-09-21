@@ -205,8 +205,17 @@ const NEVER_FEEDS: number[] = [];
  * above records, run the other way: the swallow rule took 303 out of the paid
  * seeds by taking food away from it, and the pull puts it back in this set by
  * giving food back.
+ *
+ * 303 left it again for the grave's swell (Mark's ruling of 2026-09-21, #148),
+ * so 202 alone is never paid. The mechanism is the size once more, and this
+ * time it is how the size arrives rather than how much food does: a swallow's
+ * growth comes in over the ticks after the tip instead of on it, so this lane
+ * is a slightly smaller target through the whole of its run and meets each
+ * later wave at a different size and a different tick. Which waves a lane
+ * passes through decides whether it crosses a carrier, which is every entry
+ * above.
  */
-const NEVER_PAID: number[] = [202, 303];
+const NEVER_PAID: number[] = [202];
 
 /**
  * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404
@@ -750,6 +759,34 @@ describe('dodgePolicy over the whole stage (ADR 0013)', () => {
       expect(count(events, 'swallowed') > 0).toBe(fed);
       expect(count(events, 'grew') > 0).toBe(fed);
     });
+  }
+
+  for (const seed of SEEDS) {
+    it(
+      `never grows the grave by more than a tenth of a size unit on any tick of the run on seed ${seed}`,
+      () => {
+        // Mark's ruling of 2026-09-21, played rather than reasoned: the one
+        // real bug in this kernel passed every unit test and showed itself the
+        // moment a run was played from its first tick to won or lost.
+        //
+        // Every change to the size is one of two events: a grew, which the
+        // swell fires once a tick with what it took in, and a graveHit, which
+        // only ever shrinks. So the largest grew over a whole run is the
+        // largest the grave ever grew on any tick of it.
+        const { events, faults } = fullRun(seed);
+        const slices = events
+          .filter((event) => event.type === 'grew')
+          .map((event) => (event.type === 'grew' ? event.amount : 0));
+
+        // The bound is read over a set the run really produced. Growth that
+        // arrived on the tick it was paid would leave the swell nothing to
+        // fire, and a largest-of over nothing passes while measuring nothing.
+        expect(slices.length > 0).toBe(!NEVER_FEEDS.includes(seed));
+        expect(Math.max(0, ...slices)).toBeLessThanOrEqual(0.1);
+        expect(faults).toEqual([]);
+      },
+      ONE_WHOLE_STAGE_MS,
+    );
   }
 });
 

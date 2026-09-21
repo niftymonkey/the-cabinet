@@ -7,10 +7,10 @@ import type { Container, ICanvas, Renderer } from 'pixi.js';
 import { BrowserAdapter, DOMAdapter, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Grave } from '../../../../game/grave';
-import { createGrave, graveHitbox, graveWidth } from '../../../../game/grave';
+import { graveHitbox, graveWidth } from '../../../../game/grave';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../../../game/tuning';
 import { BAKE_PADDING } from '../graveDrawingValues';
-import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from '../GraveRenderer';
+import { GraveRenderer } from '../GraveRenderer';
 import { FieldLayers } from '../layering';
 
 /** The three sizes the grave's art is judged at (design record R4). */
@@ -74,7 +74,7 @@ const PHONE = {
 } as unknown as Renderer;
 
 function grave(size: number, x = 270, y = 600): Grave {
-  return { x, y, size, invulnerable: 0, scoreRungBled: false };
+  return { x, y, size, invulnerable: 0, owed: 0, scoreRungBled: false };
 }
 
 function attached(): { layers: FieldLayers; renderer: GraveRenderer } {
@@ -90,10 +90,6 @@ function pieceOf(layers: FieldLayers, at: number): Container {
   return piece;
 }
 
-function glowOf(layers: FieldLayers): Graphics {
-  return layers.layer('graveRim').children[0] as Graphics;
-}
-
 /** Every piece under a container, however deep. */
 function everyPieceUnder(parent: Container): Container[] {
   return parent.children.flatMap((child) => [child, ...everyPieceUnder(child)]);
@@ -105,46 +101,28 @@ function drawn(layers: FieldLayers): void {
 }
 
 /** The grave synced and then drawn, which is one frame of play. */
-function frame(
-  layers: FieldLayers,
-  renderer: GraveRenderer,
-  at: Grave,
-  fullness = 0,
-): void {
-  renderer.sync(at, fullness, 0);
+function frame(layers: FieldLayers, renderer: GraveRenderer, at: Grave): void {
+  renderer.sync(at);
   drawn(layers);
 }
 
 describe('GraveRenderer', () => {
-  it('the baked hole lands in the graveMouth layer and the glow in the graveRim layer (ADR 0014)', () => {
-    // The hole's art sits under whatever is falling into it, and the glow
-    // stays legible over the food on the band it rides.
+  it('the baked hole lands in the graveMouth layer and nothing at all in the graveRim layer (ADR 0014)', () => {
+    // The hole's art sits under whatever is falling into it, and nothing of the
+    // grave's rides above the food any more.
     const { layers } = attached();
     expect(layers.layer('graveMouth').children).toHaveLength(MOUTH_CHILDREN);
-    expect(layers.layer('graveRim').children).toHaveLength(1);
-  });
-
-  it('the mouth stays a hole at SIZE_FLOOR', () => {
-    // The glow rides a band GRAVE_RIM_STROKE wide inside the
-    // hitbox, so a floor grave keeps a mouth between the two sides of it.
-    //
-    // The mouth does not bind the power-up: ADR 0003 rules that size never gates a
-    // swallow, and the power-up's own bounds live in FieldRenderer.test.ts
-    // (docs/design/drop-legibility-fix.md carries the supersession).
-    const interior = graveWidth(SIZE_FLOOR) - 2 * GRAVE_RIM_STROKE;
-    expect(interior).toBeGreaterThan(0);
-    expect(2 * GRAVE_RIM_STROKE).toBeLessThan(graveWidth(SIZE_FLOOR));
+    expect(layers.layer('graveRim').children).toHaveLength(0);
   });
 
   it('nothing pale is drawn round the opening at rest', () => {
     // Slice 6: the prototype has no rim, because a bright ring round an
     // opening reads as a kerb the hole was set into rather than as dug earth.
-    // With the reservoir empty, nothing in the rim's layer shows
-    // and the mouth's layer holds only the baked art and the falls. A rim put
-    // back, in either layer, fails here.
+    // Nothing in the rim's layer shows and the mouth's layer holds only the
+    // baked art and the falls. A rim put back, in either layer, fails here.
     const { layers, renderer } = attached();
     for (const size of EVERY_SIZE) {
-      frame(layers, renderer, grave(size), 0);
+      frame(layers, renderer, grave(size));
       const showing = layers
         .layer('graveRim')
         .children.filter(
@@ -158,36 +136,21 @@ describe('GraveRenderer', () => {
     }
   });
 
-  it("the reservoir's glow still shows", () => {
-    // The rim went, and the glow it carried did not: a full reservoir lights
-    // the band.
-    const { layers, renderer } = attached();
-    for (const size of EVERY_SIZE) {
-      frame(layers, renderer, grave(size), 1);
-      const glow = glowOf(layers);
-      expect(`${size} ${glow.alpha > 0.5}`).toBe(`${size} true`);
-      expect(`${size} ${glow.getLocalBounds().width > 0}`).toBe(`${size} true`);
-    }
-  });
-
   it("Territory's charge is not drawn on the grave", () => {
     // Mark, 2026-09-21: the charge traced round the band read wrong on the
     // prototype's grave and came off until it is redesigned. The grave takes no
-    // charge at all, and its rim layer holds the glow alone.
+    // charge at all, and it takes no reservoir and no tick either: the sync
+    // reads the grave and nothing else.
     const { layers, renderer } = attached();
-    expect(renderer.sync.length).toBe(3);
-    frame(layers, renderer, grave(SIZE_START), 0);
-    expect(layers.layer('graveRim').children).toEqual([glowOf(layers)]);
+    expect(renderer.sync.length).toBe(1);
+    frame(layers, renderer, grave(SIZE_START));
+    expect(layers.layer('graveRim').children).toEqual([]);
   });
 
   it('position follows grave.x and grave.y', () => {
     const { layers, renderer } = attached();
     frame(layers, renderer, grave(SIZE_START, 123, 456));
-    const pieces = [
-      pieceOf(layers, THE_PIT),
-      pieceOf(layers, THE_LIP),
-      glowOf(layers),
-    ];
+    const pieces = [pieceOf(layers, THE_PIT), pieceOf(layers, THE_LIP)];
     for (const piece of pieces) {
       expect(piece.position.x).toBe(123);
       expect(piece.position.y).toBe(456);
@@ -203,7 +166,7 @@ describe('GraveRenderer', () => {
     frame(layers, renderer, grave(27));
     const baked = canvasesMade.length;
 
-    frame(layers, renderer, grave(27, 300, 400), 0.5);
+    frame(layers, renderer, grave(27, 300, 400));
     frame(layers, renderer, grave(27.3, 300, 400));
     expect(canvasesMade.length).toBe(baked);
 
@@ -269,35 +232,6 @@ describe('GraveRenderer', () => {
     expect(pit?.width).toBe(Math.ceil(side * 2 * wanted));
   });
 
-  it('a same-size sync redraws no rim stroke', () => {
-    // The glow keeps a fixed stroke in field units, so it is redrawn on a
-    // size change and never on a move.
-    const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 0, 0);
-    const redrawn = [glowOf(layers)].map((piece) => vi.spyOn(piece, 'clear'));
-
-    renderer.sync(grave(SIZE_START, 300, 400), 0, 0);
-    for (const spy of redrawn) expect(spy).not.toHaveBeenCalled();
-
-    renderer.sync(grave(SIZE_START + 3, 300, 400), 0, 0);
-    for (const spy of redrawn) expect(spy).toHaveBeenCalled();
-  });
-
-  it("draws the glow at the rim's own geometry, so a charged grave is not a wider grave (ADR 0003)", () => {
-    // The outer edge is the health bar and a player reads it as what they pass
-    // under. A glow standing outside the hitbox would make the grave read
-    // wider than the box.
-    const { layers, renderer } = attached();
-    const at = grave(SIZE_START);
-    renderer.sync(at, 1, 0);
-    const box = graveHitbox(at);
-    const glow = glowOf(layers).getBounds();
-    expect(glow.x).toBeCloseTo(box.x, 9);
-    expect(glow.y).toBeCloseTo(box.y, 9);
-    expect(glow.width).toBeCloseTo(box.width, 9);
-    expect(glow.height).toBeCloseTo(box.height, 9);
-  });
-
   it('detach then attach puts both pieces back, which FieldLayers.clear() between runs requires', () => {
     const { layers, renderer } = attached();
     renderer.detach();
@@ -307,7 +241,7 @@ describe('GraveRenderer', () => {
     layers.clear();
     renderer.attach(layers);
     expect(layers.layer('graveMouth').children).toHaveLength(MOUTH_CHILDREN);
-    expect(layers.layer('graveRim').children).toHaveLength(1);
+    expect(layers.layer('graveRim').children).toHaveLength(0);
   });
 });
 
@@ -335,7 +269,7 @@ describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
     // twice and a feast would start its fall in mid-hole.
     const { renderer } = attached();
     for (const size of EVERY_SIZE) {
-      renderer.sync(grave(size, 111, 222), 0, 0);
+      renderer.sync(grave(size, 111, 222));
       expect(`${size} ${renderer.falls.position.x}`).toBe(`${size} 111`);
       expect(`${size} ${renderer.falls.position.y}`).toBe(`${size} 222`);
       expect(`${size} ${renderer.falls.scale.x}`).toBe(`${size} 1`);
@@ -344,35 +278,20 @@ describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
   });
 });
 
-describe("the reservoir's diegetic tell (plan 6.18)", () => {
-  it('builds the glow with fullness, so an empty reservoir shows nothing', () => {
-    expect(glowAlpha(0, 0)).toBe(0);
-    expect(glowAlpha(0.5, 0)).toBeCloseTo(0.5, 6);
-    expect(glowAlpha(0.9, 0)).toBeCloseTo(0.9, 6);
-  });
-
-  it('pulses at full rather than simply reaching the top of the ramp', () => {
-    // Two tells rather than one is deliberate: the button is where the thumb
-    // is and the glow is where the eyes are, and a player mid-dodge is looking
-    // at the grave. Pulsing is what makes full a state and not a maximum.
-    const across = [];
-    for (let tick = 0; tick < 60; tick++) across.push(glowAlpha(1, tick));
-    expect(new Set(across).size).toBeGreaterThan(1);
-    expect(Math.max(...across)).toBeLessThanOrEqual(1);
-    expect(Math.min(...across)).toBeGreaterThan(glowAlpha(0.5, 0));
-  });
-
-  it('clamps a fullness outside zero to one rather than trusting the caller', () => {
-    expect(glowAlpha(-1, 0)).toBe(0);
-    expect(glowAlpha(2, 0)).toBeLessThanOrEqual(1);
-  });
-
-  it('takes a number and never the run state', () => {
-    // Handing a renderer live sim state is the thing the rest of this design
-    // works to avoid, and fullness is everything the glow needs.
-    const layers = new FieldLayers();
-    const renderer = new GraveRenderer();
-    renderer.attach(layers);
-    expect(() => renderer.sync(createGrave(27), 1, 10)).not.toThrow();
+describe("the blinking border is gone (Mark's ruling of 2026-09-21)", () => {
+  it('the grave puts nothing in the graveRim layer, so no glow comes back', () => {
+    // Mark, 2026-09-21: "now occasionally you do this weird blinking border.
+    // That also needs to go. I don't even know what that's for ... we already
+    // have a different indicator that shows when the belch is full so let's get
+    // rid of that blinky border." The deliberate absence, guarded: the belch
+    // button is the only thing that says the belch is loaded, and a band put
+    // back on the grave at any charge fails here.
+    const { layers, renderer } = attached();
+    for (const size of EVERY_SIZE) {
+      frame(layers, renderer, grave(size));
+      expect(`${size} ${layers.layer('graveRim').children.length}`).toBe(
+        `${size} 0`,
+      );
+    }
   });
 });

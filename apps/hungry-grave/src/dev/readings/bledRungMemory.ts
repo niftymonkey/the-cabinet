@@ -9,7 +9,7 @@ import type { RunState } from '../../game/run';
  *
  * It is the run's own state rather than a reading over events, on `refusals`'
  * and `gravePath`'s terms: no event carries the memory, its clear predicate
- * lives in `growGrave`, and the only way to read one is to look where the
+ * lives in the grave's own swell, and the only way to read one is to look where the
  * invariant harness looks. This reading looks at the same moment, the end of
  * the tick, and reads the edge between one sample and the next. It never
  * re-runs the predicate that moves the field, because a second copy of a sim
@@ -24,7 +24,7 @@ import type { RunState } from '../../game/run';
  * same tick as a hit that shrank the grave is netted away, bounded by that
  * tick's own swallows. No event carries the size a swallow paid, `swallowed`
  * carrying the payout and the freshness rather than the growth, so the only
- * other source is `freshnessScale` and `growGrave`'s own ceiling clamp written
+ * other source is `freshnessScale` and `growGrave`'s own ceiling refusal written
  * a second time inside src/dev, which is the copy this reading refuses to be.
  */
 interface BledRungMemory {

@@ -942,6 +942,13 @@ const NAN_CASES: readonly NanCase[] = [
     },
   },
   {
+    path: 'grave.owed',
+    poison: (run) => {
+      run.grave.owed = NaN;
+      return run;
+    },
+  },
+  {
     path: 'mobs[].x',
     poison: (run) => {
       slot0(run.mobs).x = NaN;
@@ -1666,6 +1673,10 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'a row of the record the run started under, as conditions.tuning.swallow.pullReach is',
   'conditions.tuning.swallow.pullResponse':
     'a row of the record the run started under, as conditions.tuning.swallow.pullReach is',
+  'conditions.tuning.growth.feastInCorpses':
+    'a row of the record the run started under, as conditions.tuning.stage.processionPurse is: what it decides is what a feast pays in growth, and a NaN in it reaches grave.owed on the tick the feast goes in, which is poisoned above',
+  'conditions.tuning.growth.swellPerSecond':
+    'a row of the record the run started under, as conditions.tuning.growth.feastInCorpses is: what it decides is how fast the grave takes that growth in, and a NaN in it reaches grave.size on the next tick the grave is owed anything, which is poisoned above',
   'caps.mobs':
     "what this run's mob pool was built at, derived once by createRun from the record above and never mutated (ADR 0056 as amended). A NaN in it would show as a pool length this harness already reads, because a pool is built at it and pool.length is an integer whatever the cap was",
   'caps.mobFire': "what this run's mob-fire pool was built at, as caps.mobs is",
@@ -1988,5 +1999,38 @@ describe('Territory under the harness (#76)', () => {
     slot0(run.patches).y = FIELD_HEIGHT + radius;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
+  });
+});
+
+describe("the growth the grave is owed (Mark's ruling of 2026-09-21)", () => {
+  it('a grave owed a negative amount of growth is a fault', () => {
+    // Unreachable from the rules as written: growGrave only ever adds what fits
+    // and the swell only ever takes off what is there. What it catches is a
+    // reversed sign at one of the three sites that write the field, and the
+    // symptom it would otherwise wear is the floor ladder running on a grave
+    // that stands clear of the floor, because hitGrave reads the size plus the
+    // debt as the true size.
+    const owing = createRun(1);
+    owing.grave.owed = -1;
+    expect(brokenOn(owing)).toContain('growth owed in range');
+  });
+
+  it('a grave whose size and owed growth together stand above the ceiling is a fault', () => {
+    // ADR 0003's ceiling read on the tick the payment lands. The size the grave
+    // will reach is its size plus what it has been paid, so a payment that went
+    // through without the ceiling refusing it as overflow shows here at once,
+    // while the size check cannot see it until the swell has carried the size
+    // past the ceiling, which is hundreds of ticks at the swell's own rate.
+    const over = createRun(1);
+    over.grave.size = SIZE_CEILING;
+    over.grave.owed = 1;
+    expect(brokenOn(over)).toContain('growth owed in range');
+
+    // And a grave owed exactly the room under the ceiling is not a fault, which
+    // is what says the check is the ceiling and not a ban on being owed at all.
+    const full = createRun(1);
+    full.grave.size = SIZE_CEILING - 1;
+    full.grave.owed = 1;
+    expect(brokenOn(full)).not.toContain('growth owed in range');
   });
 });

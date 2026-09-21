@@ -87,7 +87,7 @@ describe('food ledger', () => {
     // the design record asks for: swallowed against lost.
     const run = createRun(SEED);
     const accumulator = createFoodLedger();
-    spawnFeast(run, 100, FIELD_HEIGHT + 40, PAYOUT);
+    spawnFeast(run, 100, FIELD_HEIGHT + 40);
 
     observeFoodLedger(accumulator, cullCorpses(run));
 

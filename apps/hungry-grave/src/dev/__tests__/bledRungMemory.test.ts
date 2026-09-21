@@ -34,10 +34,18 @@ const A_CRUMB = 1;
  */
 const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 
+/** The grave taking in every bit of growth it is owed, at the run's own rate (Mark's ruling of 2026-09-21). */
+const takeIn = (run: RunState): void => {
+  while (run.grave.owed > 0) {
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+  }
+};
+
 /** One landed hit, with the invulnerability window it opens counted back down. */
 const land = (run: RunState): void => {
   hitGrave(run, 'contact');
-  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++) ageGrave(run.grave);
+  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
 };
 
 describe('bled rung memory', () => {
@@ -57,8 +65,10 @@ describe('bled rung memory', () => {
     observeBledRungMemory(accumulator, run);
     observeBledRungMemory(accumulator, run);
     growGrave(run.grave, A_CRUMB);
+    takeIn(run);
     observeBledRungMemory(accumulator, run);
     growGrave(run.grave, HIT_SHRINK);
+    takeIn(run);
     observeBledRungMemory(accumulator, run);
 
     expect(bledRungMemoryOf(accumulator)).toEqual({
@@ -83,6 +93,7 @@ describe('bled rung memory', () => {
     land(run);
     observeBledRungMemory(accumulator, run);
     growGrave(run.grave, HIT_SHRINK);
+    takeIn(run);
     observeBledRungMemory(accumulator, run);
     land(run);
     observeBledRungMemory(accumulator, run);
@@ -107,6 +118,7 @@ describe('bled rung memory', () => {
 
     observeBledRungMemory(accumulator, run);
     growGrave(run.grave, HIT_SHRINK);
+    takeIn(run);
     observeBledRungMemory(accumulator, run);
 
     expect(bledRungMemoryOf(accumulator)).toEqual({

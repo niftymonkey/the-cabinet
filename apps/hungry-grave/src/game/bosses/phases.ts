@@ -7,7 +7,6 @@ import type { DamageSource } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
 import type { BossKind } from '../stage/waves';
-import { FEAST_PAYOUT } from '../tuning';
 import { advanceBanshee, bansheeDied } from './banshee';
 import { advanceUndertaker, undertakerDied } from './undertaker';
 
@@ -168,7 +167,7 @@ const breakPhase = (state: RunState, boss: Boss): SimEvent[] => {
   const events: SimEvent[] = [
     { type: 'phaseBroke', boss: boss.kind, phaseIndex: boss.phaseIndex },
   ];
-  events.push(...spawnFeast(state, boss.x, boss.y, FEAST_PAYOUT));
+  events.push(...spawnFeast(state, boss.x, boss.y));
   return events;
 };
 

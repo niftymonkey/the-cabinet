@@ -151,6 +151,31 @@ describe('resolving a partial tuning record', () => {
     ).not.toThrow();
   });
 
+  it('rejects a record whose feast pays nothing in growth, naming the row', () => {
+    // Mark's ruling of 2026-09-21 moved the feast's growth to its own row. A
+    // feast that pays nothing is not a feast, and a negative one would shrink
+    // the grave through a path that has nothing to do with a hit. A record is a
+    // document, so it is rejected rather than repaired.
+    expect(() => resolveTuning({ growth: { feastInCorpses: 0 } })).toThrow(
+      /growth\.feastInCorpses/,
+    );
+    expect(() => resolveTuning({ growth: { feastInCorpses: -1 } })).toThrow(
+      /growth\.feastInCorpses/,
+    );
+  });
+
+  it('rejects a record whose swell rate is zero, naming the row', () => {
+    // At zero the grave would never take in anything it was paid and would
+    // never grow again at all, which is exactly the standing-still the ruling
+    // exists to end, and below zero the swell would run backwards.
+    expect(() => resolveTuning({ growth: { swellPerSecond: 0 } })).toThrow(
+      /growth\.swellPerSecond/,
+    );
+    expect(() => resolveTuning({ growth: { swellPerSecond: -1 } })).toThrow(
+      /growth\.swellPerSecond/,
+    );
+  });
+
   it('rejects a record whose quiet-interval minimum is zero, naming the row', () => {
     // The stage group's own divisor: every cap prices a window as one card at
     // its opening and one more at every quiet interval inside it, so a zero
@@ -226,11 +251,19 @@ describe("the tuning record's rows", () => {
         name: 'swallow.pullResponse',
         value: DEFAULT_TUNING.swallow.pullResponse,
       },
+      {
+        name: 'growth.feastInCorpses',
+        value: DEFAULT_TUNING.growth.feastInCorpses,
+      },
+      {
+        name: 'growth.swellPerSecond',
+        value: DEFAULT_TUNING.growth.swellPerSecond,
+      },
     ]);
-    // Fourteen distinct names, so a walk answering one row fourteen times could
+    // Sixteen distinct names, so a walk answering one row sixteen times could
     // not have produced the list above.
     expect(
       new Set(tuningRows(DEFAULT_TUNING).map((row) => row.name)).size,
-    ).toBe(14);
+    ).toBe(16);
   });
 });

@@ -24,7 +24,6 @@ import {
   PALETTE,
   SPRITE_OUTLINE,
 } from '../palette';
-import { GRAVE_RIM_STROKE } from '../screens/game/GraveRenderer';
 import { LAYER_ORDER } from '../screens/game/layering';
 
 /** APCA's stated minimum for fine-detail pictograms, which is what a bullet is. */
@@ -59,12 +58,6 @@ const TIER_OBSERVER_MAX = 2.5;
 /** Assertion 9's saturation branch, for a tier that clears the treasure class on saturation rather than on hue. */
 const TIER_SATURATION_MIN = 0.25;
 
-/** The stroke floor GRAVE_RIM_STROKE's own derivation rests on, in CSS pixels on the phone viewport. */
-const RIM_STROKE_MIN_CSS = 2.0;
-
-/** The thick end of GRAVE_RIM_STROKE's bracket, in field units: the band the glow and the arc ride. */
-const RIM_BAND_MAX = 4;
-
 /**
  * The colours in PALETTE that are not sprites the player tells apart mid-dodge.
  *
@@ -78,6 +71,13 @@ const RIM_BAND_MAX = 4;
 const NOT_SPRITES = [
   'hudInk',
   'hudDim',
+  /**
+   * The belch's ready tell, which is a readout in the HUD and no longer a band
+   * on the grave: Mark ruled the blinking border off the grave on 2026-09-21,
+   * and `BelchButton` is its one reader. It sits beside hudInk and hudDim,
+   * which is where the readouts already are.
+   */
+  'graveGlow',
   'night',
   'nightSpeckle',
   'fieldFrame',
@@ -267,11 +267,6 @@ const RIM_NOT_DRAWN =
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
-    pair: ['graveGlow', 'powerUp'],
-    because:
-      "the glow is the grave wearing treasure's own colour, always at the grave's position and pulsing where a power-up is steady",
-  },
-  {
     pair: ['feast', 'belchEruption'],
     because:
       'a feast is a small steady sprite in the food layer and the eruption is a momentary full-field event two layers below it',
@@ -290,16 +285,10 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['feast', 'undertaker'], because: `31.71: ${MID_BAND_BODY}` },
   { pair: ['powerUp', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
   { pair: ['powerUp', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
-  { pair: ['graveGlow', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
-  { pair: ['graveGlow', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['undertaker', 'graveHole'], because: `24.77: ${MID_BAND_BODY}` },
   { pair: ['undertaker', 'foodOutline'], because: `23.42: ${MID_BAND_BODY}` },
   // Over the splash, which dispatch 5 draws for the first time.
   { pair: ['graveRim', 'splash'], because: OVER_THE_SPLASH },
-  {
-    pair: ['graveGlow', 'splash'],
-    because: `43.16, and ${OVER_THE_SPLASH}`,
-  },
   { pair: ['corpse', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['corpseRevenant', 'splash'], because: OVER_THE_SPLASH },
   { pair: ['feast', 'splash'], because: OVER_THE_SPLASH },
@@ -395,7 +384,6 @@ const SPRITE_LAYER: Record<string, (typeof LAYER_ORDER)[number]> = {
   graveHole: 'graveMouth',
   graveWall: 'graveMouth',
   graveRim: 'graveRim',
-  graveGlow: 'graveRim',
   mob: 'mobBodies',
   mobDark: 'mobBodies',
   banshee: 'mobBodies',
@@ -882,21 +870,6 @@ describe('the sprite outline table (ADR 0014)', () => {
     }
     expect(failures).toEqual([]);
   });
-
-  it("holds the rim's geometry at both ends of its bracket", () => {
-    // Assertion 4. The thin end is a phone measurement and the thick end is the
-    // mouth's, and the two are one rule: a later thinning or thickening has to
-    // fail here rather than pass quietly.
-    const stage = resize(390, 844, FIELD_WIDTH, FIELD_HEIGHT, false);
-    const scale = fitField(stage.width, stage.height).scale;
-    const cssPixelsPerStageUnit = 390 / stage.width;
-    expect(
-      GRAVE_RIM_STROKE * scale * cssPixelsPerStageUnit,
-    ).toBeGreaterThanOrEqual(RIM_STROKE_MIN_CSS);
-    // The rim's one-unit dark companion band went with the rim in slice 6, so
-    // the band the glow and the arc ride is the whole of the thick end.
-    expect(GRAVE_RIM_STROKE).toBeLessThanOrEqual(RIM_BAND_MAX);
-  });
 });
 
 describe('the corpse tiers (tracer plan section 4)', () => {
@@ -1259,8 +1232,6 @@ const GROUND_COLLISIONS: { pair: [string, string]; because: string }[] = [
 const SPRITE_OVER_THE_GROUND: Record<string, string> = {
   graveRim:
     'groundNight 38.82, groundSpeckle 31.16, groundCold 30.43, groundWet 34.31, groundDamp 46.92, groundCrack 48.23, groundGravel 50.13, graveTurf 38.03, graveTurfDark 34.40',
-  graveGlow:
-    'groundNight 45.05, groundSpeckle 31.16, groundCold 36.67, groundWet 40.55, groundDamp 53.16, groundCrack 54.47, groundGravel 50.13, graveTurf 38.03, graveTurfDark 40.63',
   corpse:
     'groundNight 35.21, groundSpeckle 29.38, groundCold 26.83, groundWet 30.71, groundDamp 43.32, groundCrack 44.63, groundGravel 48.35, graveTurf 36.25, graveTurfDark 30.79',
   corpseRevenant:

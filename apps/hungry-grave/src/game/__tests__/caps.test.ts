@@ -255,7 +255,7 @@ describe('the corpse cap (ADR 0056)', () => {
     fillCorpses(state);
     const corpses = foodOn(state);
     expect(spawnPowerUp(state, 100, 100, 'bell')).toEqual([]);
-    expect(spawnFeast(state, 100, 100, 4)).toEqual([]);
+    expect(spawnFeast(state, 100, 100)).toEqual([]);
     expect(foodOn(state)).toEqual(corpses);
 
     const treasureRun = quietRun(13);

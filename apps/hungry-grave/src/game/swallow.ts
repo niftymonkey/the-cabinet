@@ -53,18 +53,15 @@ interface Swallowable {
   readonly line?: WeaponLine;
 }
 
-// Growth, with anything past the ceiling handed back as overflow (ADR 0003).
-const payGrowth = (
-  state: RunState,
-  amount: number,
-  events: SimEvent[],
-): number => {
-  const overflow = growGrave(state.grave, amount);
-  const grown = amount - overflow;
-  if (grown > 0) {
-    events.push({ type: 'grew', amount: grown, size: state.grave.size });
-  }
-  return overflow;
+/**
+ * Growth, with anything past the ceiling handed back as overflow (ADR 0003).
+ *
+ * The grave is owed the growth here, on the tip tick, and swells into it over
+ * the ticks after (Mark's ruling of 2026-09-21), so the `grew` event belongs to
+ * the swell and no longer fires from the swallow.
+ */
+const payGrowth = (state: RunState, amount: number): number => {
+  return growGrave(state.grave, amount);
 };
 
 /**
@@ -142,8 +139,16 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
     { type: 'chimed', kind: food.kind, treasureBody: food.treasureBody },
   ];
 
-  const overflow = payGrowth(state, paid, events);
-  payReservoir(state, paid, events);
+  const overflow = payGrowth(state, paid);
+  // Entry 5.11: the swallow of a feast slams the reservoir full, so a fully
+  // fresh feast fills it and wastes nothing. It is the charge and not the
+  // growth, because the two stopped being one number when the feast's growth
+  // came down (Mark's ruling of 2026-09-21).
+  payReservoir(
+    state,
+    food.kind === 'feast' ? RESERVOIR_CAPACITY : paid,
+    events,
+  );
   // The offer's own rule, held in offer.ts: a power-up is one body of an offer, so
   // taking it levels the option that body carried and vanishes its siblings.
   // A body belonging to no live offer answers with nothing, which is what

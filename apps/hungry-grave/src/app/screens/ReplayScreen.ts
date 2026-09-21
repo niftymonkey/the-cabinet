@@ -5,7 +5,6 @@ import type { Caps } from '../../game/caps';
 import { capsFor } from '../../game/caps';
 import type { SimEvent } from '../../game/events';
 import type { RunState } from '../../game/run';
-import { RESERVOIR_CAPACITY } from '../../game/tuning';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
@@ -255,7 +254,7 @@ class ReplayScreen extends Container {
         this.stormRenderer.weaponStripped(run, event.lines);
       }
     }
-    this.grave.sync(run.grave, run.reservoir / RESERVOIR_CAPACITY, run.tick);
+    this.grave.sync(run.grave);
     this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.falls.sync(run);

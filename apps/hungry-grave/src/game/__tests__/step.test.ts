@@ -5,7 +5,10 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Stepper } from '../../dev/stepping';
 import { stepping } from '../../dev/stepping';
+import { TICK_HZ } from '../clock';
+import { FIELD_WIDTH } from '../field';
 import { spawnBoss } from '../bosses/phases';
 import type { Corpse } from '../corpses';
 import {
@@ -21,7 +24,7 @@ import type { SimEvent } from '../events';
 import { graveHitbox, graveWidth } from '../grave';
 import { fireDirectedShot } from '../mobFire';
 import type { Mob } from '../mobs';
-import { ARRIVE_TICKS, MOB_TYPES, spawnMob } from '../mobs';
+import { ARRIVE_TICKS, MOB_TYPE_NAMES, MOB_TYPES, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
 import type { RunState } from '../run';
 import { createRun } from '../run';
@@ -32,15 +35,18 @@ import { BELL_EXPAND_TICKS } from '../lines/bell';
 import { MAX_LEVEL } from '../lines/roster';
 import {
   BASE_SPEED,
+  GRAVE_ASPECT,
   HIT_SHRINK,
   INVULNERABLE_TICKS,
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
   SIZE_CEILING,
   SIZE_FLOOR,
+  SIZE_START,
+  TRASH_CORPSE_PAYOUT,
 } from '../tuning';
 import type { TuningOverlay } from '../tuningRecord';
-import { resolveTuning } from '../tuningRecord';
+import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 
 /** A tick that only steers, which is every tick these tests are about. */
 function drift(x: number, y: number): TickCommand {
@@ -928,14 +934,12 @@ describe('food goes in when most of it is over the mouth (grave-in-the-ground R1
       feastOut,
       acrossTheLeftRim(feastOut, 2, CORPSE_HALF_EXTENT),
       feastOut.grave.y,
-      1,
     );
     const feastIn = quietRun();
     spawnFeast(
       feastIn,
       acrossTheLeftRim(feastIn, 8, CORPSE_HALF_EXTENT),
       feastIn.grave.y,
-      1,
     );
     const rungOut = quietRun();
     spawnFallenRung(
@@ -1154,5 +1158,121 @@ describe('the pull in the tick order (grave-in-the-ground R3)', () => {
     expect(corpse.x + CORPSE_HALF_EXTENT).toBeLessThan(
       graveHitbox(state.grave).x,
     );
+  });
+});
+
+/**
+ * The phone's own scale, in CSS pixels per field unit: the field's width across
+ * a 390-wide phone, which is where SIZE_FLOOR's own JSDoc gets its 0.72.
+ *
+ * It lives here and not in src/game, because the phone is not the rules'
+ * business and this is the one question that asks about it.
+ */
+const PIXELS_PER_UNIT_ON_A_PHONE = 390 / FIELD_WIDTH;
+
+/** Steps the run until the grave owes itself nothing, and answers the ticks that took. */
+function swellOut(state: RunState, step: Stepper): number {
+  let ticks = 0;
+  while (state.grave.owed > 0) {
+    step(STILL);
+    ticks += 1;
+    if (ticks > 10000) throw new Error('the swell never finished');
+  }
+  return ticks;
+}
+
+describe("the grave swells rather than popping (Mark's ruling of 2026-09-21)", () => {
+  it("twenty fresh trash corpses swallowed grow the grave's drawn height by at least two CSS pixels on a 390-wide phone", () => {
+    // Mark, 2026-09-21: "the ability for the grave to gradually increase from
+    // min to max size as you eat corpses. That is not happening." The mow has
+    // to be visible on the device it is played on, and a corpse is 0.10125 of
+    // size, which is 0.146 CSS pixels of drawn height: what a player reads is
+    // the stretch of mowing and not the corpse.
+    const state = quietRun();
+    const step = stepping(state);
+    const before = state.grave.size;
+
+    for (let eaten = 0; eaten < 20; eaten += 1) {
+      corpseAt(state, state.grave.x, state.grave.y);
+      step(STILL);
+    }
+    swellOut(state, step);
+
+    const grownPixels =
+      (state.grave.size - before) * GRAVE_ASPECT * PIXELS_PER_UNIT_ON_A_PHONE;
+    expect(grownPixels).toBeGreaterThanOrEqual(2);
+  });
+
+  it('no single swallow pays more growth than an eighth of the whole climb from the starting size to the ceiling', () => {
+    // The pop, as a bound on the data rather than on one figure. A feast used
+    // to pay 300 corpses, which is 75% of the whole climb on one tick, and the
+    // dribble between two of those was the mow.
+    const state = quietRun();
+    spawnFeast(state, state.grave.x, 100);
+    spawnPowerUp(state, state.grave.x, 140);
+    const staged = state.corpses
+      .filter((corpse) => corpse.alive)
+      .map((corpse) => corpse.payout);
+    const largest = Math.max(
+      ...staged,
+      ...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].corpsePayout),
+    );
+
+    expect(largest).toBeLessThan((SIZE_CEILING - SIZE_START) / 8);
+  });
+
+  it("a feast's growth is taken in over about a second and never on one tick", () => {
+    // 4.55625 units at 4.5 a second is 60.75 ticks, and the largest tick of it
+    // is the rate itself.
+    const state = quietRun();
+    const step = stepping(state);
+    spawnFeast(state, state.grave.x, state.grave.y);
+
+    const swallowed = step(STILL);
+    expect(typesOf(swallowed).filter((type) => type === 'swallowed')).toEqual([
+      'swallowed',
+    ]);
+    const slices: number[] = [];
+    for (const event of swallowed) {
+      if (event.type === 'grew') slices.push(event.amount);
+    }
+    while (state.grave.owed > 0) {
+      for (const event of step(STILL)) {
+        if (event.type === 'grew') slices.push(event.amount);
+      }
+    }
+
+    expect(slices.length).toBeGreaterThan(TICK_HZ * 0.75);
+    expect(slices.length).toBeLessThan(TICK_HZ * 1.5);
+    expect(Math.max(...slices)).toBeLessThanOrEqual(0.1);
+  });
+
+  it("the swell rate is read off the run's own tuning record: under a record naming half the rate, the same feast takes twice as long", () => {
+    const ticksUnder = (swellPerSecond: number): number => {
+      const state = tunedRun({ growth: { swellPerSecond } });
+      const step = stepping(state);
+      spawnFeast(state, state.grave.x, state.grave.y);
+      step(STILL);
+      return 1 + swellOut(state, step);
+    };
+
+    const whole = ticksUnder(DEFAULT_TUNING.growth.swellPerSecond);
+    const half = ticksUnder(DEFAULT_TUNING.growth.swellPerSecond / 2);
+
+    expect(half / whole).toBeCloseTo(2, 1);
+  });
+
+  it("the feast's growth in corpses is read off the run's own tuning record", () => {
+    const paidUnder = (feastInCorpses: number): number => {
+      const state = tunedRun({ growth: { feastInCorpses } });
+      const step = stepping(state);
+      spawnFeast(state, state.grave.x, state.grave.y);
+      step(STILL);
+      return state.grave.size + state.grave.owed - SIZE_START;
+    };
+
+    const named = DEFAULT_TUNING.growth.feastInCorpses;
+    expect(paidUnder(named * 2) / paidUnder(named)).toBeCloseTo(2, 9);
+    expect(paidUnder(named)).toBeCloseTo(named * TRASH_CORPSE_PAYOUT, 9);
   });
 });

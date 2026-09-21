@@ -266,13 +266,11 @@ const spawnCorpse = (
  * one, which is what keeps ADR 0007's shed-food promise inside the fight rather
  * than at the end of it: a player who cannot dive through the pattern yet still
  * has it waiting.
+ *
+ * What it pays in growth is its own row of the run's record, in fresh trash
+ * corpses, read here rather than handed in: both callers shed the same feast.
  */
-const spawnFeast = (
-  state: RunState,
-  x: number,
-  y: number,
-  payout: number,
-): SimEvent[] => {
+const spawnFeast = (state: RunState, x: number, y: number): SimEvent[] => {
   const events: SimEvent[] = [];
   const corpse = claimSlot(state);
   if (corpse === null) return events;
@@ -281,7 +279,8 @@ const spawnFeast = (
   corpse.x = x;
   corpse.y = y;
   corpse.freshness = 1;
-  corpse.payout = payout;
+  corpse.payout =
+    state.conditions.tuning.growth.feastInCorpses * TRASH_CORPSE_PAYOUT;
   corpse.tier = 'rich';
   corpse.kind = 'feast';
   corpse.decays = false;

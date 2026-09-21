@@ -395,10 +395,6 @@ const MENU = {
  */
 const SPRITE_OUTLINE = {
   graveRim: 'graveHole',
-  // The glow is the rim's own band in treasure's colour, drawn over it at the
-  // identical geometry, so its dark companion is the rim's: the one-unit
-  // graveHole band already stroked immediately inside it.
-  graveGlow: 'graveHole',
   corpse: 'foodOutline',
   corpseRevenant: 'foodOutline',
   feast: 'foodOutline',

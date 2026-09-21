@@ -23,6 +23,7 @@ import { overlaps } from '../overlap';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
+import { TICK_HZ } from '../clock';
 import {
   BASE_SPEED,
   freshnessScale,
@@ -51,9 +52,24 @@ const bleedCapOf = (run: RunState): number =>
   run.conditions.tuning.score.bleedCapInKills *
   run.conditions.tuning.score.trashKillScore;
 
+/**
+ * Ticks the grave until it owes itself nothing, and answers how many ticks that
+ * took (Mark's ruling of 2026-09-21: growth arrives over time).
+ */
+function settleSwell(run: ReturnType<typeof createRun>): number {
+  let ticks = 0;
+  while (run.grave.owed > 0) {
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ticks += 1;
+    if (ticks > 10000) throw new Error('the swell never finished');
+  }
+  return ticks;
+}
+
 /** Waits out the invulnerability window, so the next hit lands. */
 function ageOut(run: ReturnType<typeof createRun>): void {
-  for (let i = 0; i < INVULNERABLE_TICKS; i++) ageGrave(run.grave);
+  for (let i = 0; i < INVULNERABLE_TICKS; i++)
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
 }
 
 function kinds(events: { type: string }[]): string[] {
@@ -165,20 +181,25 @@ describe('the grave', () => {
     }
   });
   it('growGrave grows by the amount given, below the ceiling (ADR 0003)', () => {
-    const grave = createGrave();
-    expect(growGrave(grave, 5)).toBe(0);
-    expect(grave.size).toBe(SIZE_START + 5);
-    expect(growGrave(grave, 2.5)).toBe(0);
-    expect(grave.size).toBe(SIZE_START + 7.5);
+    // The amount arrives over the ticks after it rather than on the tick it was
+    // paid (Mark's ruling of 2026-09-21), so the size is read once the grave has
+    // taken in everything it was paid.
+    const run = createRun(1);
+    expect(growGrave(run.grave, 5)).toBe(0);
+    expect(growGrave(run.grave, 2.5)).toBe(0);
+    settleSwell(run);
+    expect(run.grave.size).toBeCloseTo(SIZE_START + 7.5, 10);
   });
   it('growGrave past the ceiling stops at the ceiling and returns the remainder as overflow (ADR 0003)', () => {
-    const grave = createGrave();
-    const room = SIZE_CEILING - grave.size;
-    expect(growGrave(grave, room + 4)).toBe(4);
-    expect(grave.size).toBe(SIZE_CEILING);
+    const run = createRun(1);
+    const room = SIZE_CEILING - run.grave.size;
+    expect(growGrave(run.grave, room + 4)).toBe(4);
+    settleSwell(run);
+    expect(run.grave.size).toBe(SIZE_CEILING);
     // At the ceiling every further crumb is overflow, and size never exceeds it.
-    expect(growGrave(grave, 9)).toBe(9);
-    expect(grave.size).toBe(SIZE_CEILING);
+    expect(growGrave(run.grave, 9)).toBe(9);
+    settleSwell(run);
+    expect(run.grave.size).toBe(SIZE_CEILING);
   });
   it('a hit above the floor shrinks the grave and starts invulnerability (ADR 0003)', () => {
     const run = createRun(1);
@@ -217,10 +238,10 @@ describe('the grave', () => {
     for (let i = INVULNERABLE_TICKS; i > 0; i--) {
       expect(run.grave.invulnerable).toBe(i);
       expect(hitGrave(run, 'contact')).toEqual([]);
-      ageGrave(run.grave);
+      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
     }
     expect(run.grave.invulnerable).toBe(0);
-    ageGrave(run.grave);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
     expect(run.grave.invulnerable).toBe(0);
     expect(hitGrave(run, 'contact').length).toBeGreaterThan(0);
   });
@@ -522,6 +543,7 @@ describe('the grave', () => {
     expect(run.score).toBe(0);
 
     growGrave(run.grave, SCORE_RUNG_REARM_SIZE - run.grave.size);
+    settleSwell(run);
     expect(run.grave.size).toBe(SCORE_RUNG_REARM_SIZE);
 
     // Back at the floor with score standing, the rung absorbs the hit again.
@@ -548,6 +570,7 @@ describe('the grave', () => {
     const crumb = TRASH_CORPSE_PAYOUT * freshnessScale(0);
     expect(SIZE_FLOOR + crumb).toBeLessThan(SCORE_RUNG_REARM_SIZE);
     growGrave(run.grave, crumb);
+    settleSwell(run);
 
     // Back at the floor, exactly as the re-arming test puts it back, so the
     // only thing that differs between the two is how much was grown.
@@ -593,7 +616,7 @@ describe('the grave', () => {
         if (amount === undefined) throw new Error(`no amount at tick ${i}`);
         growGrave(run.grave, amount);
       }
-      ageGrave(run.grave);
+      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
       expect(run.grave.size).toBeGreaterThanOrEqual(SIZE_FLOOR);
       expect(run.grave.size).toBeLessThanOrEqual(SIZE_CEILING);
     }
@@ -865,5 +888,162 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     }
     expect((xs[0]! + xs[xs.length - 1]!) / 2).toBeCloseTo(run.grave.x, 9);
     expect(new Set(bodies.map((body) => body.y)).size).toBe(1);
+  });
+});
+
+/**
+ * The swell: a swallow's growth is owed at once and taken in over the ticks
+ * after it, so no swallow ever pops the grave (Mark's ruling of 2026-09-21).
+ */
+describe('the growth the grave is owed, and the swell that takes it in', () => {
+  /** The rate this run swells at, per tick, read off the run and never off a module. */
+  const perTickOf = (run: RunState): number =>
+    run.conditions.tuning.growth.swellPerSecond / TICK_HZ;
+
+  it("a swallow's growth is owed at once and none of it is in the size on that tick beyond the first slice", () => {
+    // Mark, 2026-09-21: "it used to grow gradually and then it stopped doing
+    // that". The payment still lands on the tip tick (design record R2); what
+    // the grave has on that tick is the debt, and one tick's worth of it.
+    const run = createRun(1);
+    const paid = 20 * TRASH_CORPSE_PAYOUT;
+
+    growGrave(run.grave, paid);
+    expect(run.grave.size).toBe(SIZE_START);
+    expect(run.grave.owed).toBeCloseTo(paid, 10);
+
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    expect(run.grave.size).toBeCloseTo(SIZE_START + perTickOf(run), 10);
+  });
+
+  it("the grave takes in the growth it is owed at the rate the run's record names, and no tick grows it by more than a tenth of a size unit", () => {
+    // The whole of Mark's first ruling, as arithmetic: the grave arrives at the
+    // size it was paid, and it gets there a slice at a time.
+    const run = createRun(1);
+    const paid = 45 * TRASH_CORPSE_PAYOUT;
+    growGrave(run.grave, paid);
+
+    let previous = run.grave.size;
+    let largest = 0;
+    let ticks = 0;
+    while (run.grave.owed > 0) {
+      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      largest = Math.max(largest, run.grave.size - previous);
+      previous = run.grave.size;
+      ticks += 1;
+    }
+    // 4.55625 units at 0.075 a tick is 60.75, so the last tick takes a part slice.
+    expect(ticks).toBe(61);
+    expect(run.grave.size).toBeCloseTo(SIZE_START + paid, 10);
+    expect(largest).toBeLessThanOrEqual(0.1);
+  });
+
+  it('the growth a swallow pays is conserved: the size gained plus the growth still owed equals what was paid', () => {
+    const run = createRun(1);
+    const paid = 6;
+    growGrave(run.grave, paid);
+
+    for (let tick = 0; tick < 40; tick += 1) {
+      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      const gained = run.grave.size - SIZE_START;
+      expect(`${tick} ${(gained + run.grave.owed).toFixed(9)}`).toBe(
+        `${tick} ${paid.toFixed(9)}`,
+      );
+    }
+  });
+
+  it('growth past the ceiling is handed back as overflow on the tick it was paid, counted against the size and the growth already owed together', () => {
+    // Design record R2: the overflow resolves on the tip tick, exactly as it
+    // does today. What changed is that the room is measured against the size
+    // plus what the grave already owes itself, so two swallows a tick apart
+    // cannot both be paid the same room.
+    const run = createRun(1);
+    const room = SIZE_CEILING - SIZE_START;
+
+    expect(growGrave(run.grave, room - 1)).toBe(0);
+    expect(growGrave(run.grave, 4)).toBeCloseTo(3, 10);
+    expect(run.grave.owed).toBeCloseTo(room, 10);
+
+    settleSwell(run);
+    expect(run.grave.size).toBe(SIZE_CEILING);
+  });
+
+  it("a hit shrinks the grave on the tick it lands, by a full hit's worth, with nothing owed", () => {
+    // Mark's ruling moves the growth and nothing else: a hit is still felt at
+    // once, which is ADR 0003's own reading of size as health.
+    const run = createRun(1);
+    const events = hitGrave(run, 'contact');
+
+    expect(run.grave.size).toBe(SIZE_START - HIT_SHRINK);
+    expect(run.grave.owed).toBe(0);
+    const hit = events.find((event) => event.type === 'graveHit');
+    // The event carries the visible size, as it does today.
+    expect(hit?.type === 'graveHit' ? hit.size : null).toBe(
+      SIZE_START - HIT_SHRINK,
+    );
+  });
+
+  it('a hit mid-swell shrinks the grave on the tick it lands and leaves the rest of the swell to arrive', () => {
+    // A hit takes a full hit's worth out of the grave's true size, which is its
+    // size plus what it is owed. A hit that left the owed growth alone would be
+    // undone by the swell within a second.
+    const run = createRun(1);
+    growGrave(run.grave, 6);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    const trueSize = run.grave.size + run.grave.owed;
+
+    hitGrave(run, 'contact');
+
+    expect(run.grave.size).toBe(SIZE_START + perTickOf(run) - HIT_SHRINK);
+    expect(run.grave.size + run.grave.owed).toBeCloseTo(
+      trueSize - HIT_SHRINK,
+      10,
+    );
+    settleSwell(run);
+    expect(run.grave.size).toBeCloseTo(SIZE_START + 6 - HIT_SHRINK, 10);
+  });
+
+  it('a hit never takes the grave below the floor, and takes the shortfall out of the growth it was owed', () => {
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR + 1;
+    growGrave(run.grave, 5);
+
+    hitGrave(run, 'contact');
+
+    expect(run.grave.size).toBe(SIZE_FLOOR);
+    // Three came out of the true size of 24: one from the size, two from the debt.
+    expect(run.grave.owed).toBeCloseTo(3, 10);
+  });
+
+  it('a grave whose size and owed growth together stand above the floor is not at the floor, so the floor ladder does not run', () => {
+    // The floor is the grave's true size and not its drawn one, or a run could
+    // bleed a score rung while holding growth it had already been paid.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    growGrave(run.grave, 1);
+
+    const events = hitGrave(run, 'contact');
+
+    expect(kinds(events)).toEqual(['graveHit']);
+    expect(run.score).toBe(250);
+    expect(run.grave.size).toBe(SIZE_FLOOR);
+    expect(run.grave.owed).toBe(0);
+  });
+
+  it("growing a full hit's worth off the floor gives the score rung back on the tick the size reaches it, not on the tick it was paid", () => {
+    // Design record R4: growth is what gives the rung back, and growth is now
+    // the swell rather than the payment.
+    const run = createRun(1);
+    run.grave.size = SIZE_FLOOR;
+    run.score = 250;
+    hitGrave(run, 'contact');
+    expect(run.grave.scoreRungBled).toBe(true);
+
+    growGrave(run.grave, SCORE_RUNG_REARM_SIZE - SIZE_FLOOR);
+    expect(run.grave.scoreRungBled).toBe(true);
+
+    settleSwell(run);
+    expect(run.grave.size).toBeCloseTo(SCORE_RUNG_REARM_SIZE, 10);
+    expect(run.grave.scoreRungBled).toBe(false);
   });
 });
