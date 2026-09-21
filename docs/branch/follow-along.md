@@ -9,3 +9,4 @@
 | 5 | A replay now plays to the very last moment of a run. Before, it stopped up to a second early, so it never showed how the run ended. Added 2026-09-20, because the Undertaker's end must show in a replay. | done |
 | 6 | The grave looks exactly like the prototype Mark approved: the prototype's own drawing code, with no pale ring round the hole, its walls, moss and grass. The ground stays as it is until Mark decides the colours. Added 2026-09-21, because the built grave did not look like the prototype. | done |
 | 7 | The Undertaker's end: the grave drags him in, he claws the ground, he folds and falls. Then the win screen shows. | planned |
+| 8 | The prototype's ground on the whole field, so the grave's rough edge and worn earth show. Added 2026-09-21, Mark's pick. | planned |
