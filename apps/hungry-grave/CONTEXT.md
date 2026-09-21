@@ -54,7 +54,7 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Offer**: What a power-up spawns: three option bodies falling side by side and apart, and the grave gets exactly the one it passes under while the others vanish. Options draw from unowned lines and level-ups of owned, un-maxed lines; a maxed line is never offered. One offer is live at a time, and a power-up paid while one stands banks toward the next. _Avoid_: menu, loot table, choice wheel, spinner.
 
-**Feast**: A boss-shed reward corpse that never decays, dropped at phase breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
+**Feast**: A boss-shed reward corpse that never decays, dropped at phase breaks and at a miniboss death; the death feast is the largest single swallow in the game, a swell the player watches the grave take in, and it fills the reservoir whole on the tip. _Avoid_: bonus, health pack, jackpot, jump.
 
 **Treasure**: The never-decaying class of food: power-ups and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
 

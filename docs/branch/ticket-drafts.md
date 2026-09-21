@@ -424,9 +424,9 @@ Placement: unchanged. This adds four items to the sweep this ticket already owns
 - ADR 0003 describes the grave as "a rounded rectangle taller than wide". The grave is drawn as a true rectangle with small outward bites since the prototype was ported. The design record calls the departure knowing, and the hitbox was always a plain rectangle, so what needs saying is which of the two the ADR is about.
 - ADR 0014's layer stack holds a `graveRim` layer that nothing draws into. A test holds it empty on purpose, and #155 is the cited caller that fills it again. The stack itself is right; the reader needs to know the layer is reserved rather than used.
 - `VISION.md` line 11, "the grave's rim is the health bar", and line 49, "the reservoir filling is visible rising pressure". Both are still true in meaning, and neither names anything drawn on the grave any more: the two-colour rim went with the port and the reservoir's glow went with slice 9.
-- The glossary's Feast entry says the death feast "is big enough to jump the grave's size", while the Swell entry lists "jump" under what to avoid. Slice 9 made a feast a one-second swell.
+- `game-concept.md` lines 66 and 78 both say the Banshee's feast "slams the reservoir full and fires the pulsing glow", and line 78 also calls the feast "a growth jump worth roughly 8 to 10 fresh trash corpses". The reservoir half is still true and the glow is gone with slice 9, and a feast is a swell of 45 corpses at the 400-corpse economy, the same 11.25% share of the climb that 8 to 10 was at the 80-corpse one.
 
-One thing that is not on the list: `stage-floor.md` section 7 and its ground paragraph were amended on the branch itself and describe the painted ground as it ships, so they need nothing here.
+Two things that are not on the list. `stage-floor.md` section 7 and its ground paragraph were amended on the branch itself and describe the painted ground as it ships. The glossary's Feast entry, which said the death feast "is big enough to jump the grave's size" against the Swell entry's "jump", was corrected at the branch fold.
 
 Evidence: the product vision gate's V1 line section and finding 5, `local/148-gates/product-vision.md`.
 
