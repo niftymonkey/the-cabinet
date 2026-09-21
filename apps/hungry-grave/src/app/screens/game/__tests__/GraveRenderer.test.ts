@@ -3,12 +3,13 @@
  * it, and holds no rules.
  */
 
-import type { Container, Graphics } from 'pixi.js';
+import type { Container, ICanvas, Renderer } from 'pixi.js';
+import { BrowserAdapter, DOMAdapter, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Grave } from '../../../../game/grave';
 import { createGrave, graveHitbox, graveWidth } from '../../../../game/grave';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../../../game/tuning';
-import { ART_REACH_OUTSIDE } from '../graveDrawingValues';
+import { BAKE_PADDING } from '../graveDrawingValues';
 import { glowAlpha, GRAVE_RIM_STROKE, GraveRenderer } from '../GraveRenderer';
 import { FieldLayers } from '../layering';
 
@@ -16,15 +17,61 @@ import { FieldLayers } from '../layering';
 const EVERY_SIZE = [SIZE_FLOOR, SIZE_START, SIZE_CEILING];
 
 /**
- * The mouth layer's four children, in the order the hole is read from the
- * ground down: what lies outside the lip, the cut and its walls, the place a
- * fall draws, and the turf hanging over the top of it all.
+ * The mouth layer's three children, in the order the hole is read from the
+ * ground down: the baked pit, the place a fall draws, and the baked lip over
+ * the top of it all.
  */
-const GROUND_ART = 0;
-const THE_HOLE = 1;
-const THE_FALLS = 2;
-const THE_OVERHANG = 3;
-const MOUTH_CHILDREN = 4;
+const THE_PIT = 0;
+const THE_FALLS = 1;
+const THE_LIP = 2;
+const MOUTH_CHILDREN = 3;
+
+/**
+ * Every canvas the renderer asks the browser for. A bake is two of them, the
+ * pit's and the lip's, so the count is how many times the hole was baked.
+ */
+const canvasesMade: { width: number; height: number }[] = [];
+
+/** A 2D context that paints nothing: the painters' own tests read what they draw. */
+const silentContext = {
+  fillStyle: '',
+  strokeStyle: '',
+  lineWidth: 1,
+  lineCap: 'butt',
+  lineJoin: 'miter',
+  setTransform: () => undefined,
+  beginPath: () => undefined,
+  closePath: () => undefined,
+  moveTo: () => undefined,
+  lineTo: () => undefined,
+  quadraticCurveTo: () => undefined,
+  ellipse: () => undefined,
+  fillRect: () => undefined,
+  fill: () => undefined,
+  stroke: () => undefined,
+  clip: () => undefined,
+  save: () => undefined,
+  restore: () => undefined,
+  createLinearGradient: () => ({ addColorStop: () => undefined }),
+};
+
+DOMAdapter.set({
+  ...BrowserAdapter,
+  createCanvas: (width = 0, height = 0) => {
+    const canvas = { width, height, getContext: () => silentContext };
+    canvasesMade.push(canvas);
+    return canvas as unknown as ICanvas;
+  },
+});
+
+/**
+ * The renderer as the grave reads it on a phone: 390 CSS pixels showing a
+ * stage 540 units wide. Only the two readings the bake takes are given.
+ */
+const PHONE = {
+  screen: { width: 540 },
+  canvas: { getBoundingClientRect: () => ({ width: 390 }) },
+} as unknown as Renderer;
 
 function grave(size: number, x = 270, y = 600): Grave {
   return { x, y, size, invulnerable: 0, scoreRungBled: false };
@@ -43,64 +90,48 @@ function pieceOf(layers: FieldLayers, at: number): Container {
   return piece;
 }
 
-function mouthOf(layers: FieldLayers): Graphics {
-  return pieceOf(layers, THE_HOLE) as Graphics;
-}
-
-function rimOf(layers: FieldLayers): Graphics {
+function glowOf(layers: FieldLayers): Graphics {
   return layers.layer('graveRim').children[0] as Graphics;
 }
 
-function glowOf(layers: FieldLayers): Graphics {
+function arcOf(layers: FieldLayers): Graphics {
   return layers.layer('graveRim').children[1] as Graphics;
 }
 
-function arcOf(layers: FieldLayers): Graphics {
-  return layers.layer('graveRim').children[2] as Graphics;
+/** Every piece under a container, however deep. */
+function everyPieceUnder(parent: Container): Container[] {
+  return parent.children.flatMap((child) => [child, ...everyPieceUnder(child)]);
+}
+
+/** One frame drawn: what the renderer's own pass would hand the grave's art. */
+function drawn(layers: FieldLayers): void {
+  pieceOf(layers, THE_PIT).onRender?.(PHONE);
+}
+
+/** The grave synced and then drawn, which is one frame of play. */
+function frame(
+  layers: FieldLayers,
+  renderer: GraveRenderer,
+  at: Grave,
+  fullness = 0,
+  charge = 0,
+): void {
+  renderer.sync(at, fullness, 0, charge);
+  drawn(layers);
 }
 
 describe('GraveRenderer', () => {
-  it('the mouth lands in the graveMouth layer and the rim in the graveRim layer (ADR 0014)', () => {
-    // Two Graphics and not one: the hole's interior must sit under whatever is
-    // falling into it while the rim stays legible over the top, and one
-    // Graphics cannot be in two layers.
+  it('the baked hole lands in the graveMouth layer and the glow and the arc in the graveRim layer (ADR 0014)', () => {
+    // The hole's art sits under whatever is falling into it, and the glow and
+    // Territory's arc stay legible over the food on the band they ride.
     const { layers } = attached();
-    // Four in the mouth since the hole was cut into the ground (R4): the ground
-    // outside the lip, the cut and its walls, the place a fall draws, and the
-    // turf over the top. Their order is its own test below.
     expect(layers.layer('graveMouth').children).toHaveLength(MOUTH_CHILDREN);
-    // The rim, the reservoir's glow, and Territory's charge arc: three bands
-    // on one geometry, never a second shape.
-    expect(layers.layer('graveRim').children).toHaveLength(3);
-    expect(mouthOf(layers)).not.toBe(rimOf(layers));
-  });
-
-  it('the hole grows with the grave: the black mouth is graveHitbox at the floor, the start size and the ceiling', () => {
-    // R4: the art is built once in the grave's own half-lengths and scaled by
-    // its size, because the size changes on every swallow. The drawn mouth is
-    // still the rule's own geometry exactly, so the hole the player reads and
-    // the box the sim swallows with are one rectangle at every size.
-    const { layers, renderer } = attached();
-    for (const size of EVERY_SIZE) {
-      const at = grave(size);
-      renderer.sync(at, 0, 0, 0);
-      const box = graveHitbox(at);
-      const bounds = mouthOf(layers).getBounds();
-      expect(`${size} ${bounds.x} ${bounds.y}`).toBe(
-        `${size} ${box.x} ${box.y}`,
-      );
-      expect(bounds.width).toBeCloseTo(box.width, 9);
-      expect(bounds.height).toBeCloseTo(box.height, 9);
-      expect(bounds.width).toBeCloseTo(graveWidth(size), 9);
-      expect(bounds.height).toBeCloseTo(size * 2, 9);
-    }
+    expect(layers.layer('graveRim').children).toHaveLength(2);
   });
 
   it('the mouth stays a hole at SIZE_FLOOR', () => {
-    // The instrument that survives a later retune of SIZE_FLOOR or
-    // GRAVE_RIM_STROKE. The rendered check cannot replace it, and a rim derived
-    // from BOUNDARY_STROKE's bracket lands on 8 and turns a floor grave into a
-    // solid pill exactly when the player most needs to read it.
+    // The glow and the arc ride a band GRAVE_RIM_STROKE wide inside the
+    // hitbox, so a floor grave keeps a mouth between the two sides of it.
     //
     // The mouth does not bind the power-up: ADR 0003 rules that size never gates a
     // swallow, and the power-up's own bounds live in FieldRenderer.test.ts
@@ -110,76 +141,122 @@ describe('GraveRenderer', () => {
     expect(2 * GRAVE_RIM_STROKE).toBeLessThan(graveWidth(SIZE_FLOOR));
   });
 
-  it('the rim strokes inward on a true rectangle, so its outer edge equals graveHitbox at every size (ADR 0003)', () => {
-    // ADR 0003 makes the drawn grave the health bar, and a player reads the
-    // outer edge as what they pass under and swallow. A default centred stroke
-    // would draw it half a stroke wider on every side than the hitbox reports.
-    //
-    // A true rectangle since R4: the mouth is the rule's own geometry under R1,
-    // and the rounded corner the drawing used to carry made the drawn grave a
-    // shape the sim never had. The corners are what a rounding would move, so
-    // the bound is asked at all three sizes rather than at the start alone.
+  it('nothing pale is drawn round the opening at rest', () => {
+    // Slice 6: the prototype has no rim, because a bright ring round an
+    // opening reads as a kerb the hole was set into rather than as dug earth.
+    // With the reservoir empty and no charge, nothing in the rim's layer shows
+    // and the mouth's layer holds only the baked art and the falls. A rim put
+    // back, in either layer, fails here.
     const { layers, renderer } = attached();
     for (const size of EVERY_SIZE) {
-      const at = grave(size);
-      renderer.sync(at, 0, 0, 0);
-
-      const box = graveHitbox(at);
-      const bounds = rimOf(layers).getBounds();
-      expect(bounds.x).toBeCloseTo(box.x, 9);
-      expect(bounds.y).toBeCloseTo(box.y, 9);
-      expect(bounds.width).toBeCloseTo(box.width, 9);
-      expect(bounds.height).toBeCloseTo(box.height, 9);
-
-      // The band itself at the corner, a field unit in from both edges. The
-      // bounds above are blind to a rounding, because a rounded rectangle
-      // reports the same box as the rectangle it is rounded from, and that is
-      // how the old corner survived every measurement in this file. The rim is
-      // where the claim has to be made: ADR 0003 makes its outer edge the box
-      // the player passes under, so a rim that cut its corners would draw a
-      // shape the hitbox is not.
-      const corner = { x: graveWidth(size) / 2 - 1, y: -size + 1 };
-      expect(`${size} ${rimOf(layers).containsPoint(corner)}`).toBe(
-        `${size} true`,
+      frame(layers, renderer, grave(size), 0, 0);
+      const showing = layers
+        .layer('graveRim')
+        .children.filter(
+          (piece) => piece.alpha > 0 && piece.getLocalBounds().width > 0,
+        );
+      expect(`${size} ${showing.length}`).toBe(`${size} 0`);
+      const vectors = everyPieceUnder(layers.layer('graveMouth')).filter(
+        (piece) => piece instanceof Graphics,
       );
+      expect(`${size} ${vectors.length}`).toBe(`${size} 0`);
+    }
+  });
+
+  it("the reservoir's glow and Territory's arc still show", () => {
+    // The rim went, and the two jobs it carried did not: a full reservoir
+    // lights the band and half a charge traces half of it.
+    const { layers, renderer } = attached();
+    for (const size of EVERY_SIZE) {
+      frame(layers, renderer, grave(size), 1, 0.5);
+      const glow = glowOf(layers);
+      const arc = arcOf(layers);
+      expect(`${size} ${glow.alpha > 0.5}`).toBe(`${size} true`);
+      expect(`${size} ${glow.getLocalBounds().width > 0}`).toBe(`${size} true`);
+      expect(`${size} ${arc.getLocalBounds().width > 0}`).toBe(`${size} true`);
     }
   });
 
   it('position follows grave.x and grave.y', () => {
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START, 123, 456), 0, 0, 0);
-    for (const piece of [mouthOf(layers), rimOf(layers)]) {
+    frame(layers, renderer, grave(SIZE_START, 123, 456));
+    const pieces = [
+      pieceOf(layers, THE_PIT),
+      pieceOf(layers, THE_LIP),
+      glowOf(layers),
+      arcOf(layers),
+    ];
+    for (const piece of pieces) {
       expect(piece.position.x).toBe(123);
       expect(piece.position.y).toBe(456);
     }
   });
 
-  it("the hole's art is built once and never cleared again, at any size", () => {
-    // R4: the size changes on every swallow, so the hole is built once in the
-    // grave's own half-lengths and scaled. Every proportion it is built from is
-    // a share of the opening, which is what makes that possible, and a redraw
-    // per swallow is the cost that rules it out.
+  it('the grave is repainted when its size changes, and a size that has not changed does not repaint', () => {
+    // The prototype bakes the hole afresh at each size (rebuildHole), because
+    // several of its details are screen pixels wide and must not scale with
+    // the grave. It bakes again once the size has moved past its step, and a
+    // move or a charge alone never bakes.
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 0, 0, 0);
-    const cleared = [GROUND_ART, THE_HOLE, THE_OVERHANG].map((at) =>
-      vi.spyOn(pieceOf(layers, at) as Graphics, 'clear'),
-    );
+    frame(layers, renderer, grave(27));
+    const baked = canvasesMade.length;
 
-    for (const size of [SIZE_START, SIZE_FLOOR, SIZE_CEILING, SIZE_START + 3]) {
-      renderer.sync(grave(size, 300, 400), 0, 0, 0);
+    frame(layers, renderer, grave(27, 300, 400), 0.5, 0.5);
+    frame(layers, renderer, grave(27.3, 300, 400));
+    expect(canvasesMade.length).toBe(baked);
+
+    frame(layers, renderer, grave(33, 300, 400));
+    expect(canvasesMade.length).toBe(baked + 2);
+  });
+
+  it('the baked hole is centred on the grave, sized to it with the prototype padding round it', () => {
+    // bakeLayer's own geometry: a canvas the grave's width and length plus a
+    // pad on every side, anchored at its middle on the grave's origin.
+    const { layers, renderer } = attached();
+    for (const size of EVERY_SIZE) {
+      const at = grave(size);
+      frame(layers, renderer, at);
+      const box = graveHitbox(at);
+      const pad = {
+        pit: graveWidth(size) * BAKE_PADDING.pit,
+        lip: graveWidth(size) * BAKE_PADDING.lip,
+      };
+      for (const [piece, reach] of [
+        [THE_PIT, pad.pit],
+        [THE_LIP, pad.lip],
+      ] as const) {
+        const bounds = pieceOf(layers, piece).getBounds();
+        expect(bounds.x).toBeCloseTo(box.x - reach, 6);
+        expect(bounds.y).toBeCloseTo(box.y - reach, 6);
+        expect(bounds.width).toBeCloseTo(box.width + reach * 2, 6);
+        expect(bounds.height).toBeCloseTo(box.height + reach * 2, 6);
+      }
     }
+  });
 
-    for (const spy of cleared) expect(spy).not.toHaveBeenCalled();
+  it('bakes at the pixels the phone shows, the view times the device pixel ratio', () => {
+    // The prototype's own choice: the view's CSS pixels per field unit times
+    // the device pixel ratio, held between one and six. At device scale 3 on a
+    // 390-wide phone that is about 2.17 texture pixels a unit.
+    vi.stubGlobal('devicePixelRatio', 3);
+    const { layers, renderer } = attached();
+    const before = canvasesMade.length;
+    frame(layers, renderer, grave(SIZE_START));
+    const pit = canvasesMade[before];
+    vi.unstubAllGlobals();
+    const wanted = (390 / 540) * 3;
+    const side =
+      graveWidth(SIZE_START) / 2 + graveWidth(SIZE_START) * BAKE_PADDING.pit;
+    expect(pit?.width).toBe(Math.ceil(side * 2 * wanted));
   });
 
   it('a same-size sync redraws no rim stroke', () => {
-    // The three rim jobs keep a fixed stroke in field units, so they are the one
-    // part of the grave still rebuilt on a size change (R4, "What scales and
-    // what does not"). Position is a container transform and is free.
+    // The glow and the arc keep a fixed stroke in field units, so they are
+    // redrawn on a size change and never on a move.
     const { layers, renderer } = attached();
     renderer.sync(grave(SIZE_START), 0, 0, 0);
-    const redrawn = [rimOf(layers), glowOf(layers), arcOf(layers)].map(
-      (piece) => vi.spyOn(piece, 'clear'),
+    const redrawn = [glowOf(layers), arcOf(layers)].map((piece) =>
+      vi.spyOn(piece, 'clear'),
     );
 
     renderer.sync(grave(SIZE_START, 300, 400), 0, 0, 0);
@@ -191,14 +268,17 @@ describe('GraveRenderer', () => {
 
   it("draws the glow at the rim's own geometry, so a charged grave is not a wider grave (ADR 0003)", () => {
     // The outer edge is the health bar and a player reads it as what they pass
-    // under. A glow standing outside the rim would make the grave read wider
-    // than the box, and one standing inside it would eat the mouth at the floor.
+    // under. A glow standing outside the hitbox would make the grave read
+    // wider than the box.
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 1, 0, 0);
-    const rim = rimOf(layers).getLocalBounds();
-    const glow = glowOf(layers).getLocalBounds();
-    expect(glow.width).toBeCloseTo(rim.width, 9);
-    expect(glow.height).toBeCloseTo(rim.height, 9);
+    const at = grave(SIZE_START);
+    renderer.sync(at, 1, 0, 0);
+    const box = graveHitbox(at);
+    const glow = glowOf(layers).getBounds();
+    expect(glow.x).toBeCloseTo(box.x, 9);
+    expect(glow.y).toBeCloseTo(box.y, 9);
+    expect(glow.width).toBeCloseTo(box.width, 9);
+    expect(glow.height).toBeCloseTo(box.height, 9);
   });
 
   it('detach then attach puts both pieces back, which FieldLayers.clear() between runs requires', () => {
@@ -210,32 +290,25 @@ describe('GraveRenderer', () => {
     layers.clear();
     renderer.attach(layers);
     expect(layers.layer('graveMouth').children).toHaveLength(MOUTH_CHILDREN);
-    expect(layers.layer('graveRim').children).toHaveLength(3);
+    expect(layers.layer('graveRim').children).toHaveLength(2);
   });
 });
 
 describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
-  it('the mouth layer holds the ground art, the walls, the place for falls and the overhang, in that order', () => {
-    // R4's own draw order, and it is what fixes "between the cut and the turf"
-    // (R5) in one place: a falling body draws over the walls it is falling past
-    // and under the grass hanging over the lip, so it goes out of sight the way
-    // a body in a hole does.
+  it('the mouth layer holds the pit, the place for falls and the lip, in that order', () => {
+    // The prototype's own order (rebuildHole's two bakes with the bodies
+    // between them), and it is what fixes "between the cut and the turf" (R5)
+    // in one place: a falling body draws over the walls it is falling past and
+    // under the grass hanging over the lip.
     const { layers, renderer } = attached();
-    renderer.sync(grave(SIZE_START), 0, 0, 0);
+    frame(layers, renderer, grave(SIZE_START));
     const mouth = layers.layer('graveMouth').children;
 
     expect(mouth).toHaveLength(MOUTH_CHILDREN);
-    expect(mouth[THE_HOLE]).toBe(mouthOf(layers));
     expect(mouth[THE_FALLS]).toBe(renderer.falls);
-    // The ground art lies outside the lip, so it is wider than the cut; the cut
-    // is the mouth's own rectangle and nothing wider (the test above); and the
-    // overhang is drawn last, above the place a fall draws.
-    const hole = mouthOf(layers).getBounds();
-    expect(pieceOf(layers, GROUND_ART).getBounds().width).toBeGreaterThan(
-      hole.width,
-    );
-    expect(mouth.indexOf(renderer.falls)).toBeLessThan(
-      mouth.indexOf(pieceOf(layers, THE_OVERHANG)),
+    // The lip carries the margin outside the edge, so it reaches wider than the pit.
+    expect(pieceOf(layers, THE_LIP).getBounds().width).toBeGreaterThan(
+      pieceOf(layers, THE_PIT).getBounds().width,
     );
   });
 
@@ -253,43 +326,15 @@ describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
     }
   });
 
-  it('the bites, the grass and the tufts reach no farther outside the hitbox than the values table states', () => {
-    // ADR 0003 makes the rim's outer edge the hitbox, so everything past it is
-    // ground dressing: bites where the lip fell away, the trodden margin and
-    // the tufts. The bound is one row in the values table, and it is what keeps
-    // the dressing from ever reading as the grave the player steers.
-    const { layers, renderer } = attached();
-    for (const size of EVERY_SIZE) {
-      const at = grave(size);
-      renderer.sync(at, 0, 0, 0);
-      const box = graveHitbox(at);
-      const allowed = graveWidth(size) * ART_REACH_OUTSIDE;
-
-      for (const piece of [GROUND_ART, THE_OVERHANG]) {
-        const bounds = pieceOf(layers, piece).getBounds();
-        const outside = Math.max(
-          box.x - bounds.x,
-          box.y - bounds.y,
-          bounds.x + bounds.width - (box.x + box.width),
-          bounds.y + bounds.height - (box.y + box.height),
-        );
-        expect(`${size}/${piece} ${outside <= allowed}`).toBe(
-          `${size}/${piece} true`,
-        );
-      }
-    }
-  });
-
-  it('the rim, the glow and the arc are still the three children of graveRim, and the arc never leaves the hitbox', () => {
-    // The two-colour rim, the reservoir's glow and Territory's charge arc each
-    // keep the job they do today on the new grave (R4), and they still ride one
-    // geometry rather than growing a shape of their own.
+  it('the glow and the arc are the two children of graveRim, and the arc never leaves the hitbox', () => {
+    // The reservoir's glow and Territory's charge arc each keep the job they
+    // did on the rim's band, and they still ride one geometry rather than
+    // growing a shape of their own.
     const { layers, renderer } = attached();
     for (const size of EVERY_SIZE) {
       const at = grave(size);
       renderer.sync(at, 1, 0, 1);
       expect(layers.layer('graveRim').children).toEqual([
-        rimOf(layers),
         glowOf(layers),
         arcOf(layers),
       ]);

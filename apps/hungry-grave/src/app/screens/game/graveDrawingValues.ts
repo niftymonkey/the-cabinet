@@ -1,14 +1,15 @@
 /**
  * The drawing's own values for the grave in the ground: the projection's
- * constants and every proportion the hole's art is built from (design record
- * R4, "Values are data").
+ * constants, the prototype's named values its grave painters read, and the
+ * values the fall is drawn with (design record R4 and R5, "Values are data").
  *
- * Every proportion is a share of the opening, because the art is built once in
- * the grave's own half-lengths and scaled by its size on every swallow. A
- * number that were a field unit here would stop being the same picture the
- * moment the grave grew.
+ * The grave's art is the prototype's (build 7, which Mark approved), ported
+ * line for line in slice 6, so every value here carries the prototype's name
+ * and number. Numbers the prototype writes inline in a painter stay inline in
+ * the ported painter.
  */
 
+import { PALETTE } from '../../palette';
 import type { GraveView } from './graveProjection';
 
 /**
@@ -16,8 +17,8 @@ import type { GraveView } from './graveProjection';
  * build 7, which Mark played to his final values).
  *
  * The height and the setback are what the walls' shares of the opening come out
- * at: at this pair each side wall is about a sixth of the opening across and
- * the far wall about a third of it along, which is what an open grave looks
+ * at: at this pair each side wall is about a seventh of the opening across and
+ * the far wall about three tenths of it along, which is what an open grave looks
  * like from nearly overhead. The grave has no bottom, so `darkDepth` is where
  * the moon stops reaching the walls rather than where they end.
  */
@@ -29,166 +30,80 @@ const GRAVE_VIEW: GraveView = {
 };
 
 /**
- * How many bands one cut face is painted in, from the lip to the dark.
- *
- * The light dies on a curve, so a face is a stack of flat bands rather than one
- * fill: nine is where the banding stops being visible at the ceiling size and
- * still costs nine quads a face.
+ * The cut face's layers, each starting a share of the way down to the dark.
+ * Under the turf is a band of the shadow the overhang throws; below it the
+ * subsoil pales once and then darkens the rest of the way (the prototype's
+ * SOIL). Every colour is a palette row.
  */
-const FACE_BANDS = 9;
-
-/**
- * How much of the moon each cut face keeps, as a share of the wall's own value.
- *
- * The moon is off to the left of the field, so the right-hand face catches it,
- * the far face takes it at a glance and the left-hand face is left in shade.
- * That difference is most of what makes a box cut into the ground read as a box
- * rather than as a panel with two slivers beside it, and it is why the two side
- * walls read at different widths although the projection makes them the same.
- */
-const FACE_MOON = { far: 0.62, right: 1, left: 0.38 } as const;
-
-/**
- * How dark the edge where the far face meets a side face is drawn, as a share
- * of full. Without it a lit band across the top of the opening reads as a strip
- * of paint rather than as the back of a box.
- */
-const CORNER_EDGE_INK = 0.75;
-
-// How thick that edge is stroked, as a share of the opening's width.
-const CORNER_EDGE_WIDTH = 0.035;
-
-/**
- * The one bound on everything the grave draws outside its hitbox, as a share of
- * the opening's width. The bites, the trodden margin, the tufts and the
- * overhanging grass all sit inside it, and `GraveRenderer.test.ts` holds them
- * to it: ADR 0003 makes the rim's outer edge the hitbox, so anything past it is
- * ground dressing and has to stay small enough never to read as the grave.
- */
-const ART_REACH_OUTSIDE = 0.22;
-
-/**
- * Where the ground gave way at the lip. Each bite is a place round the mouth's
- * own perimeter, how far round it runs, and how deep it goes as a share of
- * `BITE_REACH`.
- *
- * They are bites and not a wobble, so the four sides stay straight lines in
- * between, which is the difference between a dug rectangle and a misshapen
- * blob. They are written down rather than drawn from anything, because a
- * renderer takes no randomness and an irregular shape has to be written to be
- * irregular.
- */
-const LIP_BITES = [
-  { at: 0.065, span: 0.02, depth: 1 },
-  { at: 0.215, span: 0.013, depth: 0.55 },
-  { at: 0.31, span: 0.017, depth: 0.8 },
-  { at: 0.705, span: 0.022, depth: 1 },
-  { at: 0.82, span: 0.011, depth: 0.5 },
-  { at: 0.905, span: 0.015, depth: 0.75 },
+const SOIL = [
+  { at: 0, color: PALETTE.graveSoilShadow },
+  { at: 0.18, color: PALETTE.graveWall },
+  { at: 0.52, color: PALETTE.graveSubsoil },
+  { at: 0.78, color: PALETTE.graveSubsoilDark },
+  { at: 1, color: PALETTE.graveSubsoilDeep },
 ] as const;
 
-// How far the deepest bite reaches outside the mouth, as a share of the opening's width.
-const BITE_REACH = 0.06;
+/**
+ * How much moon each face of the cut keeps, as a wash laid over it: a pale one
+ * where the number is positive and a dark one where it is negative. The moon
+ * is off to the left, so the right wall catches it, the far wall takes it at a
+ * glance, and the left wall is left in deeper shade (the prototype's
+ * FACE_WASH).
+ */
+const FACE_WASH: Readonly<Record<'far' | 'right' | 'left', number>> = {
+  far: -0.14,
+  right: 0.2,
+  left: -0.17,
+};
+
+// How many steps a layer boundary is traced in along one face (the prototype's FACE_STEPS).
+const FACE_STEPS = 12;
 
 /**
- * The bare trodden earth outside the lip, as one swell per patch round the
- * perimeter. It is laid down as overlapping patches rather than as a ring: a
- * ring has an outline, and an even halo round an opening reads as a shadow,
- * which a hole does not cast.
+ * Where the ground gave way at the edge: a handful of short bites out of the
+ * lip, each a few hundredths of the opening across, placed a share of the way
+ * round the perimeter (the prototype's NOTCHES).
  */
-const MARGIN_SWELL = [
-  0.35, 0.9, 0.5, 0.2, 0.45, 1, 0.6, 0.3, 0.8, 0.4, 0.25, 0.7, 0.95, 0.45, 0.3,
-  0.6,
+const NOTCHES = [
+  { at: 0.065, span: 0.012, bite: 1 },
+  { at: 0.215, span: 0.007, bite: 0.55 },
+  { at: 0.31, span: 0.01, bite: 0.8 },
+  { at: 0.425, span: 0.006, bite: 0.45 },
+  { at: 0.552, span: 0.011, bite: 0.7 },
+  { at: 0.705, span: 0.013, bite: 1 },
+  { at: 0.82, span: 0.006, bite: 0.5 },
+  { at: 0.905, span: 0.009, bite: 0.75 },
 ] as const;
 
-// How far the fullest patch of margin reaches out, as a share of the opening's width.
-const MARGIN_REACH = 0.09;
-
-// How wide one patch of margin is drawn, as a share of the opening's width.
-const MARGIN_PATCH = 0.08;
-
-// How solid the pale half of the margin draws, and how solid its dark half.
-const MARGIN_PALE_ALPHA = 0.5;
-const MARGIN_DARK_ALPHA = 0.35;
-
 /**
- * The shadow the turf throws just inside the edge, as a share of the opening's
- * width, and how solid it draws.
- *
- * It is kept narrow deliberately: a side wall is about a sixth of the opening
- * across, and a shadow that took half of that would leave a sliver instead of a
- * face. The far lip carries a heavier one, because that is the edge the turf
- * overhangs toward the camera.
+ * The two places round the rim where the bare margin swells, rather than noise
+ * all the way round, which reads as a shadow (the prototype's TREAD).
  */
-const TURF_SHADOW = 0.02;
-const TURF_SHADOW_FAR = 0.07;
-const TURF_SHADOW_ALPHA = 0.55;
-
-/**
- * The blades hanging in over the cut, each rooted a share of the way round the
- * perimeter, reaching a share of the opening's width and leaning a share of
- * that reach along the edge.
- *
- * Nothing along the near lip: grass there leans toward the camera and only ever
- * reads as a fringe laid across the bottom of the opening.
- */
-const OVERHANGING_GRASS = [
-  { at: 0.02, reach: 0.09, lean: 0.5 },
-  { at: 0.055, reach: 0.07, lean: -0.3 },
-  { at: 0.12, reach: 0.1, lean: 0.2 },
-  { at: 0.19, reach: 0.075, lean: -0.45 },
-  { at: 0.27, reach: 0.095, lean: 0.35 },
-  { at: 0.345, reach: 0.07, lean: -0.2 },
-  { at: 0.64, reach: 0.085, lean: 0.4 },
-  { at: 0.72, reach: 0.1, lean: -0.35 },
-  { at: 0.79, reach: 0.07, lean: 0.25 },
-  { at: 0.86, reach: 0.095, lean: -0.5 },
-  { at: 0.93, reach: 0.08, lean: 0.3 },
-  { at: 0.975, reach: 0.065, lean: -0.25 },
+const TREAD = [
+  { at: 0.3, span: 0.05 },
+  { at: 0.79, span: 0.04 },
 ] as const;
 
-// How thick one blade is stroked, as a share of the opening's width.
-const BLADE_WIDTH = 0.022;
+/**
+ * How far past the grave's own rectangle each baked layer's canvas reaches, as
+ * a share of the opening's width: the pit's, and the lip's, which carries the
+ * margin, the crumbs and the grass (the prototype's rebuildHole).
+ */
+const BAKE_PADDING = { pit: 0.12, lip: 0.3 } as const;
 
 /**
- * The tufts growing on the ground round the grave, each rooted a share of the
- * way round the perimeter, standing a share of the opening's width outside it
- * and throwing this many blades (Mark's decision 7).
- *
- * They draw translucent, so the ground under them shows through and changes as
- * the grave moves over it. The value is what makes them growth on the field
- * rather than a border drawn round the hole.
+ * The texture pixels a baked layer gets per field unit, as the view and the
+ * device pixel ratio ask for them, held between these two (the prototype's
+ * rebuildHole).
  */
-const TUFTS = [
-  { at: 0.03, out: 0.055, reach: 0.12, lean: 0.4 },
-  { at: 0.155, out: 0.07, reach: 0.13, lean: -0.3 },
-  { at: 0.25, out: 0.05, reach: 0.1, lean: 0.25 },
-  { at: 0.375, out: 0.065, reach: 0.12, lean: -0.45 },
-  { at: 0.46, out: 0.05, reach: 0.09, lean: 0.35 },
-  { at: 0.55, out: 0.07, reach: 0.12, lean: -0.2 },
-  { at: 0.66, out: 0.05, reach: 0.11, lean: 0.45 },
-  { at: 0.755, out: 0.065, reach: 0.13, lean: -0.35 },
-  { at: 0.88, out: 0.055, reach: 0.12, lean: 0.3 },
-  { at: 0.965, out: 0.07, reach: 0.1, lean: -0.4 },
-] as const;
-
-// How many blades one tuft throws, and how far they fan apart as a share of the reach.
-const TUFT_BLADES = 3;
-const TUFT_FAN = 0.55;
+const BAKE_PIXELS_PER_UNIT = { min: 1, max: 6 } as const;
 
 /**
- * How solid a tuft draws. Mark's decision 7 asks for growth the ground shows
- * through, so this is the value that carries the whole tell, and it is his to
- * judge in play.
+ * How far the grave's size has to move from the size last baked before the
+ * hole is baked again, in field units (the prototype's stepWorld). A swallow
+ * pays about a tenth of a unit, so the hole is baked about every fourth one.
  */
-const TUFT_ALPHA = 0.7;
-
-/**
- * How far down the field a piece of art may sit and still be treated as hanging
- * off the far or a side edge, as a share of the grave's own half-length. Past
- * it the near lip is between the camera and the cut, so nothing is drawn there.
- */
-const NEAR_LIP_FROM = 0.5;
+const HOLE_REBUILD_STEP = 0.4;
 
 /**
  * How long the tip takes and how long the drop takes, in seconds (design record
@@ -265,13 +180,10 @@ const TEETER_SHAKE = { radians: 0.1, hertz: 4.5 } as const;
 const TEETER_DARKEN = 0.8;
 
 export {
-  ART_REACH_OUTSIDE,
-  BITE_REACH,
-  BLADE_WIDTH,
-  CORNER_EDGE_INK,
-  CORNER_EDGE_WIDTH,
-  FACE_BANDS,
-  FACE_MOON,
+  BAKE_PADDING,
+  BAKE_PIXELS_PER_UNIT,
+  FACE_STEPS,
+  FACE_WASH,
   FALL_DRAG,
   FALL_DROP_SECONDS,
   FALL_FOLD_FLOOR,
@@ -279,23 +191,12 @@ export {
   FALL_TILT,
   FALL_TIP_SECONDS,
   GRAVE_VIEW,
-  LIP_BITES,
-  MARGIN_DARK_ALPHA,
-  MARGIN_PALE_ALPHA,
-  MARGIN_PATCH,
-  MARGIN_REACH,
-  MARGIN_SWELL,
-  NEAR_LIP_FROM,
-  OVERHANGING_GRASS,
+  HOLE_REBUILD_STEP,
+  NOTCHES,
+  SOIL,
   TEETER_DARKEN,
   TEETER_SHAKE,
   TEETER_START,
   TEETER_TILT,
-  TUFT_ALPHA,
-  TUFT_BLADES,
-  TUFT_FAN,
-  TUFTS,
-  TURF_SHADOW,
-  TURF_SHADOW_ALPHA,
-  TURF_SHADOW_FAR,
+  TREAD,
 };

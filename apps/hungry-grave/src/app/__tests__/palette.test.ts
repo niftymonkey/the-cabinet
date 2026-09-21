@@ -24,10 +24,7 @@ import {
   PALETTE,
   SPRITE_OUTLINE,
 } from '../palette';
-import {
-  GRAVE_RIM_SHADOW,
-  GRAVE_RIM_STROKE,
-} from '../screens/game/GraveRenderer';
+import { GRAVE_RIM_STROKE } from '../screens/game/GraveRenderer';
 import { LAYER_ORDER } from '../screens/game/layering';
 
 /** APCA's stated minimum for fine-detail pictograms, which is what a bullet is. */
@@ -65,7 +62,7 @@ const TIER_SATURATION_MIN = 0.25;
 /** The stroke floor GRAVE_RIM_STROKE's own derivation rests on, in CSS pixels on the phone viewport. */
 const RIM_STROKE_MIN_CSS = 2.0;
 
-/** The thick end of GRAVE_RIM_STROKE's bracket, in field units, now that the rim is two bands. */
+/** The thick end of GRAVE_RIM_STROKE's bracket, in field units: the band the glow and the arc ride. */
 const RIM_BAND_MAX = 4;
 
 /**
@@ -89,6 +86,35 @@ const NOT_SPRITES = [
   'standInVigilTint',
   'standInWaking',
   'standInWakingDark',
+  /**
+   * The grave's own art, which slice 6 ports from the prototype: the soil
+   * layers, seams, spade marks, stones, roots and washes on the cut faces, the
+   * trodden margin and its crumbs, the turf's shadow and the darker grass
+   * blade. They draw in the graveMouth layer under every sprite, mostly
+   * translucent over one another, and no player tells one from another
+   * mid-dodge. What a sprite drawn over the grave is measured against is the
+   * three rows that stay in SPRITE_LAYER: graveHole, graveWall and graveTurf.
+   */
+  'graveTurfDark',
+  'graveSoilShadow',
+  'graveSubsoil',
+  'graveSubsoilDark',
+  'graveSubsoilDeep',
+  'graveSeam',
+  'graveSpadePale',
+  'graveSpadeDark',
+  'graveStone',
+  'graveStoneShadow',
+  'graveRoot',
+  'graveMoonWash',
+  'graveShadeWash',
+  'graveNearLipShade',
+  'graveCornerEdge',
+  'graveMarginDark',
+  'graveMarginPale',
+  'graveCrumbShadow',
+  'graveCrumbTop',
+  'graveTurfShadow',
 ];
 
 /** The stand-in ground's own colours, in the order the run meets them. */
@@ -150,26 +176,22 @@ const OVER_THE_MOUTH =
   'a bright sprite on the darkest declared colour, at reverse polarity, and over the mouth for at most the tick it leaves it';
 
 /**
- * The grave's own cut earth and turf as backgrounds, which slice 3 draws for
- * the first time (design record R4).
+ * The grave's own cut earth and grass as backgrounds (design record R4), in the
+ * prototype's colours since slice 6.
  *
- * The mouth used to be one flat `graveHole`, and everything drawn over the
- * grave was measured against luma 2.33. A hole a player can see into cannot be
- * that: the cut faces have to part from the black or the grave is the empty
- * rectangle the ticket exists to get rid of. So the two new colours are capped
- * instead of being free. `graveWall` sits at luma 13.71, under the ground tile
- * it is cut into, and `graveTurf` at 17.85, the point where the food layer
- * still clears Lc 45 over it; both draw under a face light or an alpha, so the
- * declared value is the brightest either one ever reaches.
- *
- * What that costs is these four pairs and nothing else. Three of them are the
- * three the mouth already cost and they carry the same arguments here.
+ * The mouth used to be one flat `graveHole`, and a hole a player can see into
+ * cannot be that: the cut faces have to part from the black or the grave is
+ * the empty rectangle the ticket exists to get rid of. `graveWall` is the
+ * brightest earth the cut shows, the pale subsoil band at luma 29.06, and
+ * `graveTurf` the lighter of the two grass blades at 50.37. Both draw under
+ * washes, the depth fade and blade strokes a pixel or two wide, so the declared
+ * value is the brightest either one reaches.
  */
 const OVER_THE_CUT =
-  "the grave's own cut earth, drawn inside the mouth under a face light, and capped at the ground tile's own luma so the hole can be seen into at all";
+  "the grave's own cut earth, drawn inside the mouth under a wash and the depth fade, so the declared value is the brightest the wall reaches";
 
 const OVER_THE_TURF =
-  'the tufts beside the mouth, drawn translucent so what lands on screen is between the ground and the declared value, which is therefore the worst case';
+  'the grass hanging in over the lip, blades a pixel or two wide, so what a sprite crosses is mostly the ground or the hole between them';
 
 /**
  * Claimed ground over the grave's own art, and it is the one pair this step
@@ -177,10 +199,11 @@ const OVER_THE_TURF =
  *
  * `territoryGround`'s value was solved to the tenth of a luma point against the
  * mouth, where it measures Lc 45.92 with 0.92 to spare, and a mouth a player
- * can see into spends that margin: 43.30 over the lit wall and 41.30 over a
- * tuft. Buying it back is not available from either side. The ground cannot go
- * brighter, because a mob body sits at luma 66.63 against the band's ceiling of
- * 68, and the wall cannot go darker without being the black again.
+ * can see into spends that margin: 32.66 over the pale subsoil and 36.25 over a
+ * grass blade, in the prototype's colours. The ground cannot buy it back by
+ * going brighter, because a mob body sits at luma 66.63 against the band's
+ * ceiling of 68, and the grave's side of the pair is the prototype's until the
+ * colour decision.
  *
  * What holds the reading instead is where the pair happens. A patch is laid on
  * the open field over the densest knot of mobs ahead of the grave and the grave
@@ -191,6 +214,26 @@ const OVER_THE_TURF =
  */
 const CLAIMED_GROUND_OVER_THE_CUT =
   'claimed ground is read by the field it covers, not by the sliver of it lying across a hole: the pair costs 2.6 points against the mouth, and neither side can buy them back (the ground is 1.4 under the band ceiling, the wall is at the ground tile it is cut into)';
+
+/**
+ * The grave in the prototype's own colours, which slice 6 ports unchanged on
+ * Mark's ruling: the grave is the prototype's picture first, and whether any
+ * colour moves is decided once he has seen it. The prototype chose its earth
+ * and grass against a brighter ground than this field's, so the pale subsoil
+ * (`graveWall`, luma 29.06) and the lighter blade (`graveTurf`, luma 50.37)
+ * sit in the middle of the band, where a sprite's light half and its dark
+ * companion both fall short of Lc 45 over them. Each pair below carries its
+ * own figure, and every one of them is reopened by the colour decision.
+ */
+const GROUND_DECIDED_AFTER_SLICE_6 =
+  'the ground is decided after slice 6 (Mark, 2026-09-21)';
+
+/**
+ * The rim is no longer drawn since slice 6, which took the prototype's grave
+ * without it; its row stays until the colour decision says what becomes of it.
+ */
+const RIM_NOT_DRAWN =
+  'the rim is not drawn since slice 6 and its row waits on the colour decision';
 
 const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   {
@@ -219,7 +262,7 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['powerUp', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'bansheeDark'], because: `31.66: ${MID_BAND_BODY}` },
   { pair: ['graveGlow', 'undertaker'], because: `34.09: ${MID_BAND_BODY}` },
-  { pair: ['undertaker', 'graveHole'], because: `24.72: ${MID_BAND_BODY}` },
+  { pair: ['undertaker', 'graveHole'], because: `24.77: ${MID_BAND_BODY}` },
   { pair: ['undertaker', 'foodOutline'], because: `23.42: ${MID_BAND_BODY}` },
   // Over the splash, which dispatch 5 draws for the first time.
   { pair: ['graveRim', 'splash'], because: OVER_THE_SPLASH },
@@ -249,35 +292,151 @@ const SEPARATION_EXCEPTIONS: { pair: [string, string]; because: string }[] = [
   { pair: ['banshee', 'skull'], because: OVER_THE_SKULL },
   { pair: ['undertaker', 'skull'], because: OVER_THE_SKULL },
   // Out of the mouth.
-  { pair: ['skull', 'graveHole'], because: `44.42: ${OVER_THE_MOUTH}` },
-  { pair: ['splash', 'graveHole'], because: `40.81: ${OVER_THE_MOUTH}` },
+  { pair: ['skull', 'graveHole'], because: `44.47: ${OVER_THE_MOUTH}` },
+  { pair: ['splash', 'graveHole'], because: `40.85: ${OVER_THE_MOUTH}` },
   // Over the grave's own cut earth and turf, which slice 3 draws for the first
   // time. The same three the mouth already cost, plus claimed ground.
-  { pair: ['undertaker', 'graveWall'], because: `22.10: ${MID_BAND_BODY}` },
-  { pair: ['undertaker', 'graveTurf'], because: `20.10: ${MID_BAND_BODY}` },
+  {
+    pair: ['undertaker', 'graveWall'],
+    because: `12.07: ${MID_BAND_BODY}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['undertaker', 'graveTurf'],
+    because: `36.25: ${MID_BAND_BODY}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
   {
     pair: ['skull', 'graveWall'],
-    because: `41.81: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
+    because: `31.17: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
   },
   {
     pair: ['skull', 'graveTurf'],
-    because: `39.81: ${OVER_THE_SKULL}, and ${OVER_THE_TURF}`,
+    because: `36.25: ${OVER_THE_SKULL}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
   },
   {
     pair: ['splash', 'graveWall'],
-    because: `38.19: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}`,
+    because: `27.55: ${OVER_THE_MOUTH}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
   },
   {
     pair: ['splash', 'graveTurf'],
-    because: `36.19: ${OVER_THE_SPLASH}, and ${OVER_THE_TURF}`,
+    because: `36.25: ${OVER_THE_SPLASH}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
   },
   {
     pair: ['territoryGround', 'graveWall'],
-    because: `43.30: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_CUT}`,
+    because: `32.66: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_CUT}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
   },
   {
     pair: ['territoryGround', 'graveTurf'],
-    because: `41.30: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_TURF}`,
+    because: `36.25: ${CLAIMED_GROUND_OVER_THE_CUT}, and ${OVER_THE_TURF}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  // Over the grave in the prototype's colours (slice 6), each with its figure.
+  {
+    pair: ['graveRim', 'graveWall'],
+    because: `40.13: ${RIM_NOT_DRAWN}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['graveRim', 'graveTurf'],
+    because: `38.03: ${RIM_NOT_DRAWN}, and ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['graveGlow', 'graveTurf'],
+    because: `38.03: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['corpse', 'graveWall'],
+    because: `36.53: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['corpse', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['corpseRevenant', 'graveWall'],
+    because: `37.42: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['corpseRevenant', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['feast', 'graveWall'],
+    because: `43.98: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['feast', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['powerUp', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['mob', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['banshee', 'graveWall'],
+    because: `44.10: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['banshee', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['territory', 'graveWall'],
+    because: `40.36: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['territory', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['wisp', 'graveWall'],
+    because: `42.86: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['wisp', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['bellRing', 'graveWall'],
+    because: `44.11: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['bellRing', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['belchEruption', 'graveWall'],
+    because: `44.07: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+  {
+    pair: ['belchEruption', 'graveTurf'],
+    because: `36.25: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+];
+
+/**
+ * Cut earth the top end of the grave's own bracket is allowed to fail on, each
+ * with its reason. The prototype's subsoil was chosen under the prototype's
+ * brighter ground, and it stands above this field's until the ground is decided.
+ */
+const CUT_EARTH_ABOVE_THE_GROUND: { name: string; because: string }[] = [
+  {
+    name: 'graveWall',
+    because: `29.06 over nightSpeckle's 13.99: ${GROUND_DECIDED_AFTER_SLICE_6}`,
+  },
+];
+
+/**
+ * Colours with no hue for assertion 10 to measure. `hsv` reports hue 0 for a
+ * colour with no saturation, which reads as red, and a black is not in fire's
+ * family on any channel: it is luma 0 against fire bodies at 43 and up.
+ */
+const NO_HUE_AT_ALL: { name: string; because: string }[] = [
+  {
+    name: 'graveHole',
+    because:
+      "the prototype's pit is pure black (slice 6), whose hue is undefined",
   },
 ];
 
@@ -529,6 +688,7 @@ describe('the reserved band (ADR 0014)', () => {
     expect(declared.length).toBeGreaterThan(isFire.size);
     for (const [name, entry] of declared) {
       if (isFire.has(entry)) continue;
+      if (NO_HUE_AT_ALL.some((each) => each.name === name)) continue;
       const gap = Math.min(
         ...bodyHues.map((hue) => hueGap(hsv(entry.hex).h, hue)),
       );
@@ -785,9 +945,9 @@ describe('the sprite outline table (ADR 0014)', () => {
     expect(
       GRAVE_RIM_STROKE * scale * cssPixelsPerStageUnit,
     ).toBeGreaterThanOrEqual(RIM_STROKE_MIN_CSS);
-    expect(GRAVE_RIM_STROKE + GRAVE_RIM_SHADOW).toBeLessThanOrEqual(
-      RIM_BAND_MAX,
-    );
+    // The rim's one-unit dark companion band went with the rim in slice 6, so
+    // the band the glow and the arc ride is the whole of the thick end.
+    expect(GRAVE_RIM_STROKE).toBeLessThanOrEqual(RIM_BAND_MAX);
   });
 });
 
@@ -1065,16 +1225,66 @@ describe('the stand-in ground (ADR 0049, decision 22, #38)', () => {
   });
 });
 
+/**
+ * Every colour the prototype's grave painters draw with, as the prototype
+ * writes it: `SOIL`'s stops, `COLOR.moss` and `COLOR.mossDark`, and the RGB of
+ * each `rgba()` its painters build (build 7,
+ * `apps/hungry-grave/src/prototypes/grave-fall/index.html` on
+ * `prototype/148-grave-fall`, lines 643 to 1051).
+ */
+const PROTOTYPE_GRAVE_COLOURS: Record<string, number> = {
+  graveHole: 0x000000,
+  graveWall: 0x414b5c,
+  graveTurf: 0x6e8a58,
+  graveTurfDark: 0x4a6040,
+  graveSoilShadow: 0x232a38,
+  graveSubsoil: 0x333c4b,
+  graveSubsoilDark: 0x212834,
+  graveSubsoilDeep: 0x080b10,
+  graveSeam: 0x05080c,
+  graveSpadePale: 0x889ab4,
+  graveSpadeDark: 0x06090f,
+  graveStone: 0x68768a,
+  graveStoneShadow: 0x04070b,
+  graveRoot: 0x7a8272,
+  graveMoonWash: 0x8498b6,
+  graveShadeWash: 0x030509,
+  graveNearLipShade: 0x020408,
+  graveCornerEdge: 0x020306,
+  graveMarginDark: 0x202731,
+  graveMarginPale: 0x37404e,
+  graveCrumbShadow: 0x1a2029,
+  graveCrumbTop: 0x5e6a7c,
+  graveTurfShadow: 0x020407,
+};
+
 describe('the grave in the ground (design record R4)', () => {
+  it("the grave's colours are the prototype's", () => {
+    // Slice 6: Mark ruled the grave is the prototype's picture exactly, and a
+    // colour decision comes after he has seen it (2026-09-21).
+    const declared = Object.fromEntries(
+      Object.keys(PROTOTYPE_GRAVE_COLOURS).map((name) => [
+        name,
+        PALETTE[name as keyof typeof PALETTE]?.hex,
+      ]),
+    );
+    expect(declared).toEqual(PROTOTYPE_GRAVE_COLOURS);
+  });
+
   it('keeps the cut earth under the ground it is cut into, and clear of the black behind it', () => {
     // The two ends of the bracket that decided the value, and they are one
     // rule: earth cut to face sideways keeps less moon than earth lying face
     // up, and a face the player cannot tell from the mouth's own black is the
     // empty rectangle this step exists to get rid of. The exception table above
     // prices the top end; without this, the bottom end is prose in a JSDoc.
-    expect(PALETTE.graveWall.luma).toBeLessThanOrEqual(
-      PALETTE.nightSpeckle.luma,
+    //
+    // The top end is excepted while the grave wears the prototype's colours:
+    // the check stays, and it binds again the moment the exception goes.
+    const underTheGround = PALETTE.graveWall.luma <= PALETTE.nightSpeckle.luma;
+    const excepted = CUT_EARTH_ABOVE_THE_GROUND.some(
+      ({ name, because }) => name === 'graveWall' && because.length > 0,
     );
+    expect(`graveWall ${underTheGround || excepted}`).toBe('graveWall true');
     expect(
       PALETTE.graveWall.luma - PALETTE.graveHole.luma,
     ).toBeGreaterThanOrEqual(SPRITE_SEPARATION.luma);

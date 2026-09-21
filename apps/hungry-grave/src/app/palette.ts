@@ -46,53 +46,58 @@ const PALETTE = {
    */
   fieldFrame: { hex: 0x8fa0c7, luma: 62.43 },
 
-  // the grave
-  graveHole: { hex: 0x04060b, luma: 2.33 },
   /**
-   * The cut earth inside the mouth: the three wall faces the camera can see,
-   * and the pale half of the trodden margin outside the lip (design record R4).
+   * The grave, in the prototype's own colours (build 7, which Mark approved;
+   * slice 6 of #148 ports its painters line for line). Each row is a colour the
+   * prototype's grave painters draw with, most of them at an alpha the painter
+   * sets, so the declared value is the most a row can ever put on screen.
    *
-   * It is capped from above by the ground the grave is cut into. Earth cut to
-   * face sideways keeps less moon than earth lying face up, so the wall's
-   * brightest band sits at luma 13.71 against `nightSpeckle`'s 13.99, and the
-   * face light in `graveDrawingValues.ts` takes the far and the shaded faces
-   * down from there. Nothing in the hole is ever drawn brighter than this.
-   *
-   * The floor under it is that the hole has to read as a hole: at the size
-   * floor the grave is about twelve field units of mouth, and a wall the player
-   * cannot tell from `graveHole` at luma 2.33 is the empty rectangle this whole
-   * step exists to get rid of.
-   *
-   * What it costs is measured rather than assumed, and the three sprites it
-   * costs are the three the mouth already cost: `skull`, `splash` and
-   * `undertaker` are named over `graveHole` for the same reason and carry the
-   * same figures here. `territoryGround` is the fourth and it is the new one,
-   * named in palette.test.ts with what it measures and why.
-   *
-   * A cold slate at hue 214.29, the grave's own family, so the earth parts from
-   * the moss the tufts are drawn in on hue as well as on value.
+   * The prototype's ground was brighter than this field's, and these values
+   * were chosen against it: the cut earth and the grass are brighter than the
+   * ground tile here. Mark decides the colours after he has seen the port
+   * (2026-09-21), so nothing below is re-valued to this ground.
    */
-  graveWall: { hex: 0x1b2430, luma: 13.71 },
-  /**
-   * The turf round the grave: the tufts growing on the ground beside it and the
-   * blades hanging in over the cut (Mark's decision 7, "a dark brownish,
-   * grayish, greenish thing"). The brown half of that range is his standing ban
-   * and stays banned, so this is the grey-green half.
-   *
-   * The value is forced from above rather than chosen. The tufts lie on the
-   * open field under the food layer, and at luma 17.85 a corpse over one
-   * measures APCA Lc 45.16 against the fine-detail bracket's 45; a point
-   * brighter and the food layer stops clearing it over its own ground cover.
-   * The tufts draw translucent (`TUFT_ALPHA`), so what lands on screen is
-   * between the ground and this entry and every figure measured against the
-   * entry is the worst case.
-   *
-   * It cannot be told from the ground on value at all: over `nightSpeckle` it
-   * measures Lc 0.00, which the ceiling above makes unavoidable. What carries
-   * it is hue, 101.25 against the ground's cold blues, and the blades' own
-   * shape. The colour is Mark's to judge in play.
-   */
-  graveTurf: { hex: 0x263121, luma: 17.85 },
+  // The dark the walls fall away into, and the black the depth fade lays over them.
+  graveHole: { hex: 0x000000, luma: 0 },
+  // The pale band of subsoil, the brightest earth the cut shows (SOIL at 0.18).
+  graveWall: { hex: 0x414b5c, luma: 29.06 },
+  // The lighter grass blade hanging in over the cut (the prototype's COLOR.moss).
+  graveTurf: { hex: 0x6e8a58, luma: 50.37 },
+  // The darker grass blade, most of the overhang (the prototype's COLOR.mossDark).
+  graveTurfDark: { hex: 0x4a6040, luma: 34.91 },
+  // The shadow the overhanging turf throws at the top of the cut (SOIL at 0).
+  graveSoilShadow: { hex: 0x232a38, luma: 16.28 },
+  // The subsoil below the pale band (SOIL at 0.52).
+  graveSubsoil: { hex: 0x333c4b, luma: 23.2 },
+  // The subsoil darkening toward where the light dies (SOIL at 0.78).
+  graveSubsoilDark: { hex: 0x212834, luma: 15.44 },
+  // The earth where the light has gone (SOIL at 1).
+  graveSubsoilDeep: { hex: 0x080b10, luma: 4.21 },
+  // The seam of darker earth along each layer boundary.
+  graveSeam: { hex: 0x05080c, luma: 3 },
+  // A spade mark catching the moon, and one in shadow.
+  graveSpadePale: { hex: 0x889ab4, luma: 59.63 },
+  graveSpadeDark: { hex: 0x06090f, luma: 3.45 },
+  // A stone standing in the face, and the shadow it throws under itself.
+  graveStone: { hex: 0x68768a, luma: 45.67 },
+  graveStoneShadow: { hex: 0x04070b, luma: 2.61 },
+  // A cut root end in the face.
+  graveRoot: { hex: 0x7a8272, luma: 49.86 },
+  // The wash on the face that catches the moon, and on the faces in its shade.
+  graveMoonWash: { hex: 0x8498b6, luma: 58.79 },
+  graveShadeWash: { hex: 0x030509, luma: 1.91 },
+  // The light a side wall loses toward the near lip.
+  graveNearLipShade: { hex: 0x020408, luma: 1.52 },
+  // The edge where the far wall meets a side wall.
+  graveCornerEdge: { hex: 0x020306, luma: 1.18 },
+  // The bare trodden earth round the lip, its dark patches and its pale ones.
+  graveMarginDark: { hex: 0x202731, luma: 14.99 },
+  graveMarginPale: { hex: 0x37404e, luma: 24.74 },
+  // A lump of turned earth on the margin: its shadow, and the moon on its top.
+  graveCrumbShadow: { hex: 0x1a2029, luma: 12.3 },
+  graveCrumbTop: { hex: 0x5e6a7c, luma: 41.08 },
+  // The line of shadow the turf throws just inside the edge.
+  graveTurfShadow: { hex: 0x020407, luma: 1.49 },
   graveRim: { hex: 0x93a7bd, luma: 64.45 },
   graveGlow: { hex: 0xd8a941, luma: 67.25 },
 

@@ -1,97 +1,61 @@
-import { Container, Graphics } from 'pixi.js';
+import type { ICanvas } from 'pixi.js';
+import {
+  CanvasSource,
+  Container,
+  DOMAdapter,
+  Graphics,
+  Sprite,
+  Texture,
+} from 'pixi.js';
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
 import { PALETTE } from '../../palette';
+import type { GraveCanvas } from './graveCanvas';
+import { clamp } from './graveCanvas';
 import {
-  BITE_REACH,
-  BLADE_WIDTH,
-  CORNER_EDGE_INK,
-  CORNER_EDGE_WIDTH,
-  FACE_BANDS,
-  FACE_MOON,
-  GRAVE_VIEW,
-  LIP_BITES,
-  MARGIN_DARK_ALPHA,
-  MARGIN_PALE_ALPHA,
-  MARGIN_PATCH,
-  MARGIN_REACH,
-  MARGIN_SWELL,
-  NEAR_LIP_FROM,
-  OVERHANGING_GRASS,
-  TUFT_ALPHA,
-  TUFT_BLADES,
-  TUFT_FAN,
-  TUFTS,
-  TURF_SHADOW,
-  TURF_SHADOW_ALPHA,
-  TURF_SHADOW_FAR,
+  BAKE_PADDING,
+  BAKE_PIXELS_PER_UNIT,
+  HOLE_REBUILD_STEP,
 } from './graveDrawingValues';
-import { belowGround, lightAtDepth } from './graveProjection';
+import { paintLip } from './graveLip';
+import { mouthPolygon } from './graveMouth';
 import type { Spot } from './graveProjection';
+import { paintPit } from './graveWalls';
 import type { FieldLayers } from './layering';
 
 /**
- * The rim's stroke in field units, stroked inward.
+ * The width of the band the reservoir's glow and Territory's charge arc ride,
+ * in field units, stroked inward from the hitbox's own edge.
+ *
+ * It is the band the grave's pale rim used to draw on, kept at its width so
+ * the two jobs it carried draw exactly where they did; the rim itself went in
+ * slice 6, because the prototype has none and a bright ring round an opening
+ * reads as a kerb rather than as dug earth.
  *
  * Do not derive this from BOUNDARY_STROKE's reasoning. That path gives 8, and
- * at SIZE_FLOOR two 8-unit rims leave 2 units of mouth on an 18-unit grave: the
- * grave stops being a hole exactly when the player most needs to read it.
- * BOUNDARY_STROKE sits in APCA's Lc 30 bracket, which carries a 5.5 rendered
- * pixel floor, because fieldFrame cannot be raised far enough to reach Lc 45
- * against night without eating mob fire's own margin. graveRim is not in that
- * position: it measures Lc 52.9 against night and Lc 53.4 against graveHole,
- * both inside the Lc 45 fine-detail bracket, and that bracket carries no pixel
- * floor at all. An APCA bracket belongs to the element it was chosen for.
+ * at SIZE_FLOOR two 8-unit bands leave 2 units of mouth on an 18-unit grave:
+ * the grave stops being a hole exactly when the player most needs to read it.
+ * Not thinner than about 2 CSS pixels on the phone, which is 2.77 units,
+ * borrowing WCAG 2.2 SC 2.4.13's focus indicator area loosely as the nearest
+ * published figure for a thin outline a person must see. And not thicker than
+ * 4, so that at SIZE_FLOOR the mouth's interior stays wider than a power-up. 3
+ * is the only integer in that bracket with margin at both ends.
  *
- * With no floor from APCA the number is bracketed from both ends instead. Not
- * thinner than about 2 CSS pixels on the phone, which is 2.77 units, borrowing
- * WCAG 2.2 SC 2.4.13's focus indicator area loosely as the nearest published
- * figure for a thin outline a person must see, and nothing more. And not
- * thicker than 4, so that at SIZE_FLOOR the mouth's interior stays wider than a
- * power-up. 3 is the only integer in that bracket with margin at both ends, and it
- * leaves a floor grave a mouth 12 units wide.
- *
- * It is a field unit and not a share of the opening, which is why the three rim
- * jobs are redrawn on a size change while the hole's art is built once and
- * scaled: a stroke scaled with the art would thin exactly where this bracket
- * needs it most (design record R4, "What scales and what does not").
+ * It is a field unit and not a share of the opening, which is why the glow and
+ * the arc are redrawn on a size change: a stroke scaled with the grave would
+ * thin exactly where this bracket needs it most.
  */
 const GRAVE_RIM_STROKE = 3;
 
 /**
- * The rim's dark companion, stroked inward immediately inside the bright band,
- * in field units.
+ * The reservoir's glow is the band wearing treasure's colour, drawn inside the
+ * hitbox's own edge rather than as a ring of its own.
  *
- * ADR 0014 requires the rim to read above the food layer even under a pile, and
- * graveRim measures APCA Lc 0.00 against corpse, feast, power-up and mob, all four.
- * Re-valuing either side is arithmetically impossible, so the rim becomes two
- * colours, which is ADR 0014's own construction for exactly this problem. The
- * pair spans 62.12 luma and the dark band clears the Lc 45 fine-detail bracket
- * against everything the rim can cross.
- *
- * It costs the mouth one unit on each side, so a floor-size grave reads ten
- * units wide inside its rim rather than twelve. Nothing is drawn outside the
- * hitbox and the hitbox is untouched. What binds a power-up is the grave's own
- * width and never the mouth's interior: ADR 0003 rules that size never gates a
- * swallow, so the mouth is not a gate.
- */
-const GRAVE_RIM_SHADOW = 1;
-
-/**
- * The reservoir's glow is the rim's own band wearing treasure's colour, drawn
- * over it at the identical geometry rather than as a ring of its own.
- *
- * It takes no width at all, which is what ADR 0003 requires: that ADR makes the
- * drawn grave the health bar and graveHitbox is exactly the sim rect, so the
- * visible outer edge has to equal the hitbox. A glow standing outside the rim
- * would make the grave read wider than the box the player passes under, and a
- * glow standing inside it would eat the mouth at the size floor, where the hole
- * most needs to read as a hole.
- *
- * Its dark companion is the rim's own graveHole band, already stroked one unit
- * inside it, so the pair is the construction ADR 0014 asks for without a second
- * dark edge of its own.
+ * It takes no width beyond the band, which is what ADR 0003 requires: that ADR
+ * makes the drawn grave the health bar and graveHitbox is exactly the sim rect,
+ * so the visible outer edge has to equal the hitbox. A glow standing outside it
+ * would make the grave read wider than the box the player passes under.
  */
 // How fast the glow pulses at a full reservoir, in ticks per cycle.
 const GLOW_PULSE_TICKS = 40;
@@ -122,410 +86,169 @@ const glowAlpha = (fullness: number, tick: number): number => {
  */
 const ARC_SEGMENTS = 64;
 
-/** A place on a rectangle's perimeter, and the way out of the rectangle there. */
-interface Lip {
-  readonly x: number;
-  readonly y: number;
-  readonly outX: number;
-  readonly outY: number;
-}
-
 /**
  * A point this far around a rectangle's perimeter, clockwise from top-centre,
- * with `along` from 0 to 1, and the outward normal at it. The rectangle is
- * centred on the origin.
+ * with `along` from 0 to 1. The rectangle is centred on the origin.
  *
  * Piecewise over the four edges, because the grave is a true rectangle: the
- * mouth is the rule's own geometry under R1, and the rounded corner the drawing
- * used to carry made the drawn hole a shape the sim never had.
+ * mouth is the rule's own geometry under R1.
  */
 const aroundTheRectangle = (
   width: number,
   height: number,
   along: number,
-): Lip => {
+): Spot => {
   const total = 2 * width + 2 * height;
   let s = ((along % 1) + 1) % 1;
   s *= total;
 
-  if (s < width / 2) return { x: s, y: -height / 2, outX: 0, outY: -1 };
+  if (s < width / 2) return { x: s, y: -height / 2 };
   s -= width / 2;
-  if (s < height) {
-    return { x: width / 2, y: -height / 2 + s, outX: 1, outY: 0 };
-  }
+  if (s < height) return { x: width / 2, y: -height / 2 + s };
   s -= height;
-  if (s < width) return { x: width / 2 - s, y: height / 2, outX: 0, outY: 1 };
+  if (s < width) return { x: width / 2 - s, y: height / 2 };
   s -= width;
-  if (s < height) {
-    return { x: -width / 2, y: height / 2 - s, outX: -1, outY: 0 };
-  }
+  if (s < height) return { x: -width / 2, y: height / 2 - s };
   s -= height;
-  return { x: -width / 2 + s, y: -height / 2, outX: 0, outY: -1 };
+  return { x: -width / 2 + s, y: -height / 2 };
 };
 
 /**
- * The mouth in the grave's own half-lengths: one unit is the size, so the
- * opening runs from -1 to 1 down the field and the width comes off the sim's
- * own graveWidth rather than from the aspect written out a second time.
+ * What the bake reads off the renderer each frame: how wide the stage is in
+ * its own units, and how wide the page shows the canvas in CSS pixels.
  */
-const MOUTH_HALF_WIDTH = graveWidth(1) / 2;
-const MOUTH_WIDTH = graveWidth(1);
-const MOUTH_HEIGHT = 2;
+interface RendererView {
+  readonly screen: { readonly width: number };
+  readonly canvas: {
+    getBoundingClientRect?(): { readonly width: number };
+  };
+}
+
+// The view and the texture density the hole was last baked at.
+interface Baked {
+  readonly size: number;
+  readonly viewScale: number;
+  readonly pixelsPerUnit: number;
+}
+
+// The 2D context of a canvas Pixi's adapter made, or a loud failure: a bake with no context is a broken environment.
+const contextOf = (canvas: ICanvas): GraveCanvas => {
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) throw new Error('the grave cannot bake: no 2D context');
+  return ctx;
+};
 
 /**
- * The three cut faces the camera can see, each named by the ground edge it
- * hangs under and walked from one end of that edge to the other.
- *
- * The near face is not among them: the camera stands behind the grave, so the
- * whole of that face projects past the near lip and the ground hides it.
+ * One canvas, one texture, painted in field units around the grave's origin
+ * and shown at the size it was painted at (the prototype's bakeLayer). The
+ * canvas comes from Pixi's own adapter, which is the browser's document in the
+ * game.
  */
-const WALL_FACES = [
-  {
-    moon: FACE_MOON.far,
-    from: { x: -MOUTH_HALF_WIDTH, y: -1 },
-    to: { x: MOUTH_HALF_WIDTH, y: -1 },
-  },
-  {
-    moon: FACE_MOON.right,
-    from: { x: MOUTH_HALF_WIDTH, y: -1 },
-    to: { x: MOUTH_HALF_WIDTH, y: 1 },
-  },
-  {
-    moon: FACE_MOON.left,
-    from: { x: -MOUTH_HALF_WIDTH, y: 1 },
-    to: { x: -MOUTH_HALF_WIDTH, y: -1 },
-  },
-] as const;
-
-/**
- * A projected spot held inside the opening. The near lip stands between the
- * camera and the bottom of a side face, so the sliver that projects past it is
- * ground and not hole; clipping it here is what keeps the drawn mouth exactly
- * the hitbox (ADR 0003).
- */
-const insideTheMouth = (spot: Spot): Spot => ({
-  x: Math.min(MOUTH_HALF_WIDTH, Math.max(-MOUTH_HALF_WIDTH, spot.x)),
-  y: Math.min(1, Math.max(-1, spot.y)),
-});
-
-/** A point on one face: `along` runs its ground edge, `depth` is in half-lengths. */
-const onTheFace = (
-  face: (typeof WALL_FACES)[number],
-  along: number,
-  depth: number,
-): Spot =>
-  insideTheMouth(
-    belowGround(
-      face.from.x + (face.to.x - face.from.x) * along,
-      face.from.y + (face.to.y - face.from.y) * along,
-      depth,
-      GRAVE_VIEW,
-    ),
+const bakeLayer = (
+  size: number,
+  pad: number,
+  pxPerUnit: number,
+  paint: (ctx: GraveCanvas) => void,
+): Sprite => {
+  const w = graveWidth(size) / 2 + pad;
+  const h = size + pad;
+  const canvas = DOMAdapter.get().createCanvas(
+    Math.ceil(w * 2 * pxPerUnit),
+    Math.ceil(h * 2 * pxPerUnit),
   );
+  const ctx = contextOf(canvas);
+  ctx.setTransform(
+    pxPerUnit,
+    0,
+    0,
+    pxPerUnit,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
+  paint(ctx);
+  const sprite = new Sprite(
+    new Texture({
+      source: new CanvasSource({ resource: canvas, resolution: 1 }),
+    }),
+  );
+  sprite.anchor.set(0.5);
+  sprite.width = w * 2;
+  sprite.height = h * 2;
+  return sprite;
+};
 
-/**
- * One band of one cut face, as the quad between two depths, painted in the
- * moonlight that reaches the middle of it.
- *
- * Flat bands rather than one gradient fill: the light dies on a curve and a
- * Graphics fill is one colour, so the curve is carried by the stack. Each band
- * is laid over the black, so its own alpha is the whole of how much moon it
- * keeps and the deep end fades into the black rather than meeting anything.
- */
-const paintFaceBand = (
-  into: Graphics,
-  face: (typeof WALL_FACES)[number],
-  band: number,
-): void => {
-  const top = (GRAVE_VIEW.darkDepth * band) / FACE_BANDS;
-  const bottom = (GRAVE_VIEW.darkDepth * (band + 1)) / FACE_BANDS;
-  const light = lightAtDepth((top + bottom) / 2, GRAVE_VIEW);
-  const corners = [
-    onTheFace(face, 0, top),
-    onTheFace(face, 1, top),
-    onTheFace(face, 1, bottom),
-    onTheFace(face, 0, bottom),
-  ];
-  into
-    .poly(corners.flatMap((corner) => [corner.x, corner.y]))
-    .fill({ color: PALETTE.graveWall.hex, alpha: light * face.moon });
+// Swaps a layer's baked sprite for a fresh one, freeing the old canvas's texture.
+const replaceArt = (art: Container, sprite: Sprite): void => {
+  art.removeChildren().forEach((child) => child.destroy(true));
+  art.addChild(sprite);
 };
 
 /**
- * The two edges where the far face meets a side face, each running from a
- * corner of the opening down into the shaft and going out with everything
- * around it. It is what turns a pale band across the top of the opening into
- * the back face of a box.
- */
-const paintCornerEdges = (into: Graphics): void => {
-  for (const side of [-1, 1]) {
-    // From the second band down. The first band starts on the opening's own
-    // corner, where a stroke's envelope would reach outside the mouth, and a
-    // hole drawn past its own rectangle is the thing ADR 0003 forbids.
-    for (let band = 1; band < FACE_BANDS; band++) {
-      const top = (GRAVE_VIEW.darkDepth * band) / FACE_BANDS;
-      const bottom = (GRAVE_VIEW.darkDepth * (band + 1)) / FACE_BANDS;
-      const from = belowGround(side * MOUTH_HALF_WIDTH, -1, top, GRAVE_VIEW);
-      const to = belowGround(side * MOUTH_HALF_WIDTH, -1, bottom, GRAVE_VIEW);
-      const light = lightAtDepth((top + bottom) / 2, GRAVE_VIEW);
-      into
-        .moveTo(from.x, from.y)
-        .lineTo(to.x, to.y)
-        .stroke({
-          width: MOUTH_WIDTH * CORNER_EDGE_WIDTH,
-          color: PALETTE.graveHole.hex,
-          alpha: CORNER_EDGE_INK * light,
-          cap: 'round',
-        });
-    }
-  }
-};
-
-/**
- * The cut earth and the dark under it, in the grave's own half-lengths: the
- * black laid down first over the whole opening, then the three faces the camera
- * can see painted over it, and no floor at all.
- */
-const paintTheHole = (into: Graphics): void => {
-  into
-    .rect(-MOUTH_HALF_WIDTH, -1, MOUTH_WIDTH, MOUTH_HEIGHT)
-    .fill({ color: PALETTE.graveHole.hex });
-  for (const face of WALL_FACES) {
-    for (let band = 0; band < FACE_BANDS; band++) {
-      paintFaceBand(into, face, band);
-    }
-  }
-  paintCornerEdges(into);
-};
-
-/**
- * The bites out of the lip: short stretches where the ground fell away and left
- * the hole wider. They only ever go outward, and they are drawn under the rim's
- * own rectangle so the grave still reads as the box the player passes under.
- */
-const paintLipBites = (into: Graphics): void => {
-  for (const bite of LIP_BITES) {
-    const at = aroundTheRectangle(MOUTH_WIDTH, MOUTH_HEIGHT, bite.at);
-    const out = MOUTH_WIDTH * BITE_REACH * bite.depth;
-    const across = MOUTH_WIDTH * bite.span * 2;
-    into
-      .ellipse(
-        at.x + at.outX * out * 0.4,
-        at.y + at.outY * out * 0.4,
-        at.outX === 0 ? across : out,
-        at.outX === 0 ? out : across,
-      )
-      .fill({ color: PALETTE.graveHole.hex });
-  }
-};
-
-/**
- * Bare earth where the digging trod the grass off, laid down as overlapping
- * patches rather than as a ring. A ring has an outline, and an even halo round
- * an opening reads as a shadow, which a hole does not cast. Alternating pale
- * and dark, because trodden ground is turned and not swept.
- */
-const paintTroddenMargin = (into: Graphics): void => {
-  MARGIN_SWELL.forEach((swell, index) => {
-    const at = aroundTheRectangle(
-      MOUTH_WIDTH,
-      MOUTH_HEIGHT,
-      index / MARGIN_SWELL.length,
-    );
-    const away = MOUTH_WIDTH * MARGIN_REACH * swell;
-    const pale = index % 2 === 0;
-    into
-      .ellipse(
-        at.x + at.outX * away,
-        at.y + at.outY * away,
-        MOUTH_WIDTH * MARGIN_PATCH,
-        MOUTH_WIDTH * MARGIN_PATCH * 0.6,
-      )
-      .fill({
-        color: pale ? PALETTE.graveWall.hex : PALETTE.graveHole.hex,
-        alpha: pale ? MARGIN_PALE_ALPHA : MARGIN_DARK_ALPHA,
-      });
-  });
-};
-
-/** One blade, from its root out along a way, bending by its own lean. */
-const paintBlade = (
-  into: Graphics,
-  root: Spot,
-  wayX: number,
-  wayY: number,
-  reach: number,
-  lean: number,
-  alpha: number,
-): void => {
-  const tipX = root.x + wayX * reach;
-  const tipY = root.y + wayY * reach;
-  // The bend runs across the way, so a blade curves rather than kinking.
-  const bendX = root.x + wayX * reach * 0.6 - wayY * lean * reach;
-  const bendY = root.y + wayY * reach * 0.6 + wayX * lean * reach;
-  into
-    .moveTo(root.x, root.y)
-    .quadraticCurveTo(bendX, bendY, tipX, tipY)
-    .stroke({
-      width: MOUTH_WIDTH * BLADE_WIDTH,
-      color: PALETTE.graveTurf.hex,
-      alpha,
-      cap: 'round',
-    });
-};
-
-/**
- * The tufts growing on the ground round the grave (Mark's decision 7). They are
- * drawn translucent, so the ground under them shows through and changes as the
- * grave moves over it, and they stand outside the lip rather than hemming it.
- */
-const paintTufts = (into: Graphics): void => {
-  for (const tuft of TUFTS) {
-    const at = aroundTheRectangle(MOUTH_WIDTH, MOUTH_HEIGHT, tuft.at);
-    const root = {
-      x: at.x + at.outX * MOUTH_WIDTH * tuft.out,
-      y: at.y + at.outY * MOUTH_WIDTH * tuft.out,
-    };
-    for (let blade = 0; blade < TUFT_BLADES; blade++) {
-      const fan = (blade / (TUFT_BLADES - 1) - 0.5) * TUFT_FAN;
-      paintBlade(
-        into,
-        root,
-        at.outX + at.outY * fan,
-        at.outY - at.outX * fan,
-        MOUTH_WIDTH * tuft.reach,
-        tuft.lean,
-        TUFT_ALPHA,
-      );
-    }
-  }
-};
-
-/**
- * The turf overhangs the cut by a hair, so it throws a line of shadow just
- * inside the edge all the way round, heaviest under the far lip. Stroked inside
- * the opening, so the shadow is the hole's own and never a kerb round it.
- */
-const paintTurfShadow = (into: Graphics): void => {
-  into
-    .rect(-MOUTH_HALF_WIDTH, -1, MOUTH_WIDTH, MOUTH_HEIGHT)
-    .stroke({
-      width: MOUTH_WIDTH * TURF_SHADOW,
-      color: PALETTE.graveHole.hex,
-      alpha: TURF_SHADOW_ALPHA,
-      alignment: 1,
-    })
-    // The far lip's own band, filled rather than stroked so it lands wholly
-    // inside the opening: that is the edge the turf overhangs toward the camera.
-    .rect(-MOUTH_HALF_WIDTH, -1, MOUTH_WIDTH, MOUTH_WIDTH * TURF_SHADOW_FAR)
-    .fill({ color: PALETTE.graveHole.hex, alpha: TURF_SHADOW_ALPHA });
-};
-
-/**
- * Blades rooted on the grass outside the edge and hanging in over the hole, on
- * the far and the two side edges. Nothing along the near lip: grass there leans
- * toward the camera and only ever reads as a fringe laid across the bottom of
- * the opening.
- */
-const paintOverhangingGrass = (into: Graphics): void => {
-  for (const blade of OVERHANGING_GRASS) {
-    const at = aroundTheRectangle(MOUTH_WIDTH, MOUTH_HEIGHT, blade.at);
-    if (at.y > NEAR_LIP_FROM) continue;
-    // Rooted half a blade outside the edge, so the root itself is under the turf
-    // rather than standing on the cut.
-    const root = MOUTH_WIDTH * BLADE_WIDTH;
-    paintBlade(
-      into,
-      { x: at.x + at.outX * root, y: at.y + at.outY * root },
-      -at.outX,
-      -at.outY,
-      MOUTH_WIDTH * blade.reach,
-      blade.lean,
-      1,
-    );
-  }
-};
-
-/**
- * The grave on screen: a hole cut in the ground, drawn once in the grave's own
- * half-lengths and scaled by its size, with the rim, the reservoir's glow and
- * Territory's charge arc above the food on the rim's one geometry.
+ * The grave on screen: the prototype's hole, baked to two canvases (the cut
+ * and its walls beneath the falls, the ground at the lip above them), with the
+ * reservoir's glow and Territory's charge arc above the food on the band inside
+ * the hitbox's edge.
  *
  * Two layers rather than one, because ADR 0014's stack puts graveMouth beneath
- * the food and graveRim above it, and one Graphics cannot be in two layers.
+ * the food and graveRim above it, and one container cannot be in two layers.
  *
- * The hole's art is never cleared after it is built: the size changes on every
- * swallow, and every proportion it is built from is a share of the opening, so
- * a swallow is a scale and not a redraw. The three rim jobs keep a fixed stroke
- * in field units and are redrawn on a size change, as they always were (design
- * record R4, "What scales and what does not").
+ * The hole is baked afresh once the size has moved past HOLE_REBUILD_STEP, as
+ * the prototype's rebuildHole is, because several of its details are a screen
+ * pixel or two wide and must not scale with the grave. The bake needs the
+ * view's pixels per field unit, which only the renderer knows, so it happens in
+ * the renderer's own pass (onRender) rather than in sync.
  *
  * The glow takes a number from 0 to 1 and never the RunState. Handing a renderer
  * live sim state is the thing the rest of this design works to avoid, and
  * fullness is everything it needs.
  */
 class GraveRenderer {
-  private readonly groundArt = new Graphics();
-  private readonly mouth = new Graphics();
+  private readonly pitArt = new Container();
   /**
    * Where falling food draws: inside the hole, between the cut and the turf, so
-   * a body lying across the opening stays visible until it tips. Slice 4 fills
-   * it (design record R5, "Falling food draws in a container in the existing
-   * graveMouth layer, positioned at the grave"); this slice only puts it in the
-   * one place the draw order is decided.
+   * a body lying across the opening stays visible until it tips (design record
+   * R5).
    *
    * It follows the grave and is never scaled: a fall holds its own place in the
    * grave's proportions and multiplies by the size itself, so a container scaled
    * here would apply the size twice.
    */
   public readonly falls = new Container();
-  private readonly overhang = new Graphics();
-  private readonly rim = new Graphics();
+  private readonly lipArt = new Container();
   private readonly glow = new Graphics();
   private readonly arc = new Graphics();
+  private wantedSize: number | null = null;
+  private baked: Baked | null = null;
+  private warnedUnmeasured = false;
   private glowSize: number | null = null;
-  private rimSize: number | null = null;
   private arcSize: number | null = null;
   private arcStep: number | null = null;
 
   constructor() {
-    paintLipBites(this.groundArt);
-    paintTroddenMargin(this.groundArt);
-    paintTufts(this.groundArt);
-    paintTheHole(this.mouth);
-    paintTurfShadow(this.overhang);
-    paintOverhangingGrass(this.overhang);
+    this.pitArt.onRender = (renderer) => this.bakeForThisFrame(renderer);
   }
 
   /**
    * Puts the pieces into their layers, in the order the hole is read from the
-   * ground down: the ground outside the lip, the cut and its walls, the place a
-   * fall draws, and the turf hanging over the top of it all.
+   * ground down: the cut and its walls, the place a fall draws, and the ground
+   * at the lip over the top of it all.
    *
    * FieldLayers.clear() empties every layer between runs, so the renderer has to
    * be able to put itself back rather than assume it is still attached.
    */
   public attach(layers: FieldLayers): void {
-    layers
-      .layer('graveMouth')
-      .addChild(this.groundArt, this.mouth, this.falls, this.overhang);
-    layers.layer('graveRim').addChild(this.rim);
-    // Over the rim in the same layer, at the rim's own geometry, so a charged
-    // grave reads as the rim itself warming rather than as a second shape.
-    layers.layer('graveRim').addChild(this.glow);
-    // Territory's charge arc rides the same band, over the glow, so the rim
-    // does three jobs on one geometry rather than growing a second shape.
-    layers.layer('graveRim').addChild(this.arc);
+    layers.layer('graveMouth').addChild(this.pitArt, this.falls, this.lipArt);
+    // Territory's charge arc rides the same band as the glow, over it, so the
+    // band does two jobs on one geometry rather than growing a second shape.
+    layers.layer('graveRim').addChild(this.glow, this.arc);
   }
 
   public detach(): void {
-    this.groundArt.removeFromParent();
-    this.mouth.removeFromParent();
+    this.pitArt.removeFromParent();
     this.falls.removeFromParent();
-    this.overhang.removeFromParent();
+    this.lipArt.removeFromParent();
     this.glow.removeFromParent();
     this.arc.removeFromParent();
-    this.rim.removeFromParent();
   }
 
   /**
@@ -533,10 +256,10 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * The hole's art is a scale and a position, both free. The rim's three jobs
-   * are rebuilt only when the size changes, which is on a swallow or a hit.
-   * territoryCharge is territoryCharge(run), 0 to 1: the arc fills with it and
-   * empties on the lay, rebuilt only when the charge crosses a segment.
+   * Position is free. The size is recorded for the next bake, and the glow and
+   * the arc are rebuilt only when the size changes, which is on a swallow or a
+   * hit. territoryCharge is territoryCharge(run), 0 to 1: the arc fills with it
+   * and empties on the lay, rebuilt only when the charge crosses a segment.
    */
   public sync(
     grave: Grave,
@@ -544,10 +267,7 @@ class GraveRenderer {
     tick: number,
     territoryCharge: number,
   ): void {
-    if (grave.size !== this.rimSize) {
-      this.redraw(grave.size);
-      this.rimSize = grave.size;
-    }
+    this.wantedSize = grave.size;
     if (grave.size !== this.glowSize) {
       this.redrawGlow(grave.size);
       this.glowSize = grave.size;
@@ -560,25 +280,98 @@ class GraveRenderer {
       this.arcSize = grave.size;
       this.arcStep = step;
     }
-    for (const art of [this.groundArt, this.mouth, this.overhang]) {
-      art.position.set(grave.x, grave.y);
-      art.scale.set(grave.size);
+    for (const piece of [
+      this.pitArt,
+      this.falls,
+      this.lipArt,
+      this.glow,
+      this.arc,
+    ]) {
+      piece.position.set(grave.x, grave.y);
     }
-    this.falls.position.set(grave.x, grave.y);
-    this.rim.position.set(grave.x, grave.y);
-    this.glow.position.set(grave.x, grave.y);
-    this.arc.position.set(grave.x, grave.y);
     // Alpha rather than a redraw, because the charge changes on every swallow
     // and the geometry only changes with the size.
     this.glow.alpha = glowAlpha(reservoirFullness, tick);
   }
 
   /**
-   * The filled share of the rim's perimeter in Territory's colour, clockwise
-   * from top-centre. The trace runs on the rim path inset by half the stroke
-   * and is stroked centred, so its outer edge equals the hitbox exactly: ADR
-   * 0003 makes the drawn grave the health bar, and the arc must never make it
-   * read wider.
+   * CSS pixels per field unit on this frame (the prototype's viewScale), or
+   * null while the page shows no canvas to measure. The field's own placement
+   * is read off the art's transform, so the grave needs nothing from its
+   * screen.
+   */
+  private viewScaleFor(renderer: RendererView): number | null {
+    const transform = this.pitArt.getGlobalTransform();
+    const stageUnits = Math.hypot(transform.a, transform.b);
+    const shown = renderer.canvas.getBoundingClientRect?.().width;
+    const viewScale =
+      shown === undefined ? 0 : (stageUnits * shown) / renderer.screen.width;
+    if (Number.isFinite(viewScale) && viewScale > 0) return viewScale;
+    if (!this.warnedUnmeasured) {
+      console.warn(
+        `the grave cannot measure the view (canvas shown ${String(shown)} CSS pixels over a ${renderer.screen.width}-unit stage), so its hole waits to be baked`,
+      );
+      this.warnedUnmeasured = true;
+    }
+    return null;
+  }
+
+  /**
+   * Bakes the hole when the size has moved past the step since the last bake,
+   * or the view has changed under it, at the pixels per unit the prototype
+   * chooses: the view's CSS pixels times the device pixel ratio.
+   */
+  private bakeForThisFrame(renderer: RendererView): void {
+    const size = this.wantedSize;
+    if (size === null) return;
+    const viewScale = this.viewScaleFor(renderer);
+    if (viewScale === null) return;
+    const pixelsPerUnit = clamp(
+      viewScale * (globalThis.devicePixelRatio || 1),
+      BAKE_PIXELS_PER_UNIT.min,
+      BAKE_PIXELS_PER_UNIT.max,
+    );
+    const last = this.baked;
+    if (
+      last !== null &&
+      Math.abs(size - last.size) <= HOLE_REBUILD_STEP &&
+      last.viewScale === viewScale &&
+      last.pixelsPerUnit === pixelsPerUnit
+    ) {
+      return;
+    }
+    this.rebuildHole(size, viewScale, pixelsPerUnit);
+  }
+
+  /** The hole baked at one size (the prototype's rebuildHole): the pit, then the lip. */
+  private rebuildHole(
+    size: number,
+    viewScale: number,
+    pixelsPerUnit: number,
+  ): void {
+    const mouth = mouthPolygon(size);
+    const width = graveWidth(size);
+    replaceArt(
+      this.pitArt,
+      bakeLayer(size, width * BAKE_PADDING.pit, pixelsPerUnit, (ctx) =>
+        paintPit(ctx, mouth, size, viewScale),
+      ),
+    );
+    replaceArt(
+      this.lipArt,
+      bakeLayer(size, width * BAKE_PADDING.lip, pixelsPerUnit, (ctx) =>
+        paintLip(ctx, mouth, size, viewScale),
+      ),
+    );
+    this.baked = { size, viewScale, pixelsPerUnit };
+  }
+
+  /**
+   * The filled share of the band in Territory's colour, clockwise from
+   * top-centre. The trace runs on the hitbox inset by half the stroke and is
+   * stroked centred, so its outer edge equals the hitbox exactly: ADR 0003
+   * makes the drawn grave the health bar, and the arc must never make it read
+   * wider.
    */
   private redrawArc(size: number, step: number): void {
     this.arc.clear();
@@ -603,9 +396,8 @@ class GraveRenderer {
   }
 
   /**
-   * The rim's bright band in treasure's colour, drawn once per size and then
-   * only faded. The geometry is the rim's exactly, so the grave's outer edge is
-   * unchanged at every charge.
+   * The band in treasure's colour, drawn once per size and then only faded.
+   * It strokes inward, so the grave's outer edge is the hitbox at every charge.
    */
   private redrawGlow(size: number): void {
     const width = graveWidth(size);
@@ -618,35 +410,6 @@ class GraveRenderer {
         alignment: 1,
       });
   }
-
-  /**
-   * The rim strokes inward, the same as the field's boundary readout. ADR 0003
-   * makes the drawn grave the health bar and graveHitbox is exactly the sim
-   * rect, so the visible outer edge has to equal the hitbox: a player reads the
-   * outer edge as what they pass under and swallow. The cost is that the stroke
-   * eats into the mouth, which is why it is thin.
-   */
-  private redraw(size: number): void {
-    const width = graveWidth(size);
-    const left = -width / 2;
-    const top = -size;
-
-    const inset = GRAVE_RIM_STROKE;
-    this.rim
-      .clear()
-      .rect(left, top, width, size * 2)
-      .stroke({
-        width: GRAVE_RIM_STROKE,
-        color: PALETTE.graveRim.hex,
-        alignment: 1,
-      })
-      .rect(left + inset, top + inset, width - inset * 2, size * 2 - inset * 2)
-      .stroke({
-        width: GRAVE_RIM_SHADOW,
-        color: PALETTE.graveHole.hex,
-        alignment: 1,
-      });
-  }
 }
 
-export { glowAlpha, GraveRenderer, GRAVE_RIM_STROKE, GRAVE_RIM_SHADOW };
+export { glowAlpha, GraveRenderer, GRAVE_RIM_STROKE };
