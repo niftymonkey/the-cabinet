@@ -104,7 +104,9 @@ describe('verification readback', () => {
     expect(result.outcome).toBe('verified');
     expect(result.firstDivergentCheckpoint).toBeNull();
     expect(result.ticksReproduced).toBe(TICKS);
-    expect(result.checkpointsVerified).toBe(5);
+    // Five periodic checkpoints at 0, 20, 40, 60 and 80, plus the one the seal
+    // stamps at the run's own last tick, which is 90.
+    expect(result.checkpointsVerified).toBe(6);
     expect(result.checkpointsUnreachable).toBe(0);
   });
 
@@ -269,8 +271,10 @@ describe('verification readback', () => {
 
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(45);
+    // Checkpoints at 0, 20 and 40 are reached; 60 and 80 are not, and neither
+    // is the one the seal stamped at the whole run's last tick, 90.
     expect(result.checkpointsVerified).toBe(3);
-    expect(result.checkpointsUnreachable).toBe(2);
+    expect(result.checkpointsUnreachable).toBe(3);
   });
 
   it('keeps the observations outside the witness, so a tape verifies whatever they say', () => {
@@ -320,6 +324,49 @@ describe('verification readback', () => {
     const result = readBackForVerification(tape);
     expect(result.outcome).toBe('verified');
     expect(result.ticksReproduced).toBe(tape.commands.length);
+    expect(result.checkpointsUnreachable).toBe(0);
+  });
+
+  it('a sealed tape that ended between checkpoints encodes, decodes and verifies through its last tick', () => {
+    // ADR 0019: playback is bounded by the last checkpoint that verified, so
+    // the seal stamps the run's own last tick and that checkpoint has to
+    // survive the bytes like any other. TICKS is 90 against a spacing of 20.
+    const { tape, truncated } = decodeTape(encodeTape(recordARun()));
+
+    expect(truncated).toBe(false);
+    expect(tape.checkpoints.map((point) => point.index)).toEqual([
+      0,
+      20,
+      40,
+      60,
+      80,
+      TICKS,
+    ]);
+    const result = readBackForVerification(tape);
+    expect(result.outcome).toBe('verified');
+    expect(result.ticksReproduced).toBe(TICKS);
+    expect(result.checkpointsVerified).toBe(6);
+    expect(result.checkpointsUnreachable).toBe(0);
+  });
+
+  it('a tape with no final checkpoint still verifies to its last periodic checkpoint (an old tape)', () => {
+    // A tape recorded before the seal stamped a final checkpoint carries only
+    // the periodic ones, and it has to verify exactly as far as it did: the
+    // change adds a checkpoint to new tapes and asks nothing of old ones.
+    const fresh = recordARun();
+    const old: Tape = {
+      ...fresh,
+      checkpoints: fresh.checkpoints.filter((point) => point.index !== TICKS),
+    };
+
+    const result = readBackForVerification(old);
+
+    expect(old.checkpoints.map((point) => point.index)).toEqual([
+      0, 20, 40, 60, 80,
+    ]);
+    expect(result.outcome).toBe('verified');
+    expect(result.ticksReproduced).toBe(TICKS);
+    expect(result.checkpointsVerified).toBe(5);
     expect(result.checkpointsUnreachable).toBe(0);
   });
 

@@ -113,4 +113,25 @@ describe('the playback session', () => {
     expect(forgets).toBe(1);
     expect(drawn).toBeGreaterThan(0);
   });
+
+  it("a replay of a run that ended between checkpoints plays to the run's last tick", async () => {
+    // ADR 0019: the bound is the last checkpoint that verified, and the seal
+    // stamps one at the run's own last tick, so a run that stopped between
+    // checkpoints is watched through the ticks that ended it. 370 against the
+    // recorder's spacing of 60 leaves 10 ticks past the last periodic one.
+    const { tape, bytes } = scriptedTape(370);
+    serveTape(bytes);
+
+    const session = createTapePlaybackSession();
+    session.begin('blob:tape', 300);
+    await vi.waitFor(() => expect(session.phase).not.toBe('fetching'));
+    for (let each = 0; each < 2000 && session.phase !== 'played'; each++) {
+      session.advance(TICK_MS);
+    }
+
+    expect(tape.checkpoints[tape.checkpoints.length - 1]?.index).toBe(370);
+    expect(session.bound).toBe(370);
+    expect(session.playback!.run.tick).toBe(370);
+    expect(session.lines.posture).toContain('PLAYED TO TICK 370');
+  });
 });

@@ -225,6 +225,73 @@ describe('a played run opens in replay', () => {
     expect(replay['session'].playback!.run.tick).toBe(180);
     replay.reset();
   });
+
+  it('a run quit between checkpoints replays to the tick of the quit', async () => {
+    // ADR 0019: a replay stops at the last checkpoint that verified, and the
+    // seal now stamps one at the run's own last tick, so a quit that landed
+    // between the periodic checkpoints is still watched to the quit. 190
+    // against the recorder's spacing of 60 leaves 10 ticks past the last one.
+    fakeLocation.search = '?seed=7';
+    const game = gameScreen();
+    game.prepare();
+    for (let spent = 0; spent < 190; spent += 10) {
+      game.update(frame(TICK_MS * 10));
+    }
+    endRunFromMenu();
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    game.reset();
+    fakeLocation.search = '';
+
+    serveTape(bytes!);
+    fakeLocation.hash = '#/replay?tape=blob%3Akept&at=100';
+    const replay = replayScreen();
+    replay.prepare();
+    await settled(replay);
+    driveTo(replay, 'played');
+
+    expect(replay['session'].bound).toBe(190);
+    expect(replay['session'].playback!.run.tick).toBe(190);
+    expect(replay['session'].lines.posture).toContain('PLAYED TO TICK 190');
+    replay.reset();
+  });
+
+  it("a lost run's replay reaches the hit that ended it", async () => {
+    // The whole point of the slice, at the layer a player sees it: a run that
+    // ends on contact ends on whatever tick the contact fell on, and the
+    // replay plays through that tick rather than stopping up to 59 short of it
+    // (ADR 0019, design record R6).
+    // A parked run on this seed takes every hit the ramp offers and seals on a
+    // tick nobody arranged, which is the only loss a replay can reproduce: a
+    // loss staged by writing grave or mob state is state the replay cannot
+    // rebuild from the seed, so its witness disagrees at the next checkpoint.
+    fakeLocation.search = '?seed=5150';
+    const game = gameScreen();
+    game.prepare();
+    const run = game['session'].run!;
+    for (let ticks = 0; run.ending === null && ticks < 7500; ticks += 10) {
+      game.update(frame(TICK_MS * 10));
+    }
+    expect(run.ending).toBe('sealed');
+    const died = run.tick;
+    expect(died % 60).not.toBe(0);
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    game.reset();
+    fakeLocation.search = '';
+
+    serveTape(bytes!);
+    fakeLocation.hash = `#/replay?tape=blob%3Akept&at=${died - 40}`;
+    const replay = replayScreen();
+    replay.prepare();
+    await settled(replay);
+    driveTo(replay, 'played');
+
+    expect(replay['session'].bound).toBe(died);
+    expect(replay['session'].playback!.run.tick).toBe(died);
+    expect(replay['session'].playback!.run.ending).toBe('sealed');
+    replay.reset();
+  });
 });
 
 /**

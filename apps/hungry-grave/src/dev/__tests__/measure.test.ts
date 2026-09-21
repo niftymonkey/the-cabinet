@@ -457,8 +457,11 @@ describe('measure', () => {
     expect(rich.measured.run.ending).toBe(rich.ending);
     expect(rich.measured.run.score).toBe(rich.score);
     expect(rich.measured.run.kills).toBe(rich.kills);
+    // Checkpoint zero, one per whole spacing, and the seal's own at the run's
+    // last tick when that tick is not already one (grave-in-the-ground R6).
+    const sealed = rich.ticks % RICH_SPACING === 0 ? 0 : 1;
     expect(rich.measured.run.checkpointsVerified).toBe(
-      Math.floor(rich.ticks / RICH_SPACING) + 1,
+      Math.floor(rich.ticks / RICH_SPACING) + 1 + sealed,
     );
     expect(rich.measured.run.checkpointsUnreachable).toBe(0);
   });

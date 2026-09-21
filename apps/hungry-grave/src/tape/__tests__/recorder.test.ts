@@ -325,6 +325,87 @@ describe('the trailer', () => {
   });
 });
 
+describe("the seal's final checkpoint", () => {
+  it("sealing a run that ended between checkpoints stamps one final checkpoint at the run's last tick", () => {
+    // ADR 0019: a replay is bounded by the last checkpoint that verified, so a
+    // run that stopped between checkpoints would never show the ticks that
+    // ended it. The seal stamps the run's last tick so the bound reaches it.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run, 5));
+
+    for (let tick = 0; tick < 12; tick++) executeTick(execution, steer(tick));
+    sealTrailer(recorder, execution, 0);
+
+    expect(recorder.checkpoints.map((point) => point.index)).toEqual([
+      0, 5, 10, 12,
+    ]);
+  });
+
+  it('sealing a run whose last tick is already a checkpoint stamps nothing more', () => {
+    // A repeated index is refused on decode (readCheckpoints asks for a
+    // strictly increasing index), so the tick listener's own checkpoint is
+    // left to stand rather than doubled.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run, 5));
+
+    for (let tick = 0; tick < 10; tick++) executeTick(execution, steer(tick));
+    sealTrailer(recorder, execution, 0);
+
+    expect(recorder.checkpoints.map((point) => point.index)).toEqual([
+      0, 5, 10,
+    ]);
+  });
+
+  it('a second seal stamps nothing', () => {
+    // A second seal is this repo's own bug and is already refused as a whole,
+    // so it must not slip a checkpoint past the refusal either.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run, 5));
+
+    for (let tick = 0; tick < 12; tick++) executeTick(execution, steer(tick));
+    sealTrailer(recorder, execution, 0);
+    sealTrailer(recorder, execution, 0);
+
+    expect(recorder.checkpoints.map((point) => point.index)).toEqual([
+      0, 5, 10, 12,
+    ]);
+  });
+
+  it('a run sealed before its first tick carries no checkpoint', () => {
+    // recordInto already stamps index zero, and the run's last tick is zero,
+    // so the seal has nothing to add and must not repeat that index.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run, 5));
+
+    sealTrailer(recorder, execution, 0);
+
+    expect(recorder.checkpoints.map((point) => point.index)).toEqual([0]);
+  });
+
+  it('the final checkpoint holds the same witness a checkpoint stamped on that tick would hold', () => {
+    // The bound stays a witness comparison rather than an end-of-tape rule
+    // (ADR 0019), so the final checkpoint is the ordinary fold of the run's
+    // state at its last tick, folded from zero like every other one.
+    const run = createRun(SEED);
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run, 5));
+
+    for (let tick = 0; tick < 12; tick++) executeTick(execution, steer(tick));
+    const atTheLastTick = foldWitness(run, 0);
+    sealTrailer(recorder, execution, 0);
+
+    expect(recorder.checkpoints[recorder.checkpoints.length - 1]).toEqual({
+      index: 12,
+      witness: atTheLastTick,
+    });
+  });
+});
+
 describe("a run's integrity", () => {
   it('reads clean when the checks ran and nothing fired', () => {
     expect(integrityOf(createExecution(createRun(SEED)))).toBe('clean');

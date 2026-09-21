@@ -170,6 +170,27 @@ const integrityOf = (execution: Execution): TapeIntegrity => {
 };
 
 /**
+ * Stamps the run's own last tick, so a replay can be watched to the end.
+ *
+ * A replay plays through the last checkpoint that verified and then stops
+ * (ADR 0019), and a run stops on the tick it ends, so without this a run whose
+ * tick count does not divide by the spacing is never watched through the hit
+ * that ended it or through the last boss's death.
+ *
+ * Nothing is stamped when the tick listener already stamped that index: a
+ * checkpoint whose index does not climb is refused on decode.
+ */
+const stampFinalCheckpoint = (
+  recorder: TapeRecorder,
+  execution: Execution,
+): void => {
+  const lastStamped =
+    recorder.checkpoints[recorder.checkpoints.length - 1]?.index ?? -1;
+  if (lastStamped >= execution.run.tick) return;
+  stampCheckpoint(recorder, execution.run.tick, execution.run);
+};
+
+/**
  * Says that a second seal was refused, because nothing abnormal is silent.
  *
  * No flag guards it. GameScreen latches its ending, so nothing in the shipped
@@ -186,7 +207,7 @@ const reportSecondSeal = (
 };
 
 /**
- * Writes the trailer, once, at the stop.
+ * Stamps the run's last tick and writes the trailer, once, at the stop.
  *
  * The stop reason is the authority's when it has one, because only the
  * authority writes "faulted", and otherwise it is read off the run: a run with
@@ -204,6 +225,7 @@ const sealTrailer = (
     reportSecondSeal(recorder, execution, debtTicks);
     return;
   }
+  stampFinalCheckpoint(recorder, execution);
   syncFaults(recorder, execution);
   recorder.trailer = {
     ending: execution.run.ending,
