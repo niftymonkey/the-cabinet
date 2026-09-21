@@ -1,0 +1,3453 @@
+<!doctype html>
+<!--
+  A throwaway prototype for issue #156: one tilt angle driving the whole scene,
+  so the field matches the camera the grave is already drawn with. Copied from
+  the #148 grave-fall prototype at build 7. Nothing here is ever reused.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Tilted View</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0e14'/%3E%3Crect x='9' y='5' width='14' height='22' rx='7' fill='%23050709' stroke='%2393a7bd' stroke-width='2'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --ink: #dbe4f0;
+    --dim: #92a2ba;
+    --panel: #141b25;
+    --sunk: #0c1219;
+    --line: #2a3546;
+    --accent: #e8823a;
+    --bone: #e8e4d8;
+    --bar-height: 118px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    /* The bars either side of the portrait column on a desktop. */
+    background: #0a0d13;
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-text-size-adjust: 100%;
+  }
+  /**
+   * The game is designed phone first, so the screen is one portrait column and
+   * a wider window gets plain bars either side rather than a field stretched
+   * across it. On a phone the column is the whole viewport and nothing changes.
+   */
+  #column {
+    position: fixed;
+    top: 0; bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(100vw, 50vh);
+    overflow: hidden;
+  }
+
+  #stage { position: absolute; inset: 0; }
+  #stage canvas { display: block; touch-action: none; }
+
+  /* The ground is moonlit now, so the readout needs its own dark to sit on. */
+  #topfade {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 104px;
+    background: linear-gradient(to bottom, rgba(7, 10, 15, 0.88), rgba(7, 10, 15, 0));
+    pointer-events: none;
+  }
+
+  #readout {
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    right: calc(10px + env(safe-area-inset-right));
+    display: flex;
+    gap: 4px 13px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--dim);
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  #readout b { color: var(--bone); font-weight: 600; }
+  #held {
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    display: none;
+  }
+  body.is-held #held { display: inline-block; }
+
+  #bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(8, 11, 16, 0.96) 55%, rgba(8, 11, 16, 0));
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .styles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .row { display: flex; gap: 6px; align-items: stretch; }
+  button, .pill {
+    appearance: none;
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 8px;
+    min-height: 44px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    line-height: 1.15;
+    text-align: center;
+  }
+  button:active { background: #1b2432; }
+  button .key { font-size: 15px; font-weight: 650; letter-spacing: 0.02em; }
+  button .sub { font-size: 10px; color: var(--dim); letter-spacing: 0.02em; }
+  button[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: #1f2836;
+  }
+  button[aria-pressed="true"] .key { color: var(--accent); }
+  /* Four buttons across a 320-wide phone: they shrink rather than push the bar wide. */
+  .row button { flex: 1 1 0; min-width: 0; min-height: 40px; font-size: 12.5px; padding: 7px 4px; }
+
+  #knobs {
+    position: absolute;
+    left: 8px; right: 8px;
+    bottom: var(--bar-height);
+    max-height: min(72vh, 620px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(15, 21, 29, 0.97);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px 12px;
+    display: none;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  }
+  body.knobs-open #knobs { display: block; }
+  #knobs h2 {
+    margin: 0 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    font-weight: 600;
+  }
+  .knob { padding: 0 0 1px; }
+  .knob .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .knob label { font-size: 12.5px; }
+  .knob .val { font-size: 12.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    margin: 0;
+    background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px; background: #2c3747;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 24px; height: 24px; margin-top: -10px;
+    border-radius: 50%;
+    background: var(--bone);
+    border: 1px solid #0b0e14;
+  }
+  input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: #2c3747; }
+  input[type="range"]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--bone); border: 1px solid #0b0e14;
+  }
+  .group { display: flex; gap: 6px; margin: 5px 0 2px; }
+  .group button { min-height: 44px; flex: 1; font-size: 12.5px; }
+  .hr { height: 1px; background: var(--line); margin: 7px 0 3px; }
+  .note { font-size: 11px; color: var(--dim); line-height: 1.3; margin: 7px 0 0; }
+
+  #boom {
+    position: fixed; inset: 0;
+    display: none;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    background: #0b0e14;
+    color: var(--bone);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.21.0/dist/pixi.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="column">
+<div id="stage"></div>
+<div id="topfade"></div>
+
+<div id="readout">
+  <span>fall <b id="r-style">natural</b></span>
+  <span>swallowed <b id="r-count">0</b></span>
+  <span>size <b id="r-size">0</b></span>
+  <span>angle <b id="r-tilt">0</b>&deg;</span>
+  <span>tilt <b>1</b></span>
+  <span id="held">held</span>
+</div>
+
+<div id="knobs" aria-label="knobs">
+  <h2>Knobs</h2>
+
+  <div class="knob">
+    <div class="top"><label for="k-tilt">Tilt off straight down</label><span class="val" id="v-tilt"></span></div>
+    <input type="range" id="k-tilt" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-reach">Pull reach</label><span class="val" id="v-reach"></span></div>
+    <input type="range" id="k-reach" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-strength">Pull strength</label><span class="val" id="v-strength"></span></div>
+    <input type="range" id="k-strength" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-threshold">Over the hole before it tips</label><span class="val" id="v-threshold"></span></div>
+    <input type="range" id="k-threshold" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-tip">Tip time</label><span class="val" id="v-tip"></span></div>
+    <input type="range" id="k-tip" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-drop">Drop time</label><span class="val" id="v-drop"></span></div>
+    <input type="range" id="k-drop" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-size">Grave size</label><span class="val" id="v-size"></span></div>
+    <input type="range" id="k-size" />
+  </div>
+
+  <div class="hr"></div>
+  <div class="group">
+    <button id="t-headstone" aria-pressed="false"><span class="key">Headstone</span><span class="sub">faint, no collision</span></button>
+    <button id="k-reset"><span class="key">Reset</span><span class="sub">back to the defaults</span></button>
+  </div>
+  <p class="note">Fall is the natural one. The pull is an acceleration rather than a speed, so a body leans into it, gathers way, and still carries that way when the ground under it ends. Pull strength is about the speed it reaches at the rim.</p>
+  <p class="note">A body tips over the rim it crosses, keeps the momentum it had, and then falls under the same projection the hole is drawn with. The grave has no bottom, so nothing lands: it shrinks toward the vanishing point, the light dies with depth, and the dark takes it. Drop time is how long that takes.</p>
+  <p class="note">The grave takes a body whatever its own size. What a body needs over the hole is a share of the most it could have over it, so a body bigger than the opening reaches the same mark by covering the opening, and folds into the mouth on the way in.</p>
+  <p class="note">Tilt is the only knob that moves the camera, and everything on screen answers to it at once: the ground leans away so more field fits, anything with height stands up out of it, and the hole is cut for the same angle. It opens on 12.2&deg;, which is the angle the hole was already drawn at through build 7, so the first thing you see is what the old camera really was. Nothing in the simulation reads it.</p>
+  <p class="note">Every other slider opens centred, so its default has the same room either way. Grave size only moves the grave when you move it; swallowing grows it by the game's own 0.10 units a body and stops at 48, the same top the slider has.</p>
+  <p class="note">A and B are the older falls, kept beside the new one to compare. Poof is what the game does today.</p>
+  <p class="note">Drag anywhere to move the grave. Keys: arrows or WASD steer, 1-4 pick a fall, space holds, full stop steps one frame. URL: ?style=F|A|B|P, ?hold=tip|drop.</p>
+</div>
+
+<div id="bar">
+  <div class="styles" id="style-buttons">
+    <button id="style-F" aria-pressed="true"><span class="key">Fall</span><span class="sub">natural</span></button>
+    <button id="style-A" aria-pressed="false"><span class="key">A</span><span class="sub">slide + tip</span></button>
+    <button id="style-B" aria-pressed="false"><span class="key">B</span><span class="sub">sucked in</span></button>
+    <button id="style-P" aria-pressed="false"><span class="key">Poof</span><span class="sub">today</span></button>
+  </div>
+  <div class="row">
+    <button id="b-hold">Hold</button>
+    <button id="b-step">Step</button>
+    <button id="b-knobs">Knobs</button>
+    <button id="b-mute" aria-pressed="true">Sound</button>
+  </div>
+</div>
+</div>
+
+<div id="boom"><div id="boom-text"></div></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------------------------------------------------------------- constants
+
+  /** The field is the real game's 540-wide space, so sizes and speeds are its own. */
+  const FIELD_W = 540;
+
+  // The real game's numbers, from apps/hungry-grave/src/game/tuning.ts.
+  const GRAVE_ASPECT = 2;
+  const SIZE_FLOOR = 18;
+  const SIZE_START = 27;
+  const SIZE_CEILING = 67.5;
+  const CORPSES_TO_CEILING = 400;
+  const SCROLL_SPEED = 38;
+  const KEY_SPEED = 270;
+  const DRAG_SLOP_CSS_PX = 3;
+
+  /**
+   * The largest grave this screen shows, by the slider or by swallowing. The
+   * play screen and the knobs panel share one maximum, so what he sets by hand
+   * is also the biggest thing a minute of swallowing can build.
+   */
+  const SIZE_MAX = 48;
+
+  /**
+   * Growth per swallow: the game's own TRASH_CORPSE_PAYOUT, which is
+   * (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING, or 0.10125 units a body.
+   * The screen grows at the rate the game pays, so a minute of swallowing here
+   * is worth what a minute of swallowing is worth in the game.
+   */
+  const GROWTH_PER_SWALLOW = (SIZE_CEILING - SIZE_START) / CORPSES_TO_CEILING;
+
+  /**
+   * Four values have to stay apart in a grayscale squint, or the hole stops
+   * reading as a hole: the moonlit ground is the brightest, then the lit side
+   * wall, then the far wall and the shaded side under it because a face turned
+   * sideways keeps less moon than one turned up, and the depth the walls fall
+   * away into is the only true black on screen. Nothing at the rim is brighter
+   * than the ground either: a bright ring round an opening reads as a kerb the
+   * hole was set into rather than as dug earth.
+   */
+  const COLOR = {
+    night: 0x454f5d,
+    speckle: 0x66748a,
+    groundCold: 0x56657a,
+    groundWet: 0x466050,
+    groundDamp: 0x2c3644,
+    moss: 0x6e8a58,
+    mossDark: 0x4a6040,
+    gravel: 0x8d9cae,
+    crack: 0x28313d,
+    lipEarth: 0x4a5a70,
+    bone: 0xe8e4d8,
+    boneDim: 0xc9c6b9,
+    outline: 0x141a26,
+    corpseMoss: 0x93a85b,
+    slate: 0xc6d2e2,
+    marker: 0x6d7b8e,
+    pumpkin: 0xf29a4e,
+  };
+
+  /**
+   * The camera, in units of the grave's own half length. It stands this far
+   * above the ground, and through build 7 it stood `BUILD_7_SETBACK` behind the
+   * grave, which on this screen means toward the bottom. Nothing reads that
+   * setback as a setback any longer, because the setback is the tilt's to
+   * decide; it is kept because it is the one number naming the angle build 7
+   * was drawn at, and that angle is where this screen opens.
+   */
+  const CAMERA_HEIGHT = 4.95;
+  const BUILD_7_SETBACK = 1.07;
+  const DEFAULT_TILT = Math.atan(BUILD_7_SETBACK / CAMERA_HEIGHT);
+  const DEFAULT_TILT_DEGREES = (DEFAULT_TILT * 180) / Math.PI;
+
+  /**
+   * Mark's own settings after a session on his phone. Every number here is the
+   * middle of its slider, so the prototype opens on what he tuned and he has
+   * the same room to move either way. The tilt is the exception: it opens on
+   * build 7's own angle, which is at the shallow end of its travel.
+   */
+  const DEFAULTS = {
+    // How far outside the rim the pull reaches, in field units.
+    reach: 24,
+    // About the speed a body is moving by the time it reaches the rim, in
+    // field units per second. The pull is an acceleration toward that speed.
+    strength: 125,
+    // The share of a body that must be over the hole before it tips.
+    threshold: 0.55,
+    tip: 0.3,
+    drop: 0.75,
+    size: 33,
+    headstone: false,
+    tilt: DEFAULT_TILT_DEGREES,
+  };
+
+  /**
+   * Each slider's travel, centred on the default above. The values are read
+   * from here rather than from the markup, so the centring and the clamp on a
+   * stored value cannot drift apart.
+   */
+  const RANGES = {
+    reach: { min: 0, max: 48, step: 2 },
+    strength: { min: 0, max: 250, step: 5 },
+    // Stored as a fraction and shown as a percentage, so this range is in percent.
+    threshold: { min: 10, max: 100, step: 1 },
+    tip: { min: 0.05, max: 0.55, step: 0.01 },
+    drop: { min: 0.05, max: 1.45, step: 0.01 },
+    /**
+     * The slider's travel is the grave's whole range on this screen: swallowing
+     * climbs the same scale and stops where the slider stops.
+     */
+    size: { min: SIZE_FLOOR, max: SIZE_MAX, step: 0.5 },
+    /**
+     * Degrees off straight down. This one is not centred on its default: zero
+     * is a real camera worth seeing and there is nowhere below it to go, so the
+     * travel runs from there to further over than the field is likely to want.
+     */
+    tilt: { min: 0, max: 50, step: 0.1 },
+  };
+
+  const STYLES = {
+    F: 'natural',
+    A: 'slide + tip',
+    B: 'sucked in',
+    P: 'poof (today)',
+  };
+
+  const STYLE_IDS = ['F', 'A', 'B', 'P'];
+
+  // ---------------------------------------------------------------- utilities
+
+  const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const TAU = Math.PI * 2;
+
+  /**
+   * How many screen pixels one field unit covers. The camera is the game's own
+   * and never moves, so this is a property of the phone rather than of a view,
+   * and every piece of art reads it to keep a detail from falling under a pixel
+   * and a count from turning a small thing into noise.
+   */
+  let viewScale = 1;
+
+  /** That many screen pixels, in field units. */
+  const onePx = (screenPixels) => screenPixels / viewScale;
+
+  /** One seeded stream, so a staged screenshot is the same picture twice. */
+  const makeRandom = (seed) => {
+    let s = seed >>> 0;
+    return () => {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  const ease = {
+    outCubic: (t) => 1 - Math.pow(1 - t, 3),
+    inCubic: (t) => t * t * t,
+    inQuad: (t) => t * t,
+    outQuad: (t) => 1 - (1 - t) * (1 - t),
+    inOutSine: (t) => 0.5 - Math.cos(Math.PI * t) / 2,
+    outBack: (t) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2),
+  };
+
+  const grey = (brightness) => {
+    const v = clamp(Math.round(brightness * 255), 0, 255);
+    return (v << 16) | (v << 8) | v;
+  };
+
+  const pointInPoly = (px, py, poly) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 2; i < poly.length; j = i, i += 2) {
+      const xi = poly[i];
+      const yi = poly[i + 1];
+      const xj = poly[j];
+      const yj = poly[j + 1];
+      const crosses = yi > py !== yj > py;
+      if (crosses && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+
+  // ---------------------------------------------------------------- the mouth
+
+  const graveWidth = (size) => (size * 2) / GRAVE_ASPECT;
+
+  /**
+   * A fixed roughness table, sampled by position around the perimeter rather
+   * than by index, so the dug edge keeps its identity while the grave grows.
+   */
+  const ROUGH = (() => {
+    const random = makeRandom(0x9e3779b9);
+    const raw = Array.from({ length: 96 }, () => random() * 2 - 1);
+    // Smoothed once: a raw table gives spikes, and earth is lumpy rather than spiky.
+    return raw.map((_, i) => {
+      const a = raw[(i + 95) % 96];
+      const b = raw[i];
+      const c = raw[(i + 1) % 96];
+      return (a + b * 2 + c) / 4;
+    });
+  })();
+
+  const roughAt = (u) => {
+    const scaled = ((u % 1) + 1) % 1 * ROUGH.length;
+    const i = Math.floor(scaled);
+    const f = scaled - i;
+    return lerp(ROUGH[i], ROUGH[(i + 1) % ROUGH.length], f);
+  };
+
+  /**
+   * A rectangle walked as a polygon, corners barely rounded, each point handed
+   * back with how far round the perimeter it sits and which way is out of the
+   * shape there. A grave is cut square, so the corner radius only takes the
+   * mathematical point off a corner and never rounds the sides into an oval.
+   */
+  const walkRectangle = (halfWidth, halfHeight, radius, steps) => {
+    const hw = halfWidth;
+    const hh = halfHeight;
+    const r = radius;
+    const quarter = (r * Math.PI) / 2;
+    const legs = [
+      { kind: 'line', from: [-hw + r, -hh], to: [hw - r, -hh], len: 2 * (hw - r) },
+      { kind: 'arc', c: [hw - r, -hh + r], a0: -Math.PI / 2, a1: 0, len: quarter },
+      { kind: 'line', from: [hw, -hh + r], to: [hw, hh - r], len: 2 * (hh - r) },
+      { kind: 'arc', c: [hw - r, hh - r], a0: 0, a1: Math.PI / 2, len: quarter },
+      { kind: 'line', from: [hw - r, hh], to: [-hw + r, hh], len: 2 * (hw - r) },
+      { kind: 'arc', c: [-hw + r, hh - r], a0: Math.PI / 2, a1: Math.PI, len: quarter },
+      { kind: 'line', from: [-hw, hh - r], to: [-hw, -hh + r], len: 2 * (hh - r) },
+      { kind: 'arc', c: [-hw + r, -hh + r], a0: Math.PI, a1: Math.PI * 1.5, len: quarter },
+    ];
+    const total = legs.reduce((sum, leg) => sum + leg.len, 0);
+    const out = [];
+    let walked = 0;
+    for (const leg of legs) {
+      const count = Math.max(2, Math.round((leg.len / total) * steps));
+      for (let s = 0; s < count; s++) {
+        const along = s / count;
+        const u = (walked + leg.len * along) / total;
+        if (leg.kind === 'line') {
+          const dx = leg.to[0] - leg.from[0];
+          const dy = leg.to[1] - leg.from[1];
+          const n = Math.hypot(dx, dy) || 1;
+          out.push({ x: lerp(leg.from[0], leg.to[0], along), y: lerp(leg.from[1], leg.to[1], along), nx: dy / n, ny: -dx / n, u });
+        } else {
+          const a = lerp(leg.a0, leg.a1, along);
+          out.push({ x: leg.c[0] + r * Math.cos(a), y: leg.c[1] + r * Math.sin(a), nx: Math.cos(a), ny: Math.sin(a), u });
+        }
+      }
+      walked += leg.len;
+    }
+    return out;
+  };
+
+  /**
+   * Where the ground gave way at the edge: a handful of short bites out of the
+   * lip, each a few hundredths of the opening across. They are bites and not a
+   * wobble, so the four sides stay straight lines in between, which is the
+   * difference between a dug rectangle and a misshapen blob.
+   */
+  const NOTCHES = [
+    { at: 0.065, span: 0.012, bite: 1 },
+    { at: 0.215, span: 0.007, bite: 0.55 },
+    { at: 0.310, span: 0.010, bite: 0.8 },
+    { at: 0.425, span: 0.006, bite: 0.45 },
+    { at: 0.552, span: 0.011, bite: 0.7 },
+    { at: 0.705, span: 0.013, bite: 1 },
+    { at: 0.820, span: 0.006, bite: 0.5 },
+    { at: 0.905, span: 0.009, bite: 0.75 },
+  ];
+
+  const notchAt = (u) => {
+    let deepest = 0;
+    for (const notch of NOTCHES) {
+      const away = Math.abs(((((u - notch.at) % 1) + 1.5) % 1) - 0.5);
+      if (away >= notch.span) continue;
+      // A half cosine, so a bite opens and closes rather than stepping in.
+      deepest = Math.max(deepest, notch.bite * (0.5 + Math.cos((away / notch.span) * Math.PI) / 2));
+    }
+    return deepest;
+  };
+
+  /**
+   * The mouth: the grave's opening as a true rectangle, cut square, with a few
+   * crumbled bites out of the lip. The bites only ever go outward, because a
+   * crumbled edge is ground that fell away and left the hole wider there.
+   */
+  const mouthPolygon = (size) => {
+    const hw = graveWidth(size) / 2;
+    const bite = hw * 0.1;
+    const points = [];
+    for (const p of walkRectangle(hw, size, hw * 0.06, 88)) {
+      const out = notchAt(p.u) * bite;
+      points.push(p.x + p.nx * out, p.y + p.ny * out);
+    }
+    return points;
+  };
+
+  // ----------------------------------------------------------- the projection
+
+  /**
+   * The cut, in units of the grave's own half length. The grave has no bottom:
+   * the walls run down until the moon stops reaching them, and this is where
+   * that happens. Paired with the camera's height it is what the walls' shares
+   * of the opening come out at, and the pair was measured off the screen rather
+   * than guessed: at build 7's angle each side wall is about a seventh of the
+   * opening across and the far wall about three tenths of it along, which is
+   * what an open grave looks like from nearly overhead.
+   */
+  const DARK_DEPTH = 2.4;
+
+  /**
+   * One angle, one camera. Every number the drawing takes from the tilt comes
+   * from here and nowhere else: how far the ground leans away, how far up the
+   * screen a unit of height climbs, and how far behind the grave the camera has
+   * moved to look at it from that angle.
+   */
+  const makeCamera = (degrees) => {
+    const tilt = (degrees * Math.PI) / 180;
+    return {
+      degrees,
+      tilt,
+      lean: Math.cos(tilt),
+      rise: Math.sin(tilt),
+      setback: CAMERA_HEIGHT * Math.tan(tilt),
+    };
+  };
+
+  /**
+   * The camera the whole screen is drawn with. It is a binding rather than an
+   * argument for the reason `viewScale` is: every painter in the file reads it
+   * and not one of them gets to choose it.
+   */
+  let camera = makeCamera(DEFAULT_TILT_DEGREES);
+
+  /**
+   * A point on the ground, as the screen offset it draws at. The lean is the
+   * whole of it: the ground plane is squashed toward the horizon and nothing on
+   * it converges, so a thing at the far end of the field is the size it would
+   * be at the near end.
+   */
+  const groundToScreen = (cam, x, y) => ({ x, y: y * cam.lean });
+
+  /** The screen offset back to the ground point that draws there. */
+  const screenToGround = (cam, x, y) => ({ x, y: y / cam.lean });
+
+  /**
+   * Something standing on the ground: `deep` is how far behind its own ground
+   * point the part sits and `up` is how far above it. The ground carries the
+   * lean, the height carries the rise, and between them that is the tilt.
+   */
+  const standingToScreen = (cam, deep, up) => deep * cam.lean - up * cam.rise;
+
+  /**
+   * How far a blade of grass leans back off the vertical. It is not upright: a
+   * blade keeps some of its length seen from straight above and gains the rest
+   * as the camera tilts, which is why the field does not go bald at zero.
+   */
+  const BLADE_LEAN = (62 * Math.PI) / 180;
+
+  /**
+   * What a tuft's drawn length is worth at this angle, as a multiple of the
+   * length build 7 drew it at. The ground plane the tuft is baked into is
+   * leaning, so the lean is divided back out and what is left is the reach up
+   * the screen. At the default angle it comes to one and the field is build 7's.
+   */
+  const bladeReach = (cam) =>
+    Math.cos(cam.tilt - BLADE_LEAN) / (Math.cos(DEFAULT_TILT - BLADE_LEAN) * cam.lean);
+
+  /**
+   * The one projection the whole hole is built from. A point below ground
+   * draws where the ray from the camera through it crosses the ground, which
+   * is that point's own ground position scaled toward the spot the camera
+   * stands over. So depth moves a point down the screen and toward the middle,
+   * and that shrink is the only thing that makes a side wall visible at all.
+   * Once the camera is tilted it stands behind the grave, so everything deep
+   * converges on a point past the near lip: the near wall projects outside the
+   * opening and the mouth clips it away, and the deep middle of the opening is
+   * wall seen end on, going black. With no tilt the camera is straight over the
+   * grave, the four walls take an equal share of the opening, and the near one
+   * is among them.
+   */
+  const belowGround = (x, y, depth, size) => {
+    const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + depth);
+    const nadir = camera.setback * size;
+    return { x: x * shrink, y: nadir + (y - nadir) * shrink };
+  };
+
+  /**
+   * How much of the moon still reaches something at a depth. It is the one
+   * curve the walls and a falling body share, so a body keeps its contrast
+   * against the wall behind it all the way down and both go out together.
+   */
+  const DARK_FALLOFF = 2.6;
+
+  const lightAtDepth = (depth, size) =>
+    1 - Math.pow(clamp(depth / (DARK_DEPTH * size), 0, 1), DARK_FALLOFF);
+
+  /**
+   * Where the two older falls end. A and B were built when the pit had a
+   * bottom and are kept only for comparison, so they sink to a fixed depth in
+   * the shaft and the dark takes them there.
+   */
+  const OLD_SINK_SHARE = 0.76;
+
+  const oldSinkY = (size) => belowGround(0, 0, DARK_DEPTH * size * OLD_SINK_SHARE, size).y;
+
+  /** The way out of a polygon at one of its vertices, from the way it is walked. */
+  const outwardAt = (poly, i) => {
+    const j = (i + 2) % poly.length;
+    const dx = poly[j] - poly[i];
+    const dy = poly[j + 1] - poly[i + 1];
+    const n = Math.hypot(dx, dy) || 1;
+    return { x: dy / n, y: -dx / n };
+  };
+
+  const polyBounds = (poly) => {
+    let maxX = 0;
+    let maxY = 0;
+    for (let i = 0; i < poly.length; i += 2) {
+      maxX = Math.max(maxX, Math.abs(poly[i]));
+      maxY = Math.max(maxY, Math.abs(poly[i + 1]));
+    }
+    return { maxX, maxY };
+  };
+
+  // ---------------------------------------------------------------- hole art
+
+  /**
+   * One path out of one or more polygons. A ring is two of them filled
+   * even-odd, which is why they have to share a path rather than be traced one
+   * after the other.
+   */
+  const tracePolys = (ctx, ...polys) => {
+    ctx.beginPath();
+    for (const poly of polys) {
+      ctx.moveTo(poly[0], poly[1]);
+      for (let i = 2; i < poly.length; i += 2) ctx.lineTo(poly[i], poly[i + 1]);
+      ctx.closePath();
+    }
+  };
+
+  const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
+
+  /**
+   * The cut face, layer by layer, each one starting a share of the way down to
+   * the dark. Under the turf is a band of the shadow the overhang throws;
+   * below it the subsoil pales once and then darkens the rest of the way. Every
+   * value here sits under the moonlit ground's own, because earth cut to face
+   * sideways keeps less moon than earth lying face up.
+   */
+  const SOIL = [
+    { at: 0, color: '#232a38' },
+    { at: 0.18, color: '#414b5c' },
+    { at: 0.52, color: '#333c4b' },
+    { at: 0.78, color: '#212834' },
+    { at: 1, color: '#080b10' },
+  ];
+
+  /**
+   * How much moon each face of the cut keeps, as a wash laid over it: a pale
+   * one where the number is positive and a dark one where it is negative. The
+   * moon is off to the left of the screen, so the right wall catches it, the
+   * far wall takes it at a glance, and the left wall is left in deeper shade.
+   * That difference is most of what makes a box cut into the ground read as a
+   * box rather than as a panel with two slivers beside it.
+   */
+  const FACE_WASH = { far: -0.14, right: 0.20, left: -0.17, near: -0.14 };
+
+  /**
+   * The four cut faces, each named by the ground edge it hangs under and walked
+   * so `along` runs 0 to 1 from one end of that edge to the other. The near one
+   * is painted like the rest and earns its place only at the shallow end of the
+   * tilt: any real setback throws the whole of it past the near lip, where the
+   * mouth clips it away and the ground hides it.
+   */
+  const wallFaces = (size) => {
+    const hw = graveWidth(size) / 2;
+    return [
+      { id: 'far', from: [-hw, -size], to: [hw, -size], span: graveWidth(size), seed: 0x51ed270b },
+      { id: 'right', from: [hw, -size], to: [hw, size], span: size * 2, seed: 0x165667b1 },
+      { id: 'left', from: [-hw, size], to: [-hw, -size], span: size * 2, seed: 0x27d4eb2f },
+      { id: 'near', from: [hw, size], to: [-hw, size], span: graveWidth(size), seed: 0x9e3779b1 },
+    ];
+  };
+
+  /** Whether depth runs down the screen on this face rather than across it. */
+  const facesTheCamera = (face) => face.id === 'far' || face.id === 'near';
+
+  /** A point on a face: `along` runs its ground edge, `down` is a share of the dark depth. */
+  const facePoint = (face, size, along, down) =>
+    belowGround(
+      lerp(face.from[0], face.to[0], along),
+      lerp(face.from[1], face.to[1], along),
+      DARK_DEPTH * size * down,
+      size,
+    );
+
+  const FACE_STEPS = 12;
+
+  /**
+   * Earth does not lie in ruled bands, so a layer boundary wanders a little
+   * along the face. The top of the cut and the depth the light dies at are the
+   * two that do not: one is the ground's own edge, the other is where the face
+   * meets the dark, and a wobble in either shows up as a seam.
+   */
+  const layerWander = (index, along) =>
+    index === 0 || index === SOIL.length - 1 ? 0 : roughAt(along * 1.7 + index * 0.27) * 0.035;
+
+  const traceLayerBoundary = (ctx, face, size, index, first) => {
+    for (let s = 0; s <= FACE_STEPS; s++) {
+      const along = first ? s / FACE_STEPS : 1 - s / FACE_STEPS;
+      const p = facePoint(face, size, along, SOIL[index].at + layerWander(index, along));
+      if (s === 0 && first) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+  };
+
+  /** The face between two of its layer boundaries, as one closed shape. */
+  const traceFaceBand = (ctx, face, size, top, bottom) => {
+    ctx.beginPath();
+    traceLayerBoundary(ctx, face, size, top, true);
+    traceLayerBoundary(ctx, face, size, bottom, false);
+    ctx.closePath();
+  };
+
+  /** The whole face, from the ground's edge down to where the light has gone. */
+  const traceFaceExtent = (ctx, face, size) => traceFaceBand(ctx, face, size, 0, SOIL.length - 1);
+
+  /** The layers of the cut, each fill starting at the lip so a boundary is the only seam. */
+  const paintFaceLayers = (ctx, face, size) => {
+    for (let i = SOIL.length - 2; i >= 0; i--) {
+      ctx.fillStyle = SOIL[i].color;
+      traceFaceBand(ctx, face, size, 0, i + 1);
+      ctx.fill();
+    }
+    // A seam of darker earth along each boundary, which is what tells one layer
+    // from the next once a face is only a few pixels across.
+    ctx.lineWidth = Math.max(onePx(0.7), size * 0.011);
+    ctx.strokeStyle = 'rgba(5, 8, 12, 0.45)';
+    for (let i = 1; i < SOIL.length - 1; i++) {
+      ctx.beginPath();
+      traceLayerBoundary(ctx, face, size, i, true);
+      ctx.stroke();
+    }
+  };
+
+  /** Faint marks where the spade came down, so a face reads as cut and not as painted. */
+  const paintSpadeCuts = (ctx, face, size) => {
+    const random = makeRandom(face.seed);
+    const cuts = Math.round(clamp(face.span * viewScale * 0.4, 5, 24));
+    ctx.lineCap = 'round';
+    for (let i = 0; i < cuts; i++) {
+      const along = random();
+      const top = lerp(0.03, 0.34, random());
+      const bottom = clamp(top + lerp(0.18, 0.62, random()), 0, 1);
+      const a = facePoint(face, size, along, top);
+      const b = facePoint(face, size, clamp(along + lerp(-0.02, 0.02, random()), 0, 1), bottom);
+      ctx.strokeStyle = random() < 0.5
+        ? `rgba(136, 154, 180, ${(0.05 + random() * 0.08).toFixed(3)})`
+        : `rgba(6, 9, 15, ${(0.1 + random() * 0.16).toFixed(3)})`;
+      ctx.lineWidth = Math.max(onePx(0.7), size * lerp(0.008, 0.018, random()));
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  };
+
+  /** Stones and cut root ends in the face, the things a spade goes through. */
+  const paintFaceStones = (ctx, face, size) => {
+    const random = makeRandom(face.seed ^ 0x3b9aca07);
+    const stones = Math.round(clamp(face.span * viewScale * 0.12, 3, 11));
+    for (let i = 0; i < stones; i++) {
+      // Skewed shallow, because a stone below the light is a stone nobody sees.
+      const down = lerp(0.1, 0.72, Math.pow(random(), 1.5));
+      const at = facePoint(face, size, lerp(0.06, 0.94, random()), down);
+      const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + DARK_DEPTH * size * down);
+      const r = Math.max(onePx(1), size * lerp(0.016, 0.034, random()) * shrink);
+      ctx.fillStyle = `rgba(104, 118, 138, ${(0.34 + random() * 0.22).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(at.x, at.y, r, r * lerp(0.55, 0.85, random()), random() * TAU, 0, TAU);
+      ctx.fill();
+      // The shadow a stone standing proud of the face throws under itself.
+      ctx.fillStyle = 'rgba(4, 7, 11, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(at.x, at.y + r * 0.75, r * 0.9, r * 0.32, 0, 0, TAU);
+      ctx.fill();
+    }
+    const roots = Math.round(clamp(face.span * viewScale * 0.08, 2, 8));
+    for (let i = 0; i < roots; i++) {
+      const at = facePoint(face, size, lerp(0.05, 0.95, random()), lerp(0.05, 0.4, random()));
+      const r = Math.max(onePx(0.8), size * lerp(0.008, 0.016, random()));
+      ctx.fillStyle = `rgba(122, 130, 114, ${(0.24 + random() * 0.16).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(at.x, at.y, r, r * 0.72, 0, 0, TAU);
+      ctx.fill();
+    }
+  };
+
+  /** Which side of the moon this face is on, laid over the cut as one flat wash. */
+  const paintFaceWash = (ctx, face, size) => {
+    const wash = FACE_WASH[face.id];
+    if (wash === 0) return;
+    traceFaceExtent(ctx, face, size);
+    ctx.fillStyle = wash > 0
+      ? `rgba(132, 152, 182, ${wash})`
+      : `rgba(3, 5, 9, ${-wash})`;
+    ctx.fill();
+  };
+
+  /**
+   * The light dying with depth, as a gradient across the face. Depth runs down
+   * the screen on the far wall and across it on a side wall, and on both the
+   * screen distance from the lip is a straight function of the projection's
+   * own shrink, so one set of stops serves either axis.
+   */
+  const paintDepthFade = (ctx, face, size) => {
+    const lip = facePoint(face, size, 0.5, 0);
+    const deep = facePoint(face, size, 0.5, 1);
+    const fade = facesTheCamera(face)
+      ? ctx.createLinearGradient(0, lip.y, 0, deep.y)
+      : ctx.createLinearGradient(lip.x, 0, deep.x, 0);
+    const deepest = CAMERA_HEIGHT / (CAMERA_HEIGHT + DARK_DEPTH);
+    for (let k = 0; k <= 14; k++) {
+      const t = k / 14;
+      const shrink = 1 - t * (1 - deepest);
+      const depth = CAMERA_HEIGHT * size * (1 / shrink - 1);
+      fade.addColorStop(t, `rgba(0, 0, 0, ${(1 - lightAtDepth(depth, size)).toFixed(3)})`);
+    }
+    traceFaceExtent(ctx, face, size);
+    ctx.fillStyle = fade;
+    ctx.fill();
+  };
+
+  /**
+   * A side wall loses a little more light toward the near lip, where the turf
+   * it has to pass leans in over it. It stays a face for its whole length: a
+   * side that fades out before the near lip draws a frame round the opening,
+   * and a frame is the one shape that stops a hole reading as a hole.
+   */
+  const paintNearLipShade = (ctx, face, size) => {
+    if (facesTheCamera(face)) return;
+    const shade = ctx.createLinearGradient(0, -size, 0, size);
+    shade.addColorStop(0, 'rgba(2, 4, 8, 0)');
+    shade.addColorStop(0.55, 'rgba(2, 4, 8, 0.05)');
+    shade.addColorStop(1, 'rgba(2, 4, 8, 0.18)');
+    traceFaceExtent(ctx, face, size);
+    ctx.fillStyle = shade;
+    ctx.fill();
+  };
+
+  const paintFace = (ctx, face, size) => {
+    ctx.save();
+    traceFaceExtent(ctx, face, size);
+    ctx.clip();
+    paintFaceLayers(ctx, face, size);
+    paintSpadeCuts(ctx, face, size);
+    paintFaceStones(ctx, face, size);
+    ctx.restore();
+    paintFaceWash(ctx, face, size);
+    paintNearLipShade(ctx, face, size);
+    paintDepthFade(ctx, face, size);
+  };
+
+  /**
+   * The edges where one wall meets the next. Each runs from a corner of the
+   * opening down into the shaft and goes out with everything around it, and it
+   * is what turns a pale band across the top of the opening into the back face
+   * of a box. The two near corners are drawn on the same terms as the far pair
+   * and, like the near wall, survive only while the camera is near enough to
+   * straight down for them to land inside the mouth.
+   */
+  const paintCornerEdges = (ctx, size) => {
+    const hw = graveWidth(size) / 2;
+    const steps = 16;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(onePx(1), size * 0.018);
+    for (const side of [-1, 1]) {
+      for (const end of [-1, 1]) {
+        for (let i = 0; i < steps; i++) {
+          const a = belowGround(side * hw, end * size, DARK_DEPTH * size * (i / steps), size);
+          const b = belowGround(side * hw, end * size, DARK_DEPTH * size * ((i + 1) / steps), size);
+          const light = lightAtDepth(DARK_DEPTH * size * ((i + 0.5) / steps), size);
+          ctx.strokeStyle = `rgba(2, 3, 6, ${(0.8 * light).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+  };
+
+  /**
+   * The cut earth and the dark under it, drawn once per size beneath the
+   * bodies. The grave has no bottom: the black is laid down first, the three
+   * faces the camera can see are painted over it, and each one fades into that
+   * same black rather than meeting anything.
+   */
+  const paintPit = (ctx, mouth, size) => {
+    const { maxX, maxY } = polyBounds(mouth);
+    ctx.save();
+    tracePolys(ctx, mouth);
+    ctx.clip();
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(-maxX - 4, -maxY - 4, maxX * 2 + 8, maxY * 2 + 8);
+    for (const face of wallFaces(size)) paintFace(ctx, face, size);
+    paintCornerEdges(ctx, size);
+    ctx.restore();
+  };
+
+  /**
+   * The ground at the edge: a narrow band of bare trodden earth where the
+   * grass gives way to the cut, the turf's own shadow thrown a hair inside the
+   * opening, and blades hanging over the far and side edges. This layer draws
+   * over the bodies, so a sinking body goes under the grass.
+   */
+  const paintLip = (ctx, mouth, size) => {
+    paintTrampledMargin(ctx, mouth, size);
+    paintLooseCrumbs(ctx, mouth, size);
+    paintTurfShadow(ctx, mouth, size);
+    paintOverhangingGrass(ctx, mouth, size);
+  };
+
+  /**
+   * Bare earth where the digging trod the grass off, laid down as overlapping
+   * patches rather than as a ring. A ring has an outline, and an outline round
+   * an opening is the kerb this pass exists to get rid of. It is darker than
+   * the grass it replaces, never brighter, for the same reason.
+   */
+  const paintTrampledMargin = (ctx, mouth, size) => {
+    const random = makeRandom(0x2f6b3c17);
+    const w = graveWidth(size);
+    const each = Math.round(clamp(viewScale * w * 0.05, 2, 4));
+    for (let i = 0; i < mouth.length; i += 2) {
+      const out = outwardAt(mouth, i);
+      const swell = 1 + treadAt(i / mouth.length) * 1.25;
+      for (let b = 0; b < each; b++) {
+        const away = w * lerp(-0.015, 0.075, Math.pow(random(), 1.4)) * swell;
+        ctx.fillStyle = random() < 0.4
+          ? `rgba(32, 39, 49, ${(0.06 + random() * 0.12).toFixed(3)})`
+          : `rgba(55, 64, 78, ${(0.05 + random() * 0.13).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.ellipse(
+          mouth[i] + out.x * away, mouth[i + 1] + out.y * away,
+          Math.max(onePx(1), w * lerp(0.03, 0.08, random())),
+          Math.max(onePx(0.8), w * lerp(0.022, 0.055, random())),
+          random() * TAU, 0, TAU,
+        );
+        ctx.fill();
+      }
+    }
+  };
+
+  /**
+   * How far the bare margin swells at a point round the rim. Two named places
+   * rather than noise all the way round: noise gives an even halo, and an even
+   * halo round a hole is read as a shadow, which a hole does not cast.
+   */
+  const TREAD = [{ at: 0.30, span: 0.05 }, { at: 0.79, span: 0.04 }];
+
+  const treadAt = (u) => {
+    let most = 0;
+    for (const spot of TREAD) {
+      const away = Math.abs(((((u - spot.at) % 1) + 1.5) % 1) - 0.5);
+      if (away >= spot.span) continue;
+      most = Math.max(most, 0.5 + Math.cos((away / spot.span) * Math.PI) / 2);
+    }
+    return most;
+  };
+
+  /** Sparse lumps of turned earth on the bare margin, each with its own shadow. */
+  const paintLooseCrumbs = (ctx, mouth, size) => {
+    const random = makeRandom(0x6c8e9cf5);
+    const w = graveWidth(size);
+    const crumbs = Math.round(clamp((w + size * 2) * 2 * viewScale * 0.06, 8, 26));
+    for (let i = 0; i < crumbs; i++) {
+      const k = Math.floor(random() * (mouth.length / 2)) * 2;
+      const out = outwardAt(mouth, k);
+      const away = w * lerp(0.015, 0.085, random()) * (1 + treadAt(k / mouth.length));
+      const cx = mouth[k] + out.x * away;
+      const cy = mouth[k + 1] + out.y * away;
+      const r = Math.max(onePx(0.6), w * lerp(0.012, 0.03, random()));
+      ctx.fillStyle = 'rgba(26, 32, 41, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + r * 0.35, r * 1.15, r * 0.8, 0, 0, TAU);
+      ctx.fill();
+      // The moon on top of the lump, kept under the grass's own value so the
+      // margin never turns into a scatter of bright beads.
+      ctx.fillStyle = 'rgba(94, 106, 124, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - r * 0.2, r * 0.9, r * 0.6, 0, 0, TAU);
+      ctx.fill();
+    }
+  };
+
+  /**
+   * The turf overhangs the cut by a hair, so it throws a line of shadow just
+   * inside the edge all the way round, deepest under the far lip. Stroked at
+   * double width inside the mouth, so only the inner half of it lands. It is
+   * kept narrow: a side wall is about a seventh of the opening across, and a
+   * shadow that takes half of that leaves a sliver instead of a face.
+   */
+  const paintTurfShadow = (ctx, mouth, size) => {
+    ctx.save();
+    tracePolys(ctx, mouth);
+    ctx.clip();
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(2, 4, 7, 0.45)';
+    ctx.lineWidth = Math.max(onePx(0.7), size * 0.016) * 2;
+    tracePolys(ctx, mouth);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(2, 4, 7, 0.5)';
+    ctx.lineWidth = Math.max(onePx(1), size * 0.05) * 2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < mouth.length; i += 2) {
+      if (mouth[i + 1] > -size * 0.55) {
+        started = false;
+        continue;
+      }
+      if (!started) {
+        ctx.moveTo(mouth[i], mouth[i + 1]);
+        started = true;
+      } else ctx.lineTo(mouth[i], mouth[i + 1]);
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  /**
+   * Blades rooted on the grass outside the edge and hanging in over the hole.
+   * Nothing along the near lip: grass there leans toward the camera and only
+   * ever reads as a fringe laid across the bottom of the opening.
+   */
+  const paintOverhangingGrass = (ctx, mouth, size) => {
+    const random = makeRandom(0x8f1bbcdc);
+    const w = graveWidth(size);
+    const tufts = Math.round(clamp((w + size * 2) * 2 * viewScale * 0.055, 6, 20));
+    ctx.lineCap = 'round';
+    for (let t = 0; t < tufts; t++) {
+      const k = Math.floor((t / tufts) * (mouth.length / 2)) * 2;
+      if (mouth[k + 1] > size * 0.5) continue;
+      // Grass does not hem an edge evenly, so about a third of the stops skip.
+      if (roughAt(t / tufts + 0.11) < -0.1) continue;
+      const out = outwardAt(mouth, k);
+      const base = w * 0.035;
+      const blades = 3 + Math.floor(random() * 3);
+      for (let b = 0; b < blades; b++) {
+        const spread = lerp(-1, 1, random()) * base * 1.6;
+        const px = mouth[k] + out.x * base * 0.5 + out.y * spread;
+        const py = mouth[k + 1] + out.y * base * 0.5 - out.x * spread;
+        // A blade shorter than about two screen pixels is a green speck.
+        const reach = Math.max(onePx(1.8), w * lerp(0.05, 0.095, random()));
+        const sway = lerp(-0.6, 0.6, random());
+        ctx.strokeStyle = random() < 0.18 ? hex(COLOR.moss) : hex(COLOR.mossDark);
+        ctx.lineWidth = Math.max(onePx(0.6), lerp(0.3, 0.8, random()));
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(
+          px - out.x * reach * 0.6 + out.y * sway * reach,
+          py - out.y * reach * 0.6 - out.x * sway * reach,
+          px - out.x * reach,
+          py - out.y * reach,
+        );
+        ctx.stroke();
+      }
+    }
+  };
+
+  /** One canvas, one texture, drawn in field units around the grave's origin. */
+  const bakeLayer = (size, pad, pxPerUnit, paint) => {
+    const w = graveWidth(size) / 2 + pad;
+    const h = size + pad;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(w * 2 * pxPerUnit);
+    canvas.height = Math.ceil(h * 2 * pxPerUnit);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(pxPerUnit, 0, 0, pxPerUnit, canvas.width / 2, canvas.height / 2);
+    paint(ctx);
+    const sprite = new PIXI.Sprite(PIXI.Texture.from(canvas));
+    sprite.anchor.set(0.5);
+    sprite.width = w * 2;
+    sprite.height = h * 2;
+    return sprite;
+  };
+
+  // ------------------------------------------------------------------- bodies
+
+  const KINDS = ['skeleton', 'zombie', 'tall'];
+
+  /**
+   * A body lying down, drawn along its own local x axis: head at the low end,
+   * feet at the high one. Everything is a share of the length, so one drawing
+   * serves a body half the grave's height and one larger than it.
+   */
+  const drawBody = (g, kind, len, seed) => {
+    const random = makeRandom(seed);
+    const L = len;
+    // Human proportions, not insect ones: the shoulders are a fifth of the
+    // length across, and the limbs stay near the body rather than splaying.
+    const W = L * (kind === 'tall' ? 0.17 : 0.21);
+    const flesh = kind === 'zombie' ? COLOR.corpseMoss : COLOR.bone;
+    /**
+     * A short body is three or four screen pixels across, and an outline held
+     * at its screen-pixel floor around every
+     * piece of it adds up to a dark lozenge with a pale streak down the middle.
+     * The outline keeps its floor and gives up its weight instead, so a small
+     * body is a small body rather than a blot.
+     */
+    const ink = clamp(L / onePx(34), 0.35, 1);
+    const line = { width: Math.max(onePx(0.8), L * 0.022), color: COLOR.outline, alpha: ink, alignment: 0.5 };
+    const splay = lerp(0.8, 1.25, random());
+
+    const limb = (points, thick) => {
+      const left = [];
+      const right = [];
+      for (let i = 0; i < points.length - 1; i++) {
+        const [x0, y0] = points[i];
+        const [x1, y1] = points[i + 1];
+        const a = Math.atan2(y1 - y0, x1 - x0);
+        const t = thick * (1 - i * 0.22);
+        const nx = -Math.sin(a) * t;
+        const ny = Math.cos(a) * t;
+        left.push(x0 + nx, y0 + ny, x1 + nx, y1 + ny);
+        right.unshift(x0 - nx, y0 - ny, x1 - nx, y1 - ny);
+      }
+      g.poly([...left, ...right]).fill({ color: COLOR.boneDim }).stroke(line);
+    };
+
+    // Legs: knees a little apart, feet turned out, the way a fallen body lands.
+    limb([[L * 0.1, -W * 0.34], [L * 0.28, -W * 0.5 * splay], [L * 0.46, -W * 0.34 * splay]], W * 0.2);
+    limb([[L * 0.1, W * 0.34], [L * 0.3, W * 0.46 * splay], [L * 0.47, W * 0.56 * splay]], W * 0.2);
+    g.ellipse(L * 0.48, -W * 0.34 * splay, L * 0.028, W * 0.2).fill({ color: COLOR.bone }).stroke(line);
+    g.ellipse(L * 0.49, W * 0.56 * splay, L * 0.028, W * 0.2).fill({ color: COLOR.bone }).stroke(line);
+
+    // Arms: one thrown up past the head, one dropped out to the side.
+    limb([[-L * 0.2, -W * 0.5], [-L * 0.31, -W * 0.9 * splay], [-L * 0.46, -W * 0.8 * splay]], W * 0.16);
+    limb([[-L * 0.2, W * 0.5], [-L * 0.08, W * 1.05 * splay], [L * 0.06, W * 1.15 * splay]], W * 0.16);
+
+    // Torso: shoulders wide, waist in, hips out again.
+    g.poly([
+      -L * 0.26, -W * 0.52,
+      -L * 0.05, -W * 0.42,
+      L * 0.09, -W * 0.5,
+      L * 0.16, -W * 0.3,
+      L * 0.16, W * 0.3,
+      L * 0.09, W * 0.5,
+      -L * 0.05, W * 0.42,
+      -L * 0.26, W * 0.52,
+    ]).fill({ color: flesh }).stroke(line);
+
+    if (kind === 'zombie') {
+      // A torn hem, so the moss body is not a plain lozenge.
+      g.poly([
+        L * 0.02, -W * 0.46,
+        L * 0.07, -W * 0.12,
+        L * 0.01, W * 0.08,
+        L * 0.08, W * 0.46,
+        -L * 0.1, W * 0.44,
+        -L * 0.1, -W * 0.46,
+      ]).fill({ color: 0x74864a, alpha: 0.9 });
+    } else {
+      for (let i = 0; i < 4; i++) {
+        const rx = -L * 0.2 + i * L * 0.07;
+        const half = W * (0.44 - i * 0.03);
+        g.moveTo(rx, -half).lineTo(rx, half).stroke({
+          width: Math.max(onePx(0.7), L * 0.018),
+          color: 0x9a978c,
+          alpha: 0.8,
+        });
+      }
+    }
+
+    // Neck, then the skull last so it sits over the shoulders.
+    g.roundRect(-L * 0.31, -W * 0.16, L * 0.08, W * 0.32, W * 0.1)
+      .fill({ color: COLOR.boneDim }).stroke(line);
+    const headR = W * 0.55;
+    g.ellipse(-L * 0.37, 0, headR * 1.12, headR).fill({ color: COLOR.bone }).stroke(line);
+    // A jaw at the chin end, which is what tells a skull from a pebble.
+    g.ellipse(-L * 0.315, 0, headR * 0.42, headR * 0.6).fill({ color: COLOR.boneDim }).stroke(line);
+    // The sockets fade with the outline: two dark specks on a skull three
+    // pixels across are most of the skull.
+    g.ellipse(-L * 0.4, -headR * 0.42, headR * 0.26, headR * 0.2).fill({ color: 0x151b28, alpha: ink });
+    g.ellipse(-L * 0.4, headR * 0.42, headR * 0.26, headR * 0.2).fill({ color: 0x151b28, alpha: ink });
+  };
+
+  /**
+   * How far up a walker the point it turns about as it goes down sits, as a
+   * share of its standing height. The lying body it becomes is drawn about its
+   * own middle, so a topple that ends anywhere else jumps at the handover.
+   */
+  const WALKER_MIDDLE = 0.44;
+
+  /** A figure on its feet: none of its height has gone over yet. */
+  const standingPose = () => ({ stand: 1, lean: 0, slide: 0, fallX: 0, fallY: 0 });
+
+  /**
+   * A figure part way down. It turns about its own feet, and the ground under it
+   * slides back by as much as its middle travels, so the body it becomes lies
+   * centred on the spot it was standing on.
+   */
+  const topplingPose = (progress, direction, len) => {
+    const swing = (progress * Math.PI) / 2;
+    return {
+      stand: Math.cos(swing),
+      lean: Math.sin(swing),
+      slide: len * WALKER_MIDDLE * Math.sin(swing),
+      fallX: Math.cos(direction),
+      fallY: Math.sin(direction),
+    };
+  };
+
+  /**
+   * Where a part of a figure lands, from its own three: how far across its
+   * shoulders it sits, how far in front of its standing point, and how far above
+   * the ground. Whatever height it still has takes the camera's rise and
+   * whatever it has laid on the ground takes the lean, and between them that is
+   * the whole of the tilt as far as anything standing is concerned.
+   */
+  const figurePoint = (cam, pose, across, deep, up) => {
+    const laid = up * pose.lean - pose.slide;
+    return {
+      x: across + pose.fallX * laid,
+      y: standingToScreen(cam, deep + pose.fallY * laid, up * pose.stand),
+    };
+  };
+
+  /** A slab of a figure, from its corners in the figure's own three. */
+  const figurePoly = (cam, pose, corners) => {
+    const flat = [];
+    for (const [across, deep, up] of corners) {
+      const p = figurePoint(cam, pose, across, deep, up);
+      flat.push(p.x, p.y);
+    }
+    return flat;
+  };
+
+  /**
+   * Everything one part of a figure needs to draw itself: the canvas, the
+   * figure's own scale, its ink, how much of it is still standing, and the two
+   * ways of turning the figure's three into screen offsets. One of these is
+   * made per figure, so every part of it lands under the same camera and the
+   * same pose.
+   */
+  const figureBrush = (g, len, cam, pose) => ({
+    g,
+    len,
+    wide: len * 0.5,
+    lean: cam.lean,
+    stand: pose.stand,
+    line: { width: Math.max(onePx(0.9), len * 0.03), color: COLOR.outline },
+    at: (across, deep, up) => figurePoint(cam, pose, across, deep, up),
+    part: (corners) => figurePoly(cam, pose, corners),
+  });
+
+  /**
+   * The ground under a figure, which is the only thing saying it stands on the
+   * field rather than floats over it. It goes out as the figure goes down.
+   */
+  const paintFigureShadow = ({ g, len: L, wide: W, lean, stand, at }) => {
+    const shade = at(0, L * 0.14, 0);
+    g.ellipse(shade.x, shade.y, W * 0.5, W * 0.34 * lean)
+      .fill({ color: 0x0b0f16, alpha: 0.34 * (0.3 + 0.7 * stand) });
+  };
+
+  /** Legs from the hips forward and down, and the feet they stand on. */
+  const paintFigureLegs = ({ g, len: L, wide: W, lean, line, at, part }) => {
+    for (const side of [-1, 1]) {
+      g.poly(part([
+        [side * W * 0.19 - W * 0.13, L * 0.06, L * 0.44],
+        [side * W * 0.19 + W * 0.13, L * 0.06, L * 0.44],
+        [side * W * 0.24 + W * 0.11, L * 0.2, 0],
+        [side * W * 0.24 - W * 0.11, L * 0.2, 0],
+      ])).fill({ color: COLOR.boneDim }).stroke(line);
+    }
+    for (const side of [-1, 1]) {
+      const foot = at(side * W * 0.24, L * 0.26, 0);
+      g.ellipse(foot.x, foot.y, W * 0.14, W * 0.1 * lean)
+        .fill({ color: COLOR.bone }).stroke(line);
+    }
+  };
+
+  /**
+   * The trunk and the arms on it. The trunk stands a little forward of its own
+   * shoulders, and that depth is all of it a camera straight down has to read,
+   * so the figure is not a head with limbs when the tilt is nothing.
+   */
+  const paintFigureTrunk = ({ g, len: L, wide: W, lean, line, at, part }) => {
+    g.poly(part([
+      [-W * 0.34, L * 0.06, L * 0.44],
+      [W * 0.34, L * 0.06, L * 0.44],
+      [W * 0.42, -L * 0.16, L * 0.72],
+      [-W * 0.42, -L * 0.16, L * 0.72],
+    ])).fill({ color: COLOR.corpseMoss }).stroke(line);
+
+    for (const side of [-1, 1]) {
+      g.poly(part([
+        [side * W * 0.38, -L * 0.14, L * 0.7],
+        [side * W * 0.54, -L * 0.14, L * 0.7],
+        [side * W * 0.7, L * 0.06, L * 0.36],
+        [side * W * 0.55, L * 0.06, L * 0.34],
+      ])).fill({ color: COLOR.boneDim }).stroke(line);
+    }
+
+    // The shoulders: a cross section of the trunk lying flat, so they keep
+    // their width and give their depth up to the lean.
+    const top = at(0, -L * 0.16, L * 0.72);
+    g.ellipse(top.x, top.y, W * 0.42, W * 0.3 * lean)
+      .fill({ color: COLOR.corpseMoss }).stroke(line);
+  };
+
+  /** The head, a ball, so it is the same circle from every angle. */
+  const paintFigureHead = ({ g, len: L, wide: W, line, at }) => {
+    const head = at(0, -L * 0.22, L * 0.88);
+    const r = W * 0.26;
+    g.circle(head.x, head.y, r).fill({ color: COLOR.bone }).stroke(line);
+    // Its face is on the side it walks toward, which on this field is downward.
+    for (const side of [-1, 1]) {
+      g.ellipse(head.x + side * r * 0.38, head.y + r * 0.32, r * 0.23, r * 0.17)
+        .fill({ color: 0x1b2231 });
+    }
+  };
+
+  /**
+   * A body upright and walking, for the mobs that drop dead on their own. It is
+   * built from the camera rather than drawn once: every part carries how far
+   * across, in front and above the ground it sits, and the tilt decides where
+   * that lands. With the camera straight down the figure is its own footprint
+   * seen from overhead, head over shoulders, and it stands up further the
+   * further the camera leans.
+   */
+  const drawWalker = (g, len, cam, pose) => {
+    const brush = figureBrush(g, len, cam, pose);
+    paintFigureShadow(brush);
+    paintFigureLegs(brush);
+    paintFigureTrunk(brush);
+    paintFigureHead(brush);
+  };
+
+  // -------------------------------------------------------------- the sound
+
+  const MUTE_KEY = 'grave-fall-muted';
+
+  const loadMuted = () => {
+    try {
+      return window.localStorage.getItem(MUTE_KEY) === '1';
+    } catch {
+      // Storage is optional: a blocked origin just starts with the sound on.
+      return false;
+    }
+  };
+
+  const saveMuted = (muted) => {
+    try {
+      window.localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+    } catch {
+      // Nothing to do: the toggle still works for this session.
+    }
+  };
+
+  /**
+   * One noise, synthesised, because the prototype is one file and a silent
+   * fall loses most of its weight: the earth moving as a body goes over the
+   * rim. Nothing marks the end of a fall, because the grave has no bottom for
+   * a body to reach. A browser will not start an audio context before a
+   * gesture, so `wake` is called from the first pointer down.
+   */
+  const makeSound = () => {
+    let ctx = null;
+    let master = null;
+    let noise = null;
+    let muted = loadMuted();
+    const lastAt = { scrape: 0 };
+
+    const wake = () => {
+      if (ctx) {
+        if (ctx.state === 'suspended') ctx.resume();
+        return;
+      }
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      ctx = new Audio();
+      master = ctx.createGain();
+      master.gain.value = 0.85;
+      master.connect(ctx.destination);
+      const frames = Math.floor(ctx.sampleRate * 0.6);
+      noise = ctx.createBuffer(1, frames, ctx.sampleRate);
+      const data = noise.getChannelData(0);
+      for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+    };
+
+    // One sound of a kind at a time: a sweep can swallow half a dozen bodies at once.
+    const ready = (kind, gap) => {
+      if (muted || !ctx) return false;
+      const now = ctx.currentTime;
+      if (now - lastAt[kind] < gap) return false;
+      lastAt[kind] = now;
+      return true;
+    };
+
+    const burst = (at, dur, type, from, to, level, q) => {
+      const source = ctx.createBufferSource();
+      source.buffer = noise;
+      source.loop = true;
+      const band = ctx.createBiquadFilter();
+      band.type = type;
+      band.frequency.setValueAtTime(from, at);
+      band.frequency.exponentialRampToValueAtTime(to, at + dur);
+      band.Q.value = q;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(level, at + dur * 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      source.connect(band).connect(gain).connect(master);
+      source.start(at);
+      source.stop(at + dur + 0.02);
+    };
+
+    return {
+      wake,
+      isMuted: () => muted,
+      // For driving the prototype from a script: whether a context exists yet.
+      state: () => (ctx ? ctx.state : 'asleep'),
+      setMuted(next) {
+        muted = next;
+        saveMuted(muted);
+        if (!muted) wake();
+      },
+      /** Earth moving under a body as it goes over: a short scrape, low and dry. */
+      scrape() {
+        if (!ready('scrape', 0.09)) return;
+        burst(ctx.currentTime, 0.26, 'bandpass', 780, 2100, 0.075, 1.1);
+      },
+    };
+  };
+
+  // --------------------------------------------------------------- the world
+
+  const makeWorld = (app, sound) => {
+    const root = new PIXI.Container();
+    const ground = new PIXI.Container();
+    const bodies = new PIXI.Container();
+    const grave = new PIXI.Container();
+    const pitArt = new PIXI.Container();
+    const pit = new PIXI.Container();
+    const pitMask = new PIXI.Graphics();
+    const graveLip = new PIXI.Container();
+    const lipArt = new PIXI.Container();
+    const flash = new PIXI.Graphics();
+    const headstone = new PIXI.Container();
+    const pops = new PIXI.Container();
+    const uprightsBehind = new PIXI.Container();
+    const uprightsFront = new PIXI.Container();
+
+    // Near draws over far among the things that stand, so each layer sorts its
+    // own children by where their feet are.
+    uprightsBehind.sortableChildren = true;
+    uprightsFront.sortableChildren = true;
+
+    grave.addChild(pitArt, pit, pitMask);
+    graveLip.addChild(lipArt, flash);
+    uprightsBehind.addChild(headstone);
+    pit.mask = pitMask;
+    /**
+     * The bodies sit between the hole and its edge: over the cut, so a body
+     * lying across the opening is seen lying across it rather than erased
+     * where it overlaps, and under the turf, so one going in passes behind the
+     * grass on the lip.
+     *
+     * The two upright layers are the grave's own depth sort. Anything standing
+     * past the near rim is in front of the whole hole and draws over it; behind
+     * that rim it goes under the hole's art, so a stone the grave has been
+     * dragged across is swallowed rather than left standing on the dark.
+     */
+    root.addChild(ground, uprightsBehind, grave, bodies, graveLip, uprightsFront, pops);
+    app.stage.addChild(root);
+
+    return {
+      app, sound, root, ground, bodies, grave, graveLip, pitArt, pit, pitMask, lipArt, flash, headstone, pops,
+      uprightsBehind, uprightsFront, markerList: [],
+      // Field geometry, set on every resize.
+      scale: 1, fieldH: 760,
+      // The grave.
+      size: DEFAULTS.size, x: FIELD_W / 2, y: 400, drawnSize: 0, drawnTilt: null,
+      mouth: [], mouthArea: 1,
+      // Play.
+      style: 'F', swallows: 0, bodyList: [], popList: [], crumbs: [],
+      nextId: 1, random: makeRandom(0x1a2b3c4d),
+      // The hold.
+      paused: false, stepOnce: false, flashLeft: 0, flashAt: 0,
+    };
+  };
+
+  /**
+   * The view is the game's own: the field's 540 units fill the width of the
+   * portrait column, so the root sits at the origin and nothing follows the
+   * grave about. Because the column is the same shape on any screen, a desktop
+   * shows the phone's view rather than a stretched one, and the grave keeps its
+   * share of the picture.
+   *
+   * The root itself is never squashed. The lean belongs to the ground plane, so
+   * it is set on each layer lying in that plane and the two upright layers are
+   * left alone; that is the whole mechanism by which a standing thing keeps its
+   * proportions while the field under it leans away.
+   */
+  const layoutWorld = (world) => {
+    const w = world.app.screen.width;
+    const h = world.app.screen.height;
+    world.scale = w / FIELD_W;
+    viewScale = world.scale;
+    // The leaning field fits more of its own length on the same screen.
+    world.fieldH = h / (world.scale * camera.lean);
+    world.root.scale.set(world.scale);
+    world.root.position.set(0, 0);
+    for (const layer of [world.ground, world.grave, world.bodies, world.graveLip]) {
+      layer.scale.set(1, camera.lean);
+    }
+    world.y = clamp(world.y, world.size, world.fieldH - world.size);
+  };
+
+  const resizeWorld = (world) => {
+    layoutWorld(world);
+    paintGround(world);
+    buildMarkers(world);
+  };
+
+  /**
+   * The baked field stretched to a new length, so a slider drag has ground
+   * under it while the repaint waits for the drag to stop.
+   */
+  const stretchGround = (world) => {
+    const sprite = world.ground.children[0];
+    if (!sprite) return;
+    sprite.height = world.fieldH;
+  };
+
+  /** Every figure in the field is drawn from the camera, so a new angle redraws them all. */
+  const redrawWalkers = (world) => {
+    for (const body of world.bodyList) {
+      if (!body.alive) continue;
+      body.ground.clear();
+      drawWalker(body.ground, body.len, camera, standingPose());
+    }
+  };
+
+  /**
+   * A new angle, applied to everything the camera decides. The hole follows on
+   * the next frame, along with the grave's own size, and the ground's baked
+   * texture is the one slow piece, so the caller repaints it once the slider has
+   * settled and the old one is stretched to the new field until then.
+   */
+  const retiltWorld = (world, degrees) => {
+    camera = makeCamera(degrees);
+    layoutWorld(world);
+    stretchGround(world);
+    buildMarkers(world);
+    redrawWalkers(world);
+  };
+
+  /**
+   * How many texture pixels the baked field gets per field unit. The cap is the
+   * smallest texture size a phone is sure to allow.
+   */
+  const MAX_GROUND_TEXTURE_PX = 4096;
+
+  const groundResolution = (world, fieldHeight) => {
+    const wanted = world.scale * (window.devicePixelRatio || 1);
+    const fits = Math.min(MAX_GROUND_TEXTURE_PX / FIELD_W, MAX_GROUND_TEXTURE_PX / fieldHeight);
+    return clamp(Math.min(wanted, fits), 1, 3);
+  };
+
+  /** The night field: speckle, cold patches, moss, gravel, and a few far markers. */
+  const paintGround = (world) => {
+    world.ground.removeChildren().forEach((child) => child.destroy(true));
+    const g = new PIXI.Graphics();
+    const H = world.fieldH;
+    const random = makeRandom(0x7ea15b3);
+    g.rect(0, 0, FIELD_W, H).fill({ color: COLOR.night });
+
+    // Patches of damp and dry, wide and soft. They carry most of the ground's
+    // variation, which is what keeps a mid-dark field from reading as paper.
+    for (let i = 0; i < 54; i++) {
+      const x = random() * FIELD_W;
+      const y = random() * H;
+      const rx = lerp(22, 96, random());
+      const ry = rx * lerp(0.3, 0.7, random());
+      const pick = random();
+      g.ellipse(x, y, rx, ry).fill({
+        color: pick < 0.32 ? COLOR.groundCold : pick < 0.62 ? COLOR.groundWet : COLOR.groundDamp,
+        alpha: lerp(0.09, 0.22, random()),
+      });
+    }
+    /**
+     * A second, much smaller mottle. The wide patches carry the field's shape
+     * at true game scale and vanish under the close camera, which sees a
+     * hundred and fifty units across and needs variation at its own size.
+     */
+    for (let i = 0; i < 520; i++) {
+      const x = random() * FIELD_W;
+      const y = random() * H;
+      const rx = lerp(4, 22, Math.pow(random(), 1.4));
+      const pick = random();
+      g.ellipse(x, y, rx, rx * lerp(0.4, 0.85, random())).fill({
+        color: pick < 0.3 ? COLOR.groundCold : pick < 0.62 ? COLOR.groundWet : COLOR.groundDamp,
+        alpha: lerp(0.07, 0.2, random()),
+      });
+    }
+    // Cracks in the dry earth between them.
+    for (let i = 0; i < 70; i++) {
+      let x = random() * FIELD_W;
+      let y = random() * H;
+      for (let s = 0; s < 3; s++) {
+        const nx = x + lerp(-13, 13, random());
+        const ny = y + lerp(-9, 9, random());
+        g.moveTo(x, y).lineTo(nx, ny).stroke({ width: lerp(0.3, 0.8, random()), color: COLOR.crack, alpha: 0.45 });
+        x = nx;
+        y = ny;
+      }
+    }
+    // Grain. It is the detail the zoom lives on, so there is a lot of it and
+    // each fleck is small enough to stay a fleck at two and a half pixels a unit.
+    for (let i = 0; i < 2600; i++) {
+      const x = random() * FIELD_W;
+      const y = random() * H;
+      const dark = random() < 0.42;
+      g.circle(x, y, lerp(0.35, 1.2, random())).fill({
+        color: dark ? COLOR.crack : COLOR.speckle,
+        alpha: lerp(0.25, 0.8, random()),
+      });
+    }
+    // Tufts of grass, small: at the close camera a blade the length the far
+    // view wanted comes out as a hand-drawn sprout a third the grave's width.
+    const reach = bladeReach(camera);
+    for (let i = 0; i < 230; i++) {
+      const x = random() * FIELD_W;
+      const y = random() * H;
+      for (let b = 0; b < 5; b++) {
+        const bx = x + lerp(-4, 4, random());
+        const by = y + lerp(-3, 3, random());
+        const up = lerp(2.4, 6, random()) * reach;
+        g.moveTo(bx, by)
+          .quadraticCurveTo(bx + lerp(-1.4, 1.4, random()), by - up * 0.5, bx + lerp(-2.4, 2.4, random()), by - up)
+          .stroke({ width: lerp(0.3, 0.75, random()), color: random() < 0.5 ? COLOR.moss : COLOR.mossDark, alpha: 0.7 });
+      }
+    }
+    for (let i = 0; i < 180; i++) {
+      g.circle(random() * FIELD_W, random() * H, lerp(0.7, 2.2, random()))
+        .fill({ color: COLOR.gravel, alpha: lerp(0.14, 0.34, random()) });
+    }
+
+    /**
+     * The field is baked to one texture. Left as live Graphics it is some eight
+     * hundred shapes rasterised every frame, and measured here that was the
+     * difference between 8 and 34 frames a second.
+     */
+    const texture = world.app.renderer.generateTexture({
+      target: g,
+      frame: new PIXI.Rectangle(0, 0, FIELD_W, H),
+      resolution: groundResolution(world, H),
+      antialias: true,
+    });
+    const sprite = new PIXI.Sprite(texture);
+    sprite.width = FIELD_W;
+    sprite.height = H;
+    world.ground.addChild(sprite);
+    g.destroy(true);
+  };
+
+  /** How many stones stand about the field besides the grave's own. */
+  const FAR_MARKERS = 9;
+
+  /**
+   * One of the far markers: a thin stone set in the ground and leaning where it
+   * was put, dim enough that the grave's own headstone stays the brightest
+   * thing on the field. It is built on the same terms as that headstone, so
+   * every stone in the field answers to one angle, and from straight above all
+   * that is left of it is its plinth and the cap across its top.
+   *
+   * The slab is three times as tall as it is wide. A stone in true headstone
+   * proportions keeps none of them once the camera foreshortens it: at the
+   * angles worth looking at, the face it leaves on the screen is as wide as it
+   * is high, which is a bucket rather than a marker.
+   */
+  const drawMarker = (g, stone, sway, cam) => {
+    const w = stone * 0.62;
+    const h = stone * 1.85;
+    const thick = stone * 0.2;
+    // A stone that leans gives up some of its height to the side it leans on.
+    const leanX = Math.sin(sway) * h;
+    const top = -Math.cos(sway) * h * cam.rise;
+    const face = -top;
+    // The crown is a shoulder on the slab and never a dome over it. A radius
+    // free to take half the face is the other half of the bucket.
+    const r = Math.min(w * 0.42, face * 0.35);
+
+    g.ellipse(0, 0, w * 0.8, thick * 0.75 * cam.lean).fill({ color: 0x141a23, alpha: 0.5 });
+    // A plinth, so the stone reads as set in the ground rather than pushed in.
+    g.roundRect(-w * 0.62, -thick * 0.55 * cam.lean, w * 1.24, thick * 1.1 * cam.lean + face * 0.05, thick * 0.35)
+      .fill({ color: COLOR.marker, alpha: 0.55 });
+    g.moveTo(-w / 2, 0)
+      .lineTo(leanX - w / 2, top + r * 0.75)
+      .arcTo(leanX - w / 2, top, leanX, top, r * 0.95)
+      .arcTo(leanX + w / 2, top, leanX + w / 2, top + r * 0.75, r * 0.95)
+      .lineTo(w / 2, 0)
+      .closePath()
+      .fill({ color: COLOR.marker, alpha: 0.9 })
+      .stroke({ width: 0.8, color: 0x93a2b6, alpha: 0.6 });
+    g.ellipse(leanX, top + thick * 0.35 * cam.lean, w * 0.44, thick * 0.5 * cam.lean)
+      .fill({ color: 0x7d8b9e, alpha: 0.85 });
+  };
+
+  /**
+   * The stones about the field, so it reads as a graveyard. They are their own
+   * objects rather than part of the baked ground, because a thing with height
+   * has to sort against everything else that has height.
+   */
+  const buildMarkers = (world) => {
+    for (const marker of world.markerList) marker.node.destroy(true);
+    world.markerList.length = 0;
+    const random = makeRandom(0x5c1d3f77);
+    for (let i = 0; i < FAR_MARKERS; i++) {
+      const x = lerp(24, FIELD_W - 24, random());
+      const y = lerp(24, world.fieldH - 24, random());
+      const node = new PIXI.Graphics();
+      // The scale is up on build 7's, because a standing stone spends most of
+      // its height on the camera's rise and only build 7's flat one kept it all.
+      drawMarker(node, lerp(13, 21, random()), lerp(-0.18, 0.18, random()), camera);
+      node.position.set(x, y * camera.lean);
+      world.uprightsBehind.addChild(node);
+      world.markerList.push({ node, y });
+    }
+  };
+
+  /** The hole, rebuilt whenever the grave's size has moved a visible amount. */
+  const rebuildHole = (world) => {
+    const size = world.size;
+    world.mouth = mouthPolygon(size);
+    // Measured once per rebuild: every resting body reads it every frame.
+    world.mouthArea = polygonArea(world.mouth);
+    // The hole's own layers are small canvases, so they can afford the zoom.
+    const px = clamp(world.scale * (window.devicePixelRatio || 1), 1, 6);
+
+    world.pitArt.removeChildren().forEach((child) => child.destroy(true));
+    world.lipArt.removeChildren().forEach((child) => child.destroy(true));
+    world.pitArt.addChild(bakeLayer(size, graveWidth(size) * 0.12, px, (ctx) => paintPit(ctx, world.mouth, size)));
+    world.lipArt.addChild(bakeLayer(size, graveWidth(size) * 0.3, px, (ctx) => paintLip(ctx, world.mouth, size)));
+
+    world.pitMask.clear().poly(world.mouth).fill({ color: 0xffffff });
+    world.drawnSize = size;
+    world.drawnTilt = camera.degrees;
+
+    world.headstone.removeChildren().forEach((child) => child.destroy(true));
+    world.headstone.addChild(buildHeadstone(size, camera));
+  };
+
+  /** The carving on the face, which has nowhere to sit on a face with no height. */
+  const paintCarving = (g, w, top, face, size) => {
+    if (face < onePx(8)) return;
+    const stroke = { width: Math.max(1, size * 0.024), color: 0x2f3947, alpha: 0.45 };
+    g.moveTo(0, top + face * 0.22).lineTo(0, top + face * 0.6).stroke(stroke);
+    g.moveTo(-w * 0.17, top + face * 0.36).lineTo(w * 0.17, top + face * 0.36).stroke(stroke);
+  };
+
+  /**
+   * The headstone at the head of the grave: ghostly, and drawn only. Nothing
+   * reads it, so it cannot collide with anything. It stands rather than lies:
+   * its foot is on the grass, its face climbs the screen with the tilt, and
+   * from straight above the cap across its top is the whole of it.
+   */
+  const buildHeadstone = (size, cam) => {
+    const g = new PIXI.Graphics();
+    const w = graveWidth(size) * 0.66;
+    const h = size * 0.78;
+    const thick = h * 0.16;
+    // The foot of the stone sits on the grass beyond the head of the grave,
+    // wholly clear of the opening: a headstone stands beside a hole, not in
+    // it, and a stone that crosses the far edge paints a bar across the one
+    // wall the player can see.
+    const standsAt = -size - h * 0.06;
+    const foot = standingToScreen(cam, standsAt, 0);
+    const top = standingToScreen(cam, standsAt, h);
+    const face = foot - top;
+    const r = Math.min(w * 0.5, face * 0.6);
+    const line = { width: Math.max(1, size * 0.026), color: COLOR.slate, alpha: 0.65 };
+
+    // A plinth, so the stone reads as standing in the ground rather than
+    // pushed into it. It lies flat, so the lean is the whole of its depth.
+    g.roundRect(-w * 0.62, foot - thick * 0.6 * cam.lean, w * 1.24, thick * 1.2 * cam.lean + face * 0.05, thick * 0.3)
+      .fill({ color: COLOR.slate, alpha: 0.18 })
+      .stroke({ width: Math.max(1, size * 0.024), color: COLOR.slate, alpha: 0.4 });
+
+    g.moveTo(-w / 2, foot)
+      .lineTo(-w / 2, top + r * 0.75)
+      .arcTo(-w / 2, top, 0, top, r * 0.95)
+      .arcTo(w / 2, top, w / 2, top + r * 0.75, r * 0.95)
+      .lineTo(w / 2, foot)
+      .closePath()
+      .fill({ color: COLOR.slate, alpha: 0.3 })
+      .stroke(line);
+
+    // The top of the stone. It is nested a hair under the crown rather than
+    // centred on it: the crown is round and the cap is an ellipse, and an
+    // ellipse sitting square on a round top reads as a halo round the stone.
+    g.ellipse(0, top + thick * 0.35 * cam.lean, w * 0.44, thick * 0.5 * cam.lean)
+      .fill({ color: COLOR.slate, alpha: 0.3 });
+
+    paintCarving(g, w, top, face, size);
+    return g;
+  };
+
+  // ------------------------------------------------------------ body lifetime
+
+  const spawnBody = (world, opts = {}) => {
+    const random = world.random;
+    const alive = opts.alive ?? random() < 0.22;
+    const kind = opts.kind ?? KINDS[Math.floor(random() * KINDS.length)];
+    /**
+     * Bodies are drawn near the smallest grave's own size: the floor grave is
+     * 18 units across and 36 long, and the longest body is a little over that.
+     * The skew keeps most of them at the short end, so the field is mostly
+     * bodies the grave could lie down beside.
+     */
+    const len = opts.len ?? lerp(20, 44, Math.pow(random(), 0.8));
+    const body = {
+      id: world.nextId++,
+      kind,
+      len,
+      alive,
+      lifeLeft: lerp(1.8, 5, random()),
+      x: opts.x ?? lerp(40, FIELD_W - 40, random()),
+      y: opts.y ?? -len,
+      angle: opts.angle ?? random() * TAU,
+      drift: lerp(-6, 6, random()),
+      phase: 'rest',
+      t: 0,
+      fade: opts.fade ?? 0,
+      overlap: 0,
+      teeter: 0,
+      wobble: random() * TAU,
+      // How fast a body is already sliding. The pull adds to this rather than
+      // setting it, so a body arrives at the rim with way on it.
+      vx: 0,
+      vy: 0,
+      ground: new PIXI.Graphics(),
+      pitCopy: new PIXI.Graphics(),
+      fall: null,
+    };
+    if (alive) {
+      // A walker never goes over the rim, so it has no copy inside the pit:
+      // only the body it collapses into is ever drawn down there.
+      drawWalker(body.ground, len, camera, standingPose());
+      body.angle = 0;
+    } else {
+      drawBody(body.ground, kind, len, body.id * 7919);
+      drawBody(body.pitCopy, kind, len, body.id * 7919);
+    }
+    body.pitCopy.visible = false;
+    (alive ? world.uprightsBehind : world.bodies).addChild(body.ground);
+    world.pit.addChild(body.pitCopy);
+    world.bodyList.push(body);
+    return body;
+  };
+
+  const removeBody = (world, body) => {
+    body.ground.destroy(true);
+    body.pitCopy.destroy(true);
+    const at = world.bodyList.indexOf(body);
+    if (at >= 0) world.bodyList.splice(at, 1);
+  };
+
+  /** A body's own box: the half length it lies along and the half width across it. */
+  const bodyBox = (body) => ({
+    halfLen: body.len * 0.46,
+    halfWid: body.len * (body.kind === 'tall' ? 0.3 : 0.42) * 0.5,
+  });
+
+  /** What a polygon encloses, by the shoelace sum. */
+  const polygonArea = (poly) => {
+    let twice = 0;
+    for (let i = 0, j = poly.length - 2; i < poly.length; j = i, i += 2) {
+      twice += poly[j] * poly[i + 1] - poly[i] * poly[j + 1];
+    }
+    return Math.abs(twice) / 2;
+  };
+
+  /**
+   * The most of itself a body could ever have over this mouth: one when the
+   * body fits inside the opening, and the share the opening can cover when it
+   * does not. It never reads as zero, so a body far larger than the grave has
+   * a share to reach rather than an impossible one.
+   */
+  const reachableOverlap = (world, body) => {
+    const box = bodyBox(body);
+    return clamp(world.mouthArea / (box.halfLen * box.halfWid * 4), 0.08, 1);
+  };
+
+  /**
+   * How much of a body is over the hole, sampled on a grid across its own box
+   * and read as a share of the most that body could have over this opening. A
+   * grid rather than a centre point because a centre test lets a body skate
+   * along the rim. Measuring against what is possible is what lets the grave
+   * take a body bigger than itself: size decides nothing, position does.
+   */
+  const overlapFraction = (world, body) => {
+    const c = Math.cos(body.angle);
+    const s = Math.sin(body.angle);
+    const { halfLen, halfWid } = bodyBox(body);
+    let inside = 0;
+    let total = 0;
+    for (let i = 0; i < 9; i++) {
+      const u = lerp(-halfLen, halfLen, i / 8);
+      for (let j = 0; j < 5; j++) {
+        const v = lerp(-halfWid, halfWid, j / 4);
+        const px = body.x + u * c - v * s - world.x;
+        const py = body.y + u * s + v * c - world.y;
+        total++;
+        if (pointInPoly(px, py, world.mouth)) inside++;
+      }
+    }
+    return clamp(inside / total / reachableOverlap(world, body), 0, 1);
+  };
+
+  /** The gap between a body's edge and the hole's, along the line between them. */
+  const rimGap = (world, body) => {
+    const dx = world.x - body.x;
+    const dy = world.y - body.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.001) return -body.len;
+    const hw = graveWidth(world.size) / 2;
+    const hh = world.size;
+    const m = Math.hypot(dx / hw, dy / hh);
+    const holeEdge = m === 0 ? 0 : dist / m;
+    return dist - holeEdge - body.len * 0.33;
+  };
+
+  // ------------------------------------------------------------------ the fall
+
+  // The payout's type size on screen, and the size it is drawn at before the
+  // camera's scale is divided back out of it.
+  const POP_CSS_PX = 15;
+  const POP_FONT = 34;
+
+  /** Where a pop stands: outside the rim the body went over, never over the mouth. */
+  const popAnchor = (world, body) => {
+    const rim = nearestRimIndex(world, body);
+    const rx = world.mouth[rim];
+    const ry = world.mouth[rim + 1];
+    const n = Math.hypot(rx, ry) || 1;
+    // Clear of the body as well as of the rim. At the smallest grave the
+    // opening is narrower than most bodies, so a distance read off the grave
+    // alone puts the payout on top of the body it is paying for.
+    const clear = graveWidth(world.size) * 0.34 + Math.max(14, body.len * 0.55);
+    return {
+      x: world.x + rx + (rx / n) * clear,
+      y: world.y + ry + (ry / n) * clear,
+      outX: rx / n,
+      outY: ry / n,
+    };
+  };
+
+  const payout = (world, body) => {
+    world.swallows++;
+    world.size = Math.min(SIZE_MAX, world.size + GROWTH_PER_SWALLOW);
+    world.flashLeft = 0.18;
+    world.flashAt = nearestRimIndex(world, body);
+    const text = new PIXI.Text({
+      text: '+1',
+      style: {
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        fontSize: POP_FONT,
+        fontWeight: '700',
+        fill: COLOR.pumpkin,
+        stroke: { color: 0x0b0e14, width: 7 },
+      },
+    });
+    text.anchor.set(0.5);
+    const at = popAnchor(world, body);
+    // Placed at birth: a held frame never runs stepPops, and a pop parked at
+    // the field's origin is a payout nobody can photograph. The payout is
+    // chrome, so it stands outside the leaning plane and only its anchor is
+    // read off the ground.
+    const on = groundToScreen(camera, at.x, at.y);
+    text.position.set(on.x, on.y);
+    text.scale.set(POP_CSS_PX / (POP_FONT * world.scale));
+    world.pops.addChild(text);
+    world.popList.push({ text, x: at.x, y: at.y, outX: at.outX, outY: at.outY, t: 0, life: 0.8 });
+    spawnCrumbs(world, body);
+    world.sound.scrape();
+  };
+
+  /** Earth knocked loose at the tip, so the rim sheds when something goes over it. */
+  const spawnCrumbs = (world, body) => {
+    const random = world.random;
+    for (let i = 0; i < 7; i++) {
+      const g = new PIXI.Graphics();
+      const r = lerp(0.9, 2.4, random());
+      g.circle(0, 0, r).fill({ color: random() < 0.4 ? COLOR.gravel : COLOR.lipEarth });
+      g.position.set(body.x - world.x, body.y - world.y);
+      world.pit.addChild(g);
+      world.crumbs.push({
+        g,
+        x: body.x - world.x,
+        y: body.y - world.y,
+        vx: lerp(-30, 30, random()),
+        vy: lerp(-20, 30, random()),
+        t: 0,
+        life: lerp(0.35, 0.7, random()),
+      });
+    }
+  };
+
+  /** The mouth vertex a body is nearest: the rim it is going over. */
+  const nearestRimIndex = (world, body) => {
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < world.mouth.length; i += 2) {
+      const d = Math.hypot(world.mouth[i] - (body.x - world.x), world.mouth[i + 1] - (body.y - world.y));
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  };
+
+  const beginFall = (world, body, knobs) => {
+    // Which way the body turns as it goes in: away from the side the hole is on.
+    const towardHole = Math.atan2(world.y - body.y, world.x - body.x);
+    const best = nearestRimIndex(world, body);
+    const pivotX = world.mouth[best];
+    const pivotY = world.mouth[best + 1];
+    const toCentre = Math.hypot(pivotX, pivotY) || 1;
+    body.fall = {
+      pivotX,
+      pivotY,
+      // The way in from the rim it is going over: the axis the tip turns about
+      // is across this, and it is what tells an end outside from an end inside.
+      holeX: -pivotX / toCentre,
+      holeY: -pivotY / toCentre,
+      tipStretch: 1,
+      localX: body.x - world.x,
+      localY: body.y - world.y,
+      angle0: body.angle,
+      spin: Math.sign(Math.sin(body.angle - towardHole) || 1),
+      stage: 'tip',
+      /**
+       * How far this body has to close up to go into this mouth. A body no
+       * longer than the opening keeps its own size the whole way down; a longer
+       * one narrows as it goes over, so it folds into the hole rather than lying
+       * across it. The measure is the opening's long way, because the fall
+       * already draws a body in toward the rim it crosses and the mouth clips
+       * what is left: fold it to the narrow way as well and a body goes in as a
+       * speck nobody sees.
+       */
+      fit: clamp((world.size * 2) / body.len, 0.3, 1),
+      // The way it was already moving when the ground under it ended. The fall
+      // keeps it, which is what makes a body arrive rather than be placed.
+      vx: body.vx,
+      vy: body.vy,
+      // The natural fall's rod: where its middle is in the pit, how far one end
+      // reaches from that middle, and how fast it is going down. The tip fills
+      // these in when it hands over.
+      centre: { x: body.x - world.x, y: body.y - world.y, depth: 0 },
+      arm: { x: 0, y: 0, depth: 0 },
+      sinkSpeed: 0,
+      turn: 0,
+      slip: 0,
+      // Where the two older falls end, and the swing B takes to get there.
+      sinkX: 0,
+      sinkY: oldSinkY(world.size),
+      radius: Math.hypot(body.x - world.x, body.y - world.y) || world.size * 0.3,
+      orbit: Math.atan2(body.y - world.y, body.x - world.x),
+    };
+    body.phase = 'fall';
+    body.t = 0;
+    // The pit copy shows only once a frame of the fall has placed it, which
+    // `placeFalling` does. Shown any earlier it draws for one frame at full
+    // size in the middle of the hole, before the body has gone anywhere.
+    body.pitCopy.visible = false;
+    body.fall.slip = Math.max(
+      0,
+      reachAcrossRim(body.fall, body) * TIP_SLIP_SHARE
+        - intoHole(body.fall, body.fall.localX, body.fall.localY),
+    );
+    payout(world, body);
+  };
+
+  /**
+   * The older slide-and-tip's own model of going over an edge: every point is
+   * drawn toward the pivot by how far it sits past the rim, and a point outside
+   * the rim rises a little. It is a shear rather than a turn, kept unchanged so
+   * style A is the same thing to compare the natural fall against.
+   */
+  const TIP_SHORTEN = 0.7;
+  const TIP_LIFT = 0.4;
+
+  const tipOverRim = (f, body, centreX, centreY, progress) => {
+    const shorten = lerp(1, TIP_SHORTEN, progress);
+    const lift = TIP_LIFT * progress;
+    const half = body.len * 0.45;
+    const dx = Math.cos(f.angle0) * half;
+    const dy = Math.sin(f.angle0) * half;
+
+    const overRim = (x, y) => {
+      const into = (x - f.pivotX) * f.holeX + (y - f.pivotY) * f.holeY;
+      const acrossX = x - f.pivotX - into * f.holeX;
+      const acrossY = y - f.pivotY - into * f.holeY;
+      return [
+        f.pivotX + f.holeX * into * shorten + acrossX,
+        f.pivotY + f.holeY * into * shorten + acrossY + into * lift,
+      ];
+    };
+
+    const [ax, ay] = overRim(centreX + dx, centreY + dy);
+    const [bx, by] = overRim(centreX - dx, centreY - dy);
+    return {
+      localX: (ax + bx) / 2,
+      localY: (ay + by) / 2,
+      dir: Math.atan2(ay - by, ax - bx),
+      stretch: Math.hypot(ax - bx, ay - by) / (half * 2),
+    };
+  };
+
+  /**
+   * How light the two older falls stay on the way down. They keep their own
+   * curve, because they were drawn against a pit with a bottom to land on.
+   */
+  const sinkBright = (u) => (u < 0.66 ? lerp(1, 0.88, u / 0.66) : lerp(0.88, 0.3, (u - 0.66) / 0.34));
+
+  /**
+   * Places a body's two drawings for one frame of a fall. The pit copy is the
+   * one the mouth clips, and the ground copy is only alive during the handover,
+   * so nothing is seen to be cut in half at the rim.
+   */
+  const placeFalling = (world, body, place) => {
+    const { localX, localY, squash, stretch, bright, alpha, groundAlpha, dir, fit = 1 } = place;
+    for (const [g, isPit] of [[body.pitCopy, true], [body.ground, false]]) {
+      g.position.set(isPit ? localX : world.x + localX, isPit ? localY : world.y + localY);
+      // Pixi scales in the body's own axes and then turns it, so stretch runs
+      // along the body's length and squash across it, whatever way it is lying.
+      // The fold rides on both, because a body folds into a mouth every way at
+      // once rather than along one axis of its own.
+      g.rotation = dir;
+      g.scale.set(stretch * fit, squash * fit);
+      g.tint = grey(bright);
+      g.alpha = isPit ? alpha : groundAlpha;
+      g.visible = (isPit ? alpha : groundAlpha) > 0.01;
+    }
+  };
+
+  /** The shorter way around from one angle to another, ignoring which end leads. */
+  const turnToward = (from, to) => {
+    let d = (to - from) % Math.PI;
+    if (d > Math.PI / 2) d -= Math.PI;
+    if (d < -Math.PI / 2) d += Math.PI;
+    return d;
+  };
+
+  // --------------------------------------------------------- the natural fall
+
+  /** How far a body has swung over by the time the tip is finished, in radians. */
+  const TIP_TILT = 1.36;
+
+  /** How fast a falling body keeps turning in the ground plane, in radians a second. */
+  const TURN_RATE = 1.5;
+
+  /** How much of its ground speed a body loses each second once it is off the rim. */
+  const FALL_DRAG = 2.4;
+
+  /**
+   * How far past the rim a body's middle has to be before the turn drops it in
+   * rather than lifting it out, as a share of the body's own reach across that
+   * rim. A body qualifies to fall on a share of its area, so its middle can
+   * still be a little outside the edge when it goes; the tip slides it in by
+   * exactly the shortfall and no further, because a body goes over the edge
+   * where it is and sliding it to the middle is the thing this fall replaces.
+   */
+  const TIP_SLIP_SHARE = 0.6;
+
+  /** How far a body reaches across the rim it is crossing, from its own box. */
+  const reachAcrossRim = (f, body) => {
+    const { halfLen, halfWid } = bodyBox(body);
+    const c = Math.cos(f.angle0);
+    const s = Math.sin(f.angle0);
+    return Math.abs(c * f.holeX + s * f.holeY) * halfLen
+      + Math.abs(c * f.holeY - s * f.holeX) * halfWid;
+  };
+
+  /** How far past the rim a point sits, along the way into the hole. */
+  const intoHole = (f, x, y) => (x - f.pivotX) * f.holeX + (y - f.pivotY) * f.holeY;
+
+  /**
+   * A point of a tipping body, as a ground position with a depth. It is placed
+   * by how far past the rim it sits: the further in, the further it swings down
+   * under the ground, and a point outside the rim rises instead. The projection
+   * does the rest, so the end that goes down moves down the screen and shrinks
+   * while the end that lifts moves up the screen and grows, on exactly the
+   * geometry the hole's own walls are drawn with.
+   */
+  const tipPoint = (f, x, y, cosT, sinT) => {
+    const into = intoHole(f, x, y);
+    const acrossX = x - f.pivotX - into * f.holeX;
+    const acrossY = y - f.pivotY - into * f.holeY;
+    return {
+      x: f.pivotX + f.holeX * into * cosT + acrossX,
+      y: f.pivotY + f.holeY * into * cosT + acrossY,
+      depth: into * sinT,
+    };
+  };
+
+  /** The point halfway between a body's two ends, in ground position and depth. */
+  const middleOf = (ends) => ({
+    x: (ends[0].x + ends[1].x) / 2,
+    y: (ends[0].y + ends[1].y) / 2,
+    depth: (ends[0].depth + ends[1].depth) / 2,
+  });
+
+  /** A body's two ends once it has tipped by `tilt` about the rim it crosses. */
+  const tippedEnds = (f, body, centreX, centreY, tilt) => {
+    const cosT = Math.cos(tilt);
+    const sinT = Math.sin(tilt);
+    const half = body.len * 0.45;
+    const dx = Math.cos(f.angle0) * half;
+    const dy = Math.sin(f.angle0) * half;
+    return [
+      tipPoint(f, centreX + dx, centreY + dy, cosT, sinT),
+      tipPoint(f, centreX - dx, centreY - dy, cosT, sinT),
+    ];
+  };
+
+  /**
+   * A body drawn from its two ends. The projection places each of them and the
+   * drawing is stretched between where they land, so a body foreshortens as it
+   * goes over and shrinks as it falls away from the camera without either being
+   * animated by hand. It keeps the moon on the same curve the walls do.
+   */
+  const placeFromEnds = (world, body, a, b, extra) => {
+    const size = world.size;
+    const pa = belowGround(a.x, a.y, a.depth, size);
+    const pb = belowGround(b.x, b.y, b.depth, size);
+    const half = body.len * 0.45;
+    const depth = Math.max(0, (a.depth + b.depth) / 2);
+    const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + depth);
+    placeFalling(world, body, {
+      localX: (pa.x + pb.x) / 2,
+      localY: (pa.y + pb.y) / 2,
+      dir: Math.atan2(pa.y - pb.y, pa.x - pb.x),
+      stretch: Math.hypot(pa.x - pb.x, pa.y - pb.y) / (half * 2),
+      squash: shrink,
+      fit: extra.fit,
+      bright: lightAtDepth(depth, size),
+      alpha: extra.alpha,
+      groundAlpha: extra.groundAlpha,
+    });
+  };
+
+  /**
+   * How far a point has to move to sit inside the opening's own outline. The
+   * cut is vertical, so that outline is the whole of the rule: a body slides
+   * down a wall face and never through one.
+   */
+  const wallPush = (world, x, y) => {
+    const hw = graveWidth(world.size) / 2;
+    return { x: clamp(x, -hw, hw) - x, y: clamp(y, -world.size, world.size) - y };
+  };
+
+  /** The same body shifted off a wall it had reached, both ends together. */
+  const heldInsideWalls = (world, ends) => {
+    const middle = middleOf(ends);
+    const push = wallPush(world, middle.x, middle.y);
+    if (push.x === 0 && push.y === 0) return ends;
+    return ends.map((end) => ({ x: end.x + push.x, y: end.y + push.y, depth: end.depth }));
+  };
+
+  /**
+   * A body's two ends part way through the tip. The slide over the edge is
+   * eased out and the turn is eased in, so by the last frame of the tip the
+   * sliding is finished and the turning is at its fastest: the motion the drop
+   * inherits is the turn's, which is a real one, and not the slide's, which is
+   * only there to put the body over the edge rather than on it.
+   */
+  const tipPose = (world, f, body, u) => heldInsideWalls(world, tippedEnds(
+    f, body,
+    f.localX + f.holeX * f.slip * ease.outQuad(u),
+    f.localY + f.holeY * f.slip * ease.outQuad(u),
+    TIP_TILT * ease.inQuad(u),
+  ));
+
+  /**
+   * The pull on a falling body: enough to take one that leaves the rim at the
+   * surface all the way to the dark in `drop` seconds.
+   */
+  const fallGravity = (world, knobs) =>
+    (2 * DARK_DEPTH * world.size) / Math.pow(Math.max(0.05, knobs.drop), 2);
+
+  /**
+   * How fast a body is already going at a depth. The tip carries a body some
+   * way down before the edge lets go of it, and a body already that deep is
+   * already moving: started from rest instead, it hangs at the lip for a third
+   * of a second while gravity builds from nothing, which is its own kind of
+   * wrong. A body the tip barely moved still starts from near enough rest.
+   */
+  const sinkSpeedAt = (world, depth, knobs) =>
+    Math.sqrt(2 * fallGravity(world, knobs) * Math.max(0, depth));
+
+  /**
+   * How fast the tip was carrying the body when it handed over, across the
+   * ground and downward. The drop picks both up rather than starting again from
+   * rest: without it a body tips hard, stops dead and then falls, which is the
+   * seam this fall exists to get rid of.
+   */
+  const tipExitSpeed = (world, f, body, tipTime) => {
+    const step = tipTime * 0.02;
+    const was = middleOf(tipPose(world, f, body, 0.98));
+    const now = middleOf(tipPose(world, f, body, 1));
+    return {
+      vx: (now.x - was.x) / step,
+      vy: (now.y - was.y) / step,
+      sink: Math.max(0, (now.depth - was.depth) / step),
+    };
+  };
+
+  /**
+   * The tip: the body goes over the edge where it is, about the rim it crosses.
+   * Once it has caught on the edge that edge is a hinge, so the body turns
+   * about it rather than carrying on sliding; the speed it arrived with waits
+   * for the drop, scrubbed a little by the scrape over the lip. The ground copy
+   * hands over to the pit copy across the tip, so nothing is seen cut in half
+   * at the rim.
+   */
+  const stepNaturalTip = (world, body, f, dt, knobs) => {
+    const tipTime = Math.max(0.03, knobs.tip);
+    const u = clamp(body.t / tipTime, 0, 1);
+
+    const drag = Math.exp(-FALL_DRAG * dt);
+    f.vx *= drag;
+    f.vy *= drag;
+
+    const [a, b] = tipPose(world, f, body, u);
+    placeFromEnds(world, body, a, b, {
+      fit: lerp(1, f.fit, u),
+      alpha: u,
+      groundAlpha: 1 - u,
+    });
+    if (u < 1) return;
+
+    // The rod the drop carries on with is the one the tip left standing.
+    f.centre = middleOf([a, b]);
+    f.arm = { x: (a.x - b.x) / 2, y: (a.y - b.y) / 2, depth: (a.depth - b.depth) / 2 };
+    const exit = tipExitSpeed(world, f, body, tipTime);
+    f.vx += exit.vx;
+    f.vy += exit.vy;
+    f.sinkSpeed = Math.max(exit.sink, sinkSpeedAt(world, f.centre.depth, knobs));
+    f.stage = 'drop';
+  };
+
+  /**
+   * The drop: gravity takes the body down the shaft, the ground position it
+   * carries runs on and is spent against the walls, and the projection shrinks
+   * and darkens it exactly as it does the cut earth beside it. Nothing catches
+   * it, because the grave has no bottom.
+   */
+  const stepNaturalDrop = (world, body, f, dt, knobs) => {
+    const full = DARK_DEPTH * world.size;
+    // Constant acceleration, so the fall is slow at first and fast at the end
+    // and a body leaving the rim at the surface is lost in the dark in `drop`
+    // seconds. One the tip already carried part way down arrives sooner,
+    // because it was already falling when the edge let go of it.
+    f.sinkSpeed += fallGravity(world, knobs) * dt;
+    f.centre.depth += f.sinkSpeed * dt;
+
+    const drag = Math.exp(-FALL_DRAG * dt);
+    f.vx *= drag;
+    f.vy *= drag;
+    f.centre.x += f.vx * dt;
+    f.centre.y += f.vy * dt;
+    const push = wallPush(world, f.centre.x, f.centre.y);
+    if (push.x !== 0) {
+      f.centre.x += push.x;
+      f.vx = 0;
+    }
+    if (push.y !== 0) {
+      f.centre.y += push.y;
+      f.vy = 0;
+    }
+
+    // It keeps turning as it goes, the way a dropped thing does.
+    const turned = f.spin * TURN_RATE * dt;
+    const cos = Math.cos(turned);
+    const sin = Math.sin(turned);
+    const armX = f.arm.x * cos - f.arm.y * sin;
+    f.arm.y = f.arm.x * sin + f.arm.y * cos;
+    f.arm.x = armX;
+
+    placeFromEnds(
+      world, body,
+      { x: f.centre.x + f.arm.x, y: f.centre.y + f.arm.y, depth: f.centre.depth + f.arm.depth },
+      { x: f.centre.x - f.arm.x, y: f.centre.y - f.arm.y, depth: f.centre.depth - f.arm.depth },
+      { fit: f.fit, alpha: 1, groundAlpha: 0 },
+    );
+    if (f.centre.depth >= full) body.phase = 'gone';
+  };
+
+  const stepNaturalFall = (world, body, f, dt, knobs) => {
+    if (f.stage === 'tip') return stepNaturalTip(world, body, f, dt, knobs);
+    return stepNaturalDrop(world, body, f, dt, knobs);
+  };
+
+  // ------------------------------------------------------- the older falls
+
+  /** Style A: the body creeps toward the hole while the rim turns it over. */
+  const stepSlideAndTip = (world, body, f, dt, knobs) => {
+    const tipTime = Math.max(0.03, knobs.tip);
+    const dropTime = Math.max(0.03, knobs.drop);
+    const toHole = Math.atan2(-f.localY, -f.localX);
+    // The body noses toward the hole as it goes over: part of the turn, never
+    // all of it, so a body lying broadside still reads as itself on the way in.
+    const nose = turnToward(f.angle0, toHole) * 0.4;
+    if (f.stage === 'tip') {
+      const u = clamp(body.t / tipTime, 0, 1);
+      const e = ease.inQuad(u);
+      const lx = lerp(f.localX, f.localX + (f.sinkX - f.localX) * 0.22, e);
+      const ly = lerp(f.localY, f.localY + (f.sinkY - f.localY) * 0.22, e);
+      const over = tipOverRim(f, body, lx, ly, e);
+      placeFalling(world, body, {
+        localX: over.localX, localY: over.localY,
+        dir: over.dir + nose * e + f.spin * 0.3 * e,
+        stretch: over.stretch,
+        squash: lerp(1, 0.94, e),
+        fit: lerp(1, f.fit, e),
+        bright: lerp(1, 0.96, e),
+        alpha: u,
+        groundAlpha: 1 - u,
+      });
+      if (u >= 1) {
+        f.stage = 'drop';
+        f.dropX = over.localX;
+        f.dropY = over.localY;
+        f.dropDir = over.dir + nose + f.spin * 0.3;
+        f.tipStretch = over.stretch;
+        body.t = 0;
+      }
+      return;
+    }
+    const u = clamp(body.t / dropTime, 0, 1);
+    const e = ease.inCubic(u);
+    placeFalling(world, body, {
+      localX: lerp(f.dropX, f.sinkX, e),
+      localY: lerp(f.dropY, f.sinkY, e),
+      dir: f.dropDir + f.spin * 0.7 * e,
+      stretch: f.tipStretch * lerp(1, 0.5, e),
+      squash: lerp(0.94, 0.5, e),
+      fit: f.fit,
+      bright: sinkBright(u),
+      alpha: 1,
+      groundAlpha: 0,
+    });
+    if (u >= 1) body.phase = 'gone';
+  };
+
+  /** Style B: the hole takes the body in one swallow, turning it as it goes. */
+  const stepSuckedIn = (world, body, f, dt, knobs) => {
+    const tipTime = Math.max(0.03, knobs.tip);
+    const dropTime = Math.max(0.03, knobs.drop);
+    const toHole = Math.atan2(-f.localY, -f.localX);
+    if (f.stage === 'tip') {
+      const u = clamp(body.t / tipTime, 0, 1);
+      const e = ease.outQuad(u);
+      placeFalling(world, body, {
+        localX: lerp(f.localX, f.localX * 0.6, e),
+        localY: lerp(f.localY, f.localY * 0.6 + f.sinkY * 0.4, e),
+        dir: lerp(f.angle0, toHole, e * 0.8),
+        stretch: lerp(1, 1.42, e),
+        squash: lerp(1, 0.62, e),
+        fit: lerp(1, f.fit, e),
+        bright: lerp(1, 0.97, e),
+        alpha: u,
+        groundAlpha: 1 - u,
+      });
+      if (u >= 1) {
+        f.stage = 'drop';
+        f.radius = Math.hypot(f.localX * 0.6, f.localY * 0.6 - f.sinkY * 0.4) || world.size * 0.2;
+        f.orbit = Math.atan2(f.localY * 0.6 + f.sinkY * 0.4, f.localX * 0.6);
+        body.t = 0;
+      }
+      return;
+    }
+    const u = clamp(body.t / dropTime, 0, 1);
+    const e = ease.inQuad(u);
+    const a = f.orbit + f.spin * 3.1 * e;
+    const r = lerp(f.radius, world.size * 0.04, ease.inOutSine(u));
+    placeFalling(world, body, {
+      localX: Math.cos(a) * r,
+      localY: Math.sin(a) * r + f.sinkY * e,
+      dir: a + Math.PI * 0.5 * f.spin,
+      stretch: lerp(1.42, 0.62, e),
+      squash: lerp(0.62, 0.42, e),
+      fit: f.fit,
+      bright: sinkBright(u),
+      alpha: 1,
+      groundAlpha: 0,
+    });
+    if (u >= 1) body.phase = 'gone';
+  };
+
+  /** One frame of a fall, in whichever style the bottom bar is showing. */
+  const updateFall = (world, body, dt, knobs) => {
+    body.t += dt;
+    if (world.style === 'A') return stepSlideAndTip(world, body, body.fall, dt, knobs);
+    if (world.style === 'B') return stepSuckedIn(world, body, body.fall, dt, knobs);
+    return stepNaturalFall(world, body, body.fall, dt, knobs);
+  };
+
+  // --------------------------------------------------------------- the frame
+
+  /**
+   * The hole is cut for one size at one angle, so it is rebuilt when either has
+   * moved enough to see. Both thresholds are there for the same reason: a
+   * slider drag would otherwise bake the whole hole afresh on every pixel of it.
+   */
+  const keepHoleCurrent = (world) => {
+    const sizeMoved = Math.abs(world.size - world.drawnSize) > 0.4;
+    const tiltMoved = Math.abs(camera.degrees - world.drawnTilt) > 0.2;
+    if (sizeMoved || tiltMoved) rebuildHole(world);
+  };
+
+  /**
+   * The grave and its lip, placed on the leaning ground. A layer's own lean
+   * squashes what is inside it and not where it sits, so the grave's position
+   * is read off the ground here even though everything it holds is in plain
+   * field units.
+   */
+  const placeGrave = (world) => {
+    const at = groundToScreen(camera, world.x, world.y);
+    world.grave.position.set(at.x, at.y);
+    world.graveLip.position.set(at.x, at.y);
+    world.headstone.position.set(at.x, at.y);
+    world.headstone.zIndex = world.y - world.size;
+  };
+
+  /**
+   * Where a standing thing draws, and against what. Its feet decide both: the
+   * layer, by whether they are past the grave's near rim, and its place inside
+   * that layer, so a nearer figure draws over a further one.
+   */
+  const standUpright = (world, node, groundY) => {
+    const layer = groundY > world.y + world.size ? world.uprightsFront : world.uprightsBehind;
+    node.zIndex = groundY;
+    if (node.parent !== layer) layer.addChild(node);
+  };
+
+  const sortUprights = (world) => {
+    for (const marker of world.markerList) standUpright(world, marker.node, marker.y);
+    for (const body of world.bodyList) {
+      if (body.alive) standUpright(world, body.ground, body.y);
+    }
+  };
+
+  const stepWorld = (world, dt, knobs) => {
+    world.size = clamp(world.size, SIZE_FLOOR, SIZE_MAX);
+    keepHoleCurrent(world);
+
+    placeGrave(world);
+    world.headstone.visible = knobs.headstone;
+
+    stepBodies(world, dt, knobs);
+    stepCrumbs(world, dt);
+    stepPops(world, dt);
+    stepFlash(world, dt);
+    topUpField(world);
+    sortUprights(world);
+  };
+
+  const stepBodies = (world, dt, knobs) => {
+    for (const body of [...world.bodyList]) {
+      if (body.phase === 'gone') {
+        removeBody(world, body);
+        continue;
+      }
+      if (body.phase === 'fall') {
+        updateFall(world, body, dt, knobs);
+        continue;
+      }
+      if (body.phase === 'collapse') {
+        const u = clamp((body.t += dt) / 0.45, 0, 1);
+        // Eased both ends rather than out of the gate: a topple that spends its
+        // first third already flat is a snap with a long tail on it.
+        const e = ease.inOutSine(u);
+        body.y += SCROLL_SPEED * dt;
+        body.ground.clear();
+        // It goes down toward where its head will lie, so the lying body it
+        // becomes takes over facing the way the fall left it.
+        drawWalker(body.ground, body.len, camera, topplingPose(e, body.deathAngle + Math.PI, body.len));
+        body.ground.rotation = 0;
+        body.ground.position.set(body.x, body.y * camera.lean);
+        if (u >= 1) {
+          // The walker becomes what a kill leaves: a body lying down.
+          body.alive = false;
+          body.phase = 'rest';
+          body.angle = body.deathAngle;
+          body.t = 0;
+          body.ground.clear();
+          body.pitCopy.clear();
+          drawBody(body.ground, body.kind === 'tall' ? 'tall' : 'zombie', body.len, body.id * 7919);
+          drawBody(body.pitCopy, body.kind === 'tall' ? 'tall' : 'zombie', body.len, body.id * 7919);
+          body.ground.scale.set(1, 1);
+          // It lies on the ground now, so it leaves the standing layers and
+          // goes back among the bodies, where the leaning plane carries it.
+          world.bodies.addChild(body.ground);
+        }
+        continue;
+      }
+
+      body.fade = Math.min(1, body.fade + dt * 2.6);
+      body.y += SCROLL_SPEED * dt;
+
+      if (body.alive) {
+        // A mob walks down, drifts aside from the hole, and drops dead on its own.
+        body.y += 14 * dt;
+        body.x += Math.sin((body.wobble += dt * 2.2)) * 10 * dt + body.drift * dt;
+        const away = rimGap(world, body);
+        if (away < world.size * 0.5) {
+          const a = Math.atan2(body.y - world.y, body.x - world.x);
+          body.x += Math.cos(a) * 34 * dt;
+          body.y += Math.sin(a) * 34 * dt;
+        }
+        body.lifeLeft -= dt;
+        if (body.lifeLeft <= 0) {
+          body.phase = 'collapse';
+          body.t = 0;
+          body.deathAngle = world.random() * TAU;
+        }
+        body.ground.position.set(body.x, body.y * camera.lean);
+        body.ground.rotation = Math.sin(body.wobble) * 0.06;
+        body.ground.alpha = body.fade;
+        body.ground.scale.set(1, 1);
+        continue;
+      }
+
+      body.overlap = overlapFraction(world, body);
+
+      if (world.style === 'P') {
+        if (body.overlap > 0) {
+          payout(world, body);
+          body.phase = 'gone';
+          continue;
+        }
+      } else if (body.overlap >= knobs.threshold) {
+        beginFall(world, body, knobs);
+        continue;
+      }
+
+      pullBody(world, body, dt, knobs);
+
+      // The teeter: a body over the edge but not enough leans in and shakes.
+      const wantTeeter = body.overlap > 0.12 ? clamp(body.overlap / knobs.threshold, 0, 1) : 0;
+      body.teeter = lerp(body.teeter, wantTeeter, 1 - Math.pow(0.001, dt));
+      const shake = body.teeter > 0.05 ? Math.sin(body.wobble * 26) * 0.02 * body.teeter : 0;
+      const lean = Math.atan2(world.y - body.y, world.x - body.x);
+
+      body.ground.position.set(
+        body.x + Math.cos(lean) * body.teeter * body.len * 0.04,
+        body.y + Math.sin(lean) * body.teeter * body.len * 0.04,
+      );
+      body.ground.rotation = body.angle + shake;
+      body.ground.scale.set(1, lerp(1, 0.94, body.teeter));
+      body.ground.alpha = body.fade;
+      body.ground.tint = grey(lerp(1, 0.86, body.teeter));
+      body.pitCopy.visible = false;
+
+      if (body.y > world.fieldH + body.len) removeBody(world, body);
+    }
+  };
+
+  /**
+   * How fast a body's slide catches up to the pull, per second. The pull sets
+   * the speed a body is heading for rather than the speed it has, so a body
+   * leans into it, gathers way over a few tenths of a second, and still
+   * carries that way when the ground under it ends.
+   */
+  const PULL_RESPONSE = 4.6;
+
+  /**
+   * The pull: an acceleration toward the hole's centre against the drag of the
+   * ground, strongest at the rim. `strength` is the speed a body is up to by
+   * the time it gets there, and out at the edge of the reach it is a crawl.
+   */
+  const pullBody = (world, body, dt, knobs) => {
+    const gap = rimGap(world, body);
+    const nearness = knobs.reach <= 0 || gap >= knobs.reach
+      ? 0
+      : gap <= 0 ? 1 : ease.outCubic(1 - gap / knobs.reach);
+    // A little jitter, so a body sitting square on the rim cannot balance there.
+    const jitter = Math.sin(body.wobble * 5.3 + body.id) * 0.16;
+    const toward = Math.atan2(world.y - body.y, world.x - body.x) + jitter;
+    const wanted = knobs.strength * nearness;
+    // Out of the pull's reach the wanted speed is nothing, so the same line is
+    // the ground's drag: a body that was sliding coasts to a stop.
+    const catchUp = 1 - Math.exp(-PULL_RESPONSE * dt);
+    body.vx += (Math.cos(toward) * wanted - body.vx) * catchUp;
+    body.vy += (Math.sin(toward) * wanted - body.vy) * catchUp;
+    body.x += body.vx * dt;
+    body.y += body.vy * dt;
+    if (nearness > 0) body.wobble += dt;
+  };
+
+  const stepCrumbs = (world, dt) => {
+    for (const crumb of [...world.crumbs]) {
+      crumb.t += dt;
+      crumb.x += crumb.vx * dt;
+      crumb.y += crumb.vy * dt;
+      crumb.vx *= 0.92;
+      crumb.vy += 40 * dt;
+      crumb.g.position.set(crumb.x, crumb.y);
+      crumb.g.alpha = 1 - ease.inQuad(clamp(crumb.t / crumb.life, 0, 1));
+      if (crumb.t >= crumb.life) {
+        crumb.g.destroy(true);
+        world.crumbs.splice(world.crumbs.indexOf(crumb), 1);
+      }
+    }
+  };
+
+  /**
+   * The payout drifts further out from the rim it came from and fades, and it
+   * is kept at one size on screen whatever the phone: the count is chrome, and
+   * chrome that grows with the world buries the fall.
+   */
+  const stepPops = (world, dt) => {
+    const onScreen = POP_CSS_PX / (POP_FONT * world.scale);
+    for (const pop of [...world.popList]) {
+      pop.t += dt;
+      const u = clamp(pop.t / pop.life, 0, 1);
+      const away = 16 * ease.outCubic(u);
+      const on = groundToScreen(camera, pop.x + pop.outX * away, pop.y + pop.outY * away);
+      pop.text.position.set(on.x, on.y - 10 * ease.outCubic(u));
+      pop.text.alpha = 1 - ease.inQuad(u);
+      pop.text.scale.set(onScreen * (1 + 0.25 * ease.outBack(clamp(u / 0.3, 0, 1))));
+      if (u >= 1) {
+        pop.text.destroy(true);
+        world.popList.splice(world.popList.indexOf(pop), 1);
+      }
+    }
+  };
+
+  /**
+   * The payout's mark on the rim: a short arc where the body went over, never
+   * the whole outline. An outline all the way round is the one thing that makes
+   * a hole in the ground read as an object lying on top of it.
+   */
+  const stepFlash = (world, dt) => {
+    if (world.flashLeft <= 0) {
+      if (world.flash.alpha !== 0) world.flash.alpha = 0;
+      return;
+    }
+    world.flashLeft = Math.max(0, world.flashLeft - dt);
+    const u = world.flashLeft / 0.18;
+    const count = world.mouth.length / 2;
+    const span = Math.round(count * 0.14);
+    const from = world.flashAt / 2;
+    world.flash.clear();
+    for (let i = -span; i <= span; i++) {
+      const a = (((from + i) % count) + count) % count * 2;
+      const b = (((from + i + 1) % count) + count) % count * 2;
+      world.flash
+        .moveTo(world.mouth[a], world.mouth[a + 1])
+        .lineTo(world.mouth[b], world.mouth[b + 1])
+        .stroke({
+          width: Math.max(1.2, world.size * 0.045),
+          color: COLOR.bone,
+          alpha: 1 - Math.abs(i) / (span + 1),
+        });
+    }
+    world.flash.alpha = 0.5 * ease.outQuad(u);
+  };
+
+  /**
+   * The field is kept at one body per sixty-odd units of its height, because a
+   * phone's field is half as tall again as the game's own and a fixed count
+   * over it leaves nothing to swallow between sweeps.
+   */
+  const topUpField = (world) => {
+    const want = clamp(Math.round(world.fieldH / 62), 12, 30);
+    let guard = 0;
+    while (world.bodyList.length < want && guard++ < want) spawnBody(world);
+  };
+
+  // -------------------------------------------------------------------- input
+
+  /**
+   * The real game's drag, as `src/input/touch.ts` has it: relative, one to one,
+   * anchored where the finger crossed the slop rather than where it landed, and
+   * re-anchored whenever the field's edge held the grave back.
+   */
+  const attachDrag = (world, canvas) => {
+    const pointers = new Map();
+    let steeringId = null;
+    let anchor = null;
+    let graveAtAnchor = null;
+    let previousTarget = null;
+    let previousPointer = null;
+
+    /**
+     * Screen pixels as field units. The camera's own offset is left out on
+     * purpose: every use of this is a difference between two pointer readings,
+     * and a camera that moves because the grave moved would otherwise feed
+     * straight back into the grave's target.
+     */
+    const toField = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = world.scale;
+      // Undoing the lean here is what keeps the drag one to one on the glass at
+      // every angle: a finger that travels a centimetre down the screen moves
+      // the grave a centimetre down the screen, however much field that is.
+      return screenToGround(camera, (event.clientX - rect.left) / px, (event.clientY - rect.top) / px);
+    };
+
+    /** How far a pointer has travelled, in the screen pixels it travelled them in. */
+    const travelSoFar = (track) => {
+      const on = groundToScreen(camera, track.current.x - track.origin.x, track.current.y - track.origin.y);
+      return Math.hypot(on.x, on.y) * world.scale;
+    };
+
+    const clearSteering = () => {
+      steeringId = null;
+      anchor = null;
+      graveAtAnchor = null;
+      previousTarget = null;
+      previousPointer = null;
+    };
+
+    canvas.addEventListener('pointerdown', (event) => {
+      canvas.setPointerCapture?.(event.pointerId);
+      pointers.set(event.pointerId, { origin: toField(event), current: toField(event) });
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      const track = pointers.get(event.pointerId);
+      if (!track) return;
+      track.current = toField(event);
+      if (steeringId !== null) return;
+      const travelled = travelSoFar(track);
+      if (travelled <= DRAG_SLOP_CSS_PX) return;
+      const f = DRAG_SLOP_CSS_PX / travelled;
+      steeringId = event.pointerId;
+      anchor = {
+        x: lerp(track.origin.x, track.current.x, f),
+        y: lerp(track.origin.y, track.current.y, f),
+      };
+      graveAtAnchor = { x: world.x, y: world.y };
+      previousTarget = null;
+      previousPointer = null;
+    });
+
+    const lift = (event) => {
+      pointers.delete(event.pointerId);
+      if (event.pointerId !== steeringId) return;
+      clearSteering();
+      for (const track of pointers.values()) track.origin = track.current;
+    };
+    canvas.addEventListener('pointerup', lift);
+    canvas.addEventListener('pointercancel', lift);
+    window.addEventListener('blur', () => {
+      pointers.clear();
+      clearSteering();
+    });
+
+    // The drag as a position error, recomputed every frame so it converges.
+    return () => {
+      if (steeringId === null) return;
+      const pointer = pointers.get(steeringId);
+      if (!pointer) return clearSteering();
+      if (previousTarget && previousPointer) {
+        const held = Math.abs(world.x - previousTarget.x) > 1e-6 || Math.abs(world.y - previousTarget.y) > 1e-6;
+        if (held) {
+          graveAtAnchor = { x: world.x, y: world.y };
+          anchor = previousPointer;
+        }
+      }
+      const target = {
+        x: graveAtAnchor.x + (pointer.current.x - anchor.x),
+        y: graveAtAnchor.y + (pointer.current.y - anchor.y),
+      };
+      previousTarget = target;
+      previousPointer = { x: pointer.current.x, y: pointer.current.y };
+      moveGrave(world, target.x, target.y);
+    };
+  };
+
+  const moveGrave = (world, x, y) => {
+    const half = graveWidth(world.size) / 2;
+    world.x = clamp(x, half, FIELD_W - half);
+    world.y = clamp(y, world.size, world.fieldH - world.size);
+  };
+
+  const attachKeys = (world, ui) => {
+    const held = new Set();
+    const codes = {
+      ArrowLeft: [-1, 0], KeyA: [-1, 0],
+      ArrowRight: [1, 0], KeyD: [1, 0],
+      ArrowUp: [0, -1], KeyW: [0, -1],
+      ArrowDown: [0, 1], KeyS: [0, 1],
+    };
+    window.addEventListener('keydown', (event) => {
+      if (event.target instanceof HTMLInputElement) return;
+      if (codes[event.code]) {
+        event.preventDefault();
+        held.add(event.code);
+        return;
+      }
+      if (event.code === 'Space') {
+        event.preventDefault();
+        ui.toggleHold();
+      }
+      if (event.code === 'Period') ui.step();
+      for (let i = 0; i < STYLE_IDS.length; i++) {
+        if (event.code === `Digit${i + 1}`) ui.setStyle(STYLE_IDS[i]);
+      }
+      if (event.code === 'KeyK') ui.toggleKnobs();
+    });
+    window.addEventListener('keyup', (event) => held.delete(event.code));
+    window.addEventListener('blur', () => held.clear());
+
+    return (dt) => {
+      let dx = 0;
+      let dy = 0;
+      for (const code of held) {
+        dx += codes[code][0];
+        dy += codes[code][1];
+      }
+      if (dx === 0 && dy === 0) return;
+      const n = Math.hypot(dx, dy) || 1;
+      moveGrave(world, world.x + (dx / n) * KEY_SPEED * dt, world.y + (dy / n) * KEY_SPEED * dt);
+    };
+  };
+
+  // ----------------------------------------------------------------- the knobs
+
+  /**
+   * This screen's own key. It sits on the same origin as the flat prototype and
+   * carries a knob that one has never heard of, so the two must not share a
+   * stored set. The flat prototype's key is left exactly where it is.
+   */
+  const STORE_KEY = 'tilted-view-knobs-v1';
+
+  /** The slider rows, one place: what each knob is called, reads and shows. */
+  const KNOB_ROWS = [
+    { key: 'tilt', input: 'k-tilt', out: 'v-tilt', show: (v) => `${v.toFixed(1)}°` },
+    { key: 'reach', input: 'k-reach', out: 'v-reach', show: (v) => `${Math.round(v)} u` },
+    { key: 'strength', input: 'k-strength', out: 'v-strength', show: (v) => `${Math.round(v)} u/s` },
+    {
+      key: 'threshold', input: 'k-threshold', out: 'v-threshold',
+      // The slider is in whole percent and the knob is a fraction.
+      toSlider: (v) => v * 100, fromSlider: (v) => v / 100,
+      show: (v) => `${Math.round(v * 100)}%`,
+    },
+    { key: 'tip', input: 'k-tip', out: 'v-tip', show: (v) => `${v.toFixed(2)} s` },
+    { key: 'drop', input: 'k-drop', out: 'v-drop', show: (v) => `${v.toFixed(2)} s` },
+    {
+      key: 'size', input: 'k-size', out: 'v-size',
+      show: (v) => `${v.toFixed(1)} u${Math.abs(v - SIZE_START) < 0.3 ? ' (game start)' : ''}`,
+    },
+  ];
+
+  const toSliderValue = (row, value) => (row.toSlider ? row.toSlider(value) : value);
+  const fromSliderValue = (row, value) => (row.fromSlider ? row.fromSlider(Number(value)) : Number(value));
+
+  /** A stored number outside its slider's travel is pulled back into it. */
+  const clampKnobs = (knobs) => {
+    for (const row of KNOB_ROWS) {
+      const range = RANGES[row.key];
+      const slider = clamp(toSliderValue(row, Number(knobs[row.key])), range.min, range.max);
+      knobs[row.key] = Number.isFinite(slider) ? fromSliderValue(row, slider) : DEFAULTS[row.key];
+    }
+    knobs.headstone = Boolean(knobs.headstone);
+    return knobs;
+  };
+
+  const loadKnobs = () => {
+    const knobs = { ...DEFAULTS };
+    try {
+      const raw = window.localStorage.getItem(STORE_KEY);
+      // Only the keys the defaults name, so a knob that has been retired since
+      // the set was stored cannot come back in through the side door.
+      if (raw) {
+        const stored = JSON.parse(raw);
+        for (const key of Object.keys(DEFAULTS)) {
+          if (stored[key] !== undefined) knobs[key] = stored[key];
+        }
+      }
+    } catch {
+      // Storage is optional: a private window or a blocked origin just keeps the defaults.
+    }
+    return clampKnobs(knobs);
+  };
+
+  const saveKnobs = (knobs) => {
+    const keep = {};
+    for (const key of Object.keys(DEFAULTS)) keep[key] = knobs[key];
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(keep));
+    } catch {
+      // Nothing to do: the knobs still work for this session.
+    }
+  };
+
+  const one = (id) => document.getElementById(id);
+
+  const pressed = (id, on) => one(id).setAttribute('aria-pressed', String(on));
+
+  /**
+   * How long the tilt slider has to sit still before the field is baked afresh.
+   * The ground is some eight hundred shapes and a texture, so it is the one
+   * thing the angle moves that cannot afford to follow a finger.
+   */
+  const GROUND_REPAINT_WAIT = 160;
+
+  const wireKnobs = (world, knobs) => {
+    let waiting = 0;
+    const repaintGroundSoon = () => {
+      window.clearTimeout(waiting);
+      waiting = window.setTimeout(() => paintGround(world), GROUND_REPAINT_WAIT);
+    };
+    const showTilt = () => {
+      one('r-tilt').textContent = knobs.tilt.toFixed(1);
+    };
+
+    const paint = () => {
+      for (const row of KNOB_ROWS) {
+        const input = one(row.input);
+        const range = RANGES[row.key];
+        input.min = String(range.min);
+        input.max = String(range.max);
+        input.step = String(range.step);
+        input.value = String(toSliderValue(row, knobs[row.key]));
+        one(row.out).textContent = row.show(knobs[row.key]);
+      }
+      pressed('t-headstone', knobs.headstone);
+      showTilt();
+    };
+
+    /** The angle in the panel, carried into the camera and everything under it. */
+    const applyTilt = (repaintNow) => {
+      retiltWorld(world, knobs.tilt);
+      showTilt();
+      if (!repaintNow) return repaintGroundSoon();
+      window.clearTimeout(waiting);
+      paintGround(world);
+    };
+
+    for (const row of KNOB_ROWS) {
+      one(row.input).addEventListener('input', (event) => {
+        knobs[row.key] = fromSliderValue(row, event.target.value);
+        // Only a move of this slider sets the grave's size, so a grave that has
+        // grown by swallowing is never yanked back to the number in the panel.
+        if (row.key === 'size') world.size = knobs.size;
+        if (row.key === 'tilt') applyTilt(false);
+        one(row.out).textContent = row.show(knobs[row.key]);
+        saveKnobs(knobs);
+      });
+    }
+    one('t-headstone').addEventListener('click', () => {
+      knobs.headstone = !knobs.headstone;
+      paint();
+      saveKnobs(knobs);
+    });
+    one('k-reset').addEventListener('click', () => {
+      Object.assign(knobs, DEFAULTS);
+      world.size = knobs.size;
+      applyTilt(true);
+      paint();
+      try {
+        window.localStorage.removeItem(STORE_KEY);
+      } catch {
+        // Nothing to do.
+      }
+    });
+    paint();
+    return {
+      paint,
+      /**
+       * The angle set from outside the panel, for a script driving the screen.
+       * It bakes the field there and then rather than on the settling timer,
+       * because a check reads the next frame and cannot wait for one.
+       */
+      setTilt: (degrees) => {
+        knobs.tilt = clamp(Number(degrees), RANGES.tilt.min, RANGES.tilt.max);
+        applyTilt(true);
+        paint();
+        saveKnobs(knobs);
+      },
+    };
+  };
+
+  const wireBar = (ui) => {
+    for (const id of STYLE_IDS) {
+      one(`style-${id}`).addEventListener('click', () => ui.setStyle(id));
+    }
+    one('b-hold').addEventListener('click', () => ui.toggleHold());
+    one('b-step').addEventListener('click', () => ui.step());
+    one('b-knobs').addEventListener('click', () => ui.toggleKnobs());
+    one('b-mute').addEventListener('click', () => ui.toggleMute());
+  };
+
+  const measureBar = () => {
+    const bar = one('bar');
+    const set = () => {
+      document.documentElement.style.setProperty('--bar-height', `${bar.offsetHeight + 8}px`);
+    };
+    set();
+    window.addEventListener('resize', set);
+    if (window.ResizeObserver) new window.ResizeObserver(set).observe(bar);
+  };
+
+  // ------------------------------------------------------------- the staging
+
+  /**
+   * One body frozen mid-fall, because a state that lasts a fifth of a second
+   * cannot be photographed while it runs. It is stepped forward by the same
+   * code the ticker runs rather than posed, so a staged frame is a frame the
+   * fall really passes through.
+   */
+  const stageHold = (world, knobs, hold) => {
+    world.x = FIELD_W / 2;
+    world.y = world.fieldH * 0.45;
+    rebuildHole(world);
+    // Nothing else near the hole, so the held frame shows one fall and not a pile.
+    for (const other of [...world.bodyList]) {
+      if (rimGap(world, other) < world.size * 1.2) removeBody(world, other);
+    }
+
+    // Staged over the far rim, which is where a fall is watched best: the body
+    // goes down the one wall the camera can see the whole of.
+    const body = spawnBody(world, {
+      alive: false,
+      kind: 'skeleton',
+      // The longest body there is: the fall worth photographing is the one that
+      // has to fold to get in.
+      len: 44,
+      x: world.x + graveWidth(world.size) * 0.08,
+      y: world.y - world.size * 0.6,
+      angle: 1.25,
+      fade: 1,
+    });
+    if (world.style === 'P') {
+      // Poof has no fall to hold: the body is paid for and gone in one frame,
+      // so the staged picture of it is the payout standing over an empty rim.
+      payout(world, body);
+      removeBody(world, body);
+      return;
+    }
+
+    beginFall(world, body, knobs);
+    const slice = 0.004;
+    const run = (stillWanted) => {
+      for (let i = 0; i < 600 && body.phase === 'fall' && stillWanted(); i++) {
+        updateFall(world, body, slice, knobs);
+      }
+    };
+    if (hold !== 'drop') return run(() => body.t < knobs.tip * 0.55);
+    run(() => body.fall.stage !== 'drop');
+    // Part way down, where a body is still lit enough to photograph.
+    let left = Math.max(0.03, knobs.drop) * 0.4;
+    run(() => (left -= slice) > 0);
+  };
+
+  // ------------------------------------------------------------------- main
+
+  const readParams = () => {
+    const params = new URLSearchParams(window.location.search);
+    const style = (params.get('style') || 'F').toUpperCase();
+    const hold = (params.get('hold') || '').toLowerCase();
+    return {
+      style: STYLE_IDS.includes(style) ? style : 'F',
+      hold: hold === 'tip' || hold === 'drop' ? hold : null,
+    };
+  };
+
+  const boom = (message) => {
+    one('boom').style.display = 'grid';
+    one('boom-text').textContent = message;
+  };
+
+  const main = async () => {
+    if (typeof PIXI === 'undefined') {
+      boom('PixiJS did not load from the CDN, so the grave has nothing to draw with. Reload with a connection.');
+      return;
+    }
+    const params = readParams();
+    const knobs = loadKnobs();
+
+    const app = new PIXI.Application();
+    await app.init({
+      // The portrait column, not the window: on a wide screen the field keeps
+      // the phone's shape and the window's own background fills the sides.
+      resizeTo: one('stage'),
+      background: '#454f5d',
+      antialias: true,
+      resolution: Math.min(2, window.devicePixelRatio || 1),
+      autoDensity: true,
+      preference: 'webgl',
+    });
+    one('stage').appendChild(app.canvas);
+
+    const sound = makeSound();
+    const world = makeWorld(app, sound);
+    world.style = params.style;
+    world.size = knobs.size;
+    // The camera before the first layout, so the field is measured at the angle
+    // the panel is about to show rather than at the one the module opened with.
+    camera = makeCamera(knobs.tilt);
+    resizeWorld(world);
+    world.x = FIELD_W / 2;
+    world.y = world.fieldH * 0.62;
+    rebuildHole(world);
+    // The frame sets this every time it runs, and a screen held from start-up
+    // never runs one, so the toggle has to be obeyed before the first frame.
+    world.headstone.visible = knobs.headstone;
+
+    const ui = {
+      setStyle(id) {
+        world.style = id;
+        for (const other of STYLE_IDS) {
+          one(`style-${other}`).setAttribute('aria-pressed', String(other === id));
+        }
+        one('r-style').textContent = STYLES[id];
+      },
+      toggleHold() {
+        world.paused = !world.paused;
+        document.body.classList.toggle('is-held', world.paused);
+        one('b-hold').textContent = world.paused ? 'Run' : 'Hold';
+      },
+      step() {
+        world.paused = true;
+        document.body.classList.add('is-held');
+        one('b-hold').textContent = 'Run';
+        world.stepOnce = true;
+      },
+      toggleKnobs() {
+        document.body.classList.toggle('knobs-open');
+        one('b-knobs').setAttribute('aria-pressed', String(document.body.classList.contains('knobs-open')));
+      },
+      toggleMute() {
+        sound.setMuted(!sound.isMuted());
+        const on = !sound.isMuted();
+        one('b-mute').textContent = on ? 'Sound' : 'Muted';
+        one('b-mute').setAttribute('aria-pressed', String(on));
+      },
+    };
+
+    const paintKnobs = wireKnobs(world, knobs);
+    wireBar(ui);
+    measureBar();
+    ui.setStyle(world.style);
+    one('b-mute').textContent = sound.isMuted() ? 'Muted' : 'Sound';
+    one('b-mute').setAttribute('aria-pressed', String(!sound.isMuted()));
+
+    // A browser will not open an audio context before a gesture, so the first
+    // touch anywhere is the one that starts it.
+    window.addEventListener('pointerdown', () => sound.wake(), { passive: true });
+    window.addEventListener('keydown', () => sound.wake(), { passive: true });
+
+    const dragStep = attachDrag(world, app.canvas);
+    const keyStep = attachKeys(world, ui);
+
+    // The renderer's own event, not the window's: Pixi resizes on its next
+    // frame, so a window listener reads the old screen and leaves the field
+    // drawn at the previous width.
+    app.renderer.on('resize', () => {
+      resizeWorld(world);
+      rebuildHole(world);
+    });
+
+    topUpField(world);
+    // The field starts with bodies already lying on it rather than falling in.
+    for (const body of world.bodyList) {
+      body.y = lerp(30, world.fieldH - 30, world.random());
+      body.fade = 1;
+    }
+
+    if (params.hold) {
+      stageHold(world, knobs, params.hold);
+      ui.toggleHold();
+    }
+
+    let countAt = -1;
+    app.ticker.add((ticker) => {
+      const raw = Math.min(0.05, ticker.deltaMS / 1000);
+      const running = !world.paused || world.stepOnce;
+      if (running) {
+        const dt = world.stepOnce ? 1 / 60 : raw;
+        world.stepOnce = false;
+        keyStep(dt);
+        dragStep();
+        stepWorld(world, dt, knobs);
+      } else {
+        dragStep();
+        keepHoleCurrent(world);
+        placeGrave(world);
+        sortUprights(world);
+      }
+      if (world.swallows !== countAt) {
+        countAt = world.swallows;
+        one('r-count').textContent = String(world.swallows);
+      }
+      one('r-size').textContent = world.size.toFixed(1);
+    });
+
+    // The prototype's own handle, for driving it from a script while checking it.
+    window.graveFall = {
+      world,
+      knobs,
+      ui,
+      moveGrave: (x, y) => moveGrave(world, x, y),
+      repaint: () => paintKnobs.paint(),
+      // The camera, and the three pure functions a check needs to hold it to
+      // its own arithmetic without going through a rendered frame.
+      setTilt: (degrees) => paintKnobs.setTilt(degrees),
+      camera: () => ({ ...camera }),
+      groundToScreen: (x, y) => groundToScreen(camera, x, y),
+      screenToGround: (x, y) => screenToGround(camera, x, y),
+      belowGround: (x, y, depth, size) => belowGround(x, y, depth, size),
+      // Frames on demand, so a check can run a whole fall inside one call
+      // instead of waiting on the ticker a frame at a time.
+      advance: (seconds, slice = 1 / 60) => {
+        const steps = Math.max(1, Math.round(seconds / slice));
+        for (let i = 0; i < steps; i++) stepWorld(world, slice, knobs);
+      },
+      // Where the grave sits on the page, not on the canvas: on a wide screen
+      // the canvas is a column in the middle of the window, and a crop taken
+      // from canvas coordinates lands in the bar beside it.
+      graveOnScreen: () => {
+        const px = world.scale;
+        const rect = app.canvas.getBoundingClientRect();
+        const on = groundToScreen(camera, world.x, world.y);
+        return {
+          x: rect.left + on.x * px,
+          y: rect.top + on.y * px,
+          width: app.screen.width,
+          height: app.screen.height,
+          openingPx: graveWidth(world.size) * px,
+        };
+      },
+      spawnBody: (opts) => spawnBody(world, opts),
+      // What a body has over the hole right now, without running a frame to
+      // find out: a check can sweep a body along the rim and read the share
+      // at each stop.
+      overlapOf: (body) => overlapFraction(world, body),
+      clearBodies: () => {
+        for (const body of [...world.bodyList]) removeBody(world, body);
+      },
+      stats: () => ({
+        style: world.style,
+        swallows: world.swallows,
+        size: world.size,
+        tilt: camera.degrees,
+        fieldH: Number(world.fieldH.toFixed(1)),
+        openingCssPx: Number((graveWidth(world.size) * world.scale).toFixed(1)),
+        bodies: world.bodyList.length,
+        walkers: world.bodyList.filter((b) => b.alive).length,
+        lying: world.bodyList.filter((b) => !b.alive && b.phase === 'rest').length,
+        markers: world.markerList.length,
+        falling: world.bodyList.filter((b) => b.phase === 'fall').length,
+        overlaps: world.bodyList.map((b) => Number(b.overlap.toFixed(2))),
+      }),
+    };
+  };
+
+  main();
+})();
+</script>
+</body>
+</html>
