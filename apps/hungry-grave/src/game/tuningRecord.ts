@@ -230,7 +230,7 @@ type SwallowTuning = {
    * hauling bodies in had wanted a low threshold and a long strong pull. It is
    * a starting value all the same, and what it gets read against is the food
    * ledger's swallowed against lost, before and after this step
-   * (`docs/branch/records/before-batch.md`).
+   * (`docs/design/grave-in-the-ground.md`, "Values are data").
    *
    * Near zero is the old first-touch rule, which is what the game did before
    * this step and what made a corpse vanish at the first pixel of contact.
