@@ -8,7 +8,7 @@ All nine slices are landed, pushed and deployed. The three close-of-step gates r
 
 The build: `WITNESS_VERSION` is 13, `FORMAT_VERSION` is 5, `GOLDEN` is re-pinned, and the fault identity `growth owed in range` is fatal. Every tape recorded before slice 9 is refused, by a named starting condition one step before the witness version would refuse it too. **The won tape to use is `local/148-slice-9/won-tape/3000.tape`** (22,716 ticks, verified, with the replay command in its README).
 
-The step's working records were deleted in commit `<HASH GOES HERE: the main session writes the deletion commit's hash on this line>`. Everything they held is reachable through it: the coder contract, the nine slice entries, the nine coder notes, the gate-fixes note and the four batch records.
+The step's working records were deleted in commit `317c0a0c31`. Everything they held is reachable through it: the coder contract, the nine slice entries, the nine coder notes, the gate-fixes note and the four batch records.
 
 ## What is left, in order
 
@@ -39,6 +39,7 @@ Every mechanical acceptance line of #148 and #106 is met. Every feel line waits 
 - **A deploy builds from a clean detached checkout**, never from this worktree while anyone has uncommitted work in it: `git worktree add --detach <scratch> <commit>`, copy `apps/hungry-grave/.vercel` from the main repo folder, `pnpm install --frozen-lockfile --prefer-offline`, then the recipe in `apps/hungry-grave/docs/deploy.md`, then `vercel ls` and a `curl` of the alias to confirm.
 - **Holding a frame in the rendered app.** The replay screen cannot be held at the tick `?at=` names: it fast-forwards and then plays on to its bound. Hold a tick from outside the app by replacing the page's `requestAnimationFrame` with a manual pump and also freezing `performance.now`, advancing it one tick's worth per pumped frame, because Pixi's ticker reads real elapsed time and a pumped frame otherwise advances up to fifteen ticks. The other way, for a state at the end of a run, is to record a tape of a chosen length with `scripts/record-conditioned.ts`, which freezes on its last verified checkpoint.
 - **The batch tapes for #149's reading.** 192 tapes from slice 9's batch are at `local/148-slice-9/batches` in this worktree, and draft 8 asks for one reading off them (ticks spent within one hit of the floor) before #149's grill. Wall clock only, no database and no tokens.
+- **The main session writes no code and no tests and hunts no bug, of any size** (Mark, 2026-09-21: "you're coding in the main conversation context instead of in a subagent... This is not okay"). A review finding or a small fix goes to a small agent briefed with the finding, the file, the test to write first with its expected red, and the checks to run; a bug goes to a diagnosis agent. The main session plans, reviews reports, edits plans and handoffs, and runs git and deploys.
 - `pnpm vite-node` keeps the working directory it is called in, so a batch's out-root is given as a full path.
 - A `vite preview` on port 4173 belongs to the `hungry-grave-v1` worktree. Use another port.
 - A prompt that writes no code opens with `Non-coding dispatch:` and one that writes code names `docs/agents/feature-flow.md`, or the dispatch hook refuses it. Give an agent a scratch folder under `local/` in this worktree, under a name no other agent uses, as a full path.
