@@ -10,6 +10,8 @@ The build: `WITNESS_VERSION` is 13, `FORMAT_VERSION` is 5, `GOLDEN` is re-pinned
 
 The step's working records were deleted in commit `317c0a0c31`. Everything they held is reachable through it: the coder contract, the nine slice entries, the nine coder notes, the gate-fixes note and the four batch records.
 
+**Mark's ruling, 2026-09-21, after playing the deployed build: the branch's work is finished.** His words: "I think this is done then. Everything else can be adjustments later I think", and "to be clear I watched it topple ... looked fine". So #148's last acceptance line (he plays it and reads the grave as a grave in the ground) and #106's (the winning moment matches the record) are met, and the branch close began on that word. What is on "For Mark's read" below becomes later adjustments, carried by the ticket drafts.
+
 ## What is left, in order
 
 1. The branch close: `.claude/skills/branch-runbook/end-of-the-branch.md`. It needs Mark for two things, his ADR rulings and his own yes for the merge, so the work stalls there where he can see it.

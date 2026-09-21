@@ -1,4 +1,5 @@
 // The ground at the grave's edge: the trodden margin, loose crumbs, the turf's shadow and the grass hanging in over the cut.
+// The prototype's own painter, ported line for line: its values, counts and draw order are not re-derived, so a change to how it draws is a change to a ruled look, not a cleanup (design record R7, Mark's ruling of 2026-09-21).
 
 import { graveWidth } from '../../../game/grave';
 import { PALETTE } from '../../palette';

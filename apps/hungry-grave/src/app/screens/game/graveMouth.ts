@@ -1,4 +1,5 @@
 // The grave's opening as the prototype cuts it: a true rectangle with a few crumbled bites out of the lip.
+// The prototype's own painter, ported line for line: its values, counts and draw order are not re-derived, so a change to how it draws is a change to a ruled look, not a cleanup (design record R7, Mark's ruling of 2026-09-21).
 
 import { graveWidth } from '../../../game/grave';
 import type { Polygon } from './graveCanvas';

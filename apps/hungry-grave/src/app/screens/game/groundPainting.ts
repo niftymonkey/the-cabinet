@@ -1,6 +1,7 @@
 // The prototype's ground on the whole field: the canvas it is painted on, the
 // painters, how much of each thing they draw, and how sharp the baked picture
-// is (design record R4, Mark's ruling of 2026-09-21).
+// is.
+// The prototype's own ground, ported line for line: its values, counts and draw order are not re-derived, so a change to how it draws is a change to a ruled look, not a cleanup (design record R8, Mark's ruling of 2026-09-21).
 
 import { PALETTE } from '../../palette';
 import { clamp, lerp, makeRandom } from './graveCanvas';
