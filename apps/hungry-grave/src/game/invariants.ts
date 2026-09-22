@@ -95,6 +95,7 @@ const checkRunNoNaN = (state: RunState, faults: Fault[]): void => {
   checkFinite(faults, 'grave.y', state.grave.y);
   checkFinite(faults, 'grave.size', state.grave.size);
   checkFinite(faults, 'grave.invulnerable', state.grave.invulnerable);
+  checkFinite(faults, 'grave.owed', state.grave.owed);
   checkFinite(faults, 'nextEntityId', state.nextEntityId);
   checkFinite(faults, 'bankedOffers', state.bankedOffers);
 };
@@ -128,6 +129,8 @@ const checkCorpsesNoNaN = (state: RunState, faults: Fault[]): void => {
     if (!corpse.alive) continue;
     checkSlotFinite(faults, 'corpse', corpse.id, 'x', corpse.x);
     checkSlotFinite(faults, 'corpse', corpse.id, 'y', corpse.y);
+    checkSlotFinite(faults, 'corpse', corpse.id, 'vx', corpse.vx);
+    checkSlotFinite(faults, 'corpse', corpse.id, 'vy', corpse.vy);
     checkSlotFinite(faults, 'corpse', corpse.id, 'freshness', corpse.freshness);
     checkSlotFinite(faults, 'corpse', corpse.id, 'payout', corpse.payout);
     checkImpulseNoNaN(faults, 'corpse', corpse.id, corpse.impulse);
@@ -305,11 +308,50 @@ const checkSize = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
+ * Rounding room on the grave's true size, in size units, on the reservoir's own
+ * terms.
+ *
+ * The true size is a sum of two fields, and two sites move growth between them
+ * in binary64: growGrave measures the room as the ceiling less the sum and adds
+ * what it took onto the debt, and takeInOwedGrowth moves the same figure the
+ * other way, re-deriving the size as the sum less what is still owed. A sum
+ * recovered through either round trip is the exact figure or an ulp off it.
+ *
+ * The room is far smaller than the smallest growth any food can pay, so a grave
+ * that has really grown past the ceiling can never hide under it.
+ */
+const OWED_TOLERANCE = 1e-9;
+
+/**
+ * The growth the grave has been paid and has not yet taken in, from both ends
+ * (Mark's ruling of 2026-09-21).
+ *
+ * A debt below zero means the swell took in more than it was paid, and a true
+ * size above the ceiling means a payment went through without the ceiling
+ * refusing it as overflow. Neither is reachable from the rules as written, and
+ * both are exactly what a reversed sign at one of the three sites that write
+ * the field would produce.
+ */
+const checkOwedGrowth = (state: RunState, faults: Fault[]): void => {
+  const { size, owed } = state.grave;
+  if (owed < 0) {
+    record(faults, 'growth owed in range', `the grave is owed ${owed}`);
+  }
+  if (size + owed > SIZE_CEILING + OWED_TOLERANCE) {
+    record(
+      faults,
+      'growth owed in range',
+      `size ${size} plus ${owed} owed stands above ${SIZE_CEILING}`,
+    );
+  }
+};
+
+/**
  * The one state design record R4's mechanism must never reach: a score rung
  * still marked spent at a size that has already bought it back.
  *
  * It sits beside checkSize because it is the floor read from the other end. The
- * ladder spends the rung at the floor and growGrave gives it back the moment
+ * ladder spends the rung at the floor and the swell gives it back the moment
  * the grave stands a full hit's worth above it, so a grave carrying the mark at
  * that size means one of the two halves stopped running. A crumb of growth is
  * not enough and is not a fault: the mark is expected to survive it.
@@ -937,6 +979,7 @@ const checkInvariants = (
   const faults: Fault[] = [];
   checkNoNaN(state, faults);
   checkSize(state, faults);
+  checkOwedGrowth(state, faults);
   checkScoreRung(state, faults);
   checkScoreNotNegative(state, faults);
   checkInBounds(state, faults);

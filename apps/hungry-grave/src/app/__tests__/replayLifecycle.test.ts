@@ -40,6 +40,7 @@ vi.mock('../ui/Button', () => ({
 
 import { TICK_MS } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
+import { spawnMob } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { STORM_RENDERER_TRANSIENT_TICKS } from '../screens/game/StormRenderer';
@@ -225,6 +226,73 @@ describe('a played run opens in replay', () => {
     expect(replay['session'].playback!.run.tick).toBe(180);
     replay.reset();
   });
+
+  it('a run quit between checkpoints replays to the tick of the quit', async () => {
+    // ADR 0019: a replay stops at the last checkpoint that verified, and the
+    // seal now stamps one at the run's own last tick, so a quit that landed
+    // between the periodic checkpoints is still watched to the quit. 190
+    // against the recorder's spacing of 60 leaves 10 ticks past the last one.
+    fakeLocation.search = '?seed=7';
+    const game = gameScreen();
+    game.prepare();
+    for (let spent = 0; spent < 190; spent += 10) {
+      game.update(frame(TICK_MS * 10));
+    }
+    endRunFromMenu();
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    game.reset();
+    fakeLocation.search = '';
+
+    serveTape(bytes!);
+    fakeLocation.hash = '#/replay?tape=blob%3Akept&at=100';
+    const replay = replayScreen();
+    replay.prepare();
+    await settled(replay);
+    driveTo(replay, 'played');
+
+    expect(replay['session'].bound).toBe(190);
+    expect(replay['session'].playback!.run.tick).toBe(190);
+    expect(replay['session'].lines.posture).toContain('PLAYED TO TICK 190');
+    replay.reset();
+  });
+
+  it("a lost run's replay reaches the hit that ended it", async () => {
+    // The whole point of the slice, at the layer a player sees it: a run that
+    // ends on contact ends on whatever tick the contact fell on, and the
+    // replay plays through that tick rather than stopping up to 59 short of it
+    // (ADR 0019, design record R6).
+    // A parked run on this seed takes every hit the ramp offers and seals on a
+    // tick nobody arranged, which is the only loss a replay can reproduce: a
+    // loss staged by writing grave or mob state is state the replay cannot
+    // rebuild from the seed, so its witness disagrees at the next checkpoint.
+    fakeLocation.search = '?seed=5150';
+    const game = gameScreen();
+    game.prepare();
+    const run = game['session'].run!;
+    for (let ticks = 0; run.ending === null && ticks < 7500; ticks += 10) {
+      game.update(frame(TICK_MS * 10));
+    }
+    expect(run.ending).toBe('sealed');
+    const died = run.tick;
+    expect(died % 60).not.toBe(0);
+    const bytes = runHandoff.readTape();
+    expect(bytes).not.toBeNull();
+    game.reset();
+    fakeLocation.search = '';
+
+    serveTape(bytes!);
+    fakeLocation.hash = `#/replay?tape=blob%3Akept&at=${died - 40}`;
+    const replay = replayScreen();
+    replay.prepare();
+    await settled(replay);
+    driveTo(replay, 'played');
+
+    expect(replay['session'].bound).toBe(died);
+    expect(replay['session'].playback!.run.tick).toBe(died);
+    expect(replay['session'].playback!.run.ending).toBe('sealed');
+    replay.reset();
+  });
 });
 
 /**
@@ -274,5 +342,43 @@ describe('a replay plays the loss the live run played', () => {
     advance.mockReturnValue(playing(run, []));
     screen.update(frame(TICK_MS));
     expect(blowUp(screen).visible).toBe(false);
+  });
+
+  /** Whether anything in the mobs' layer has been dimmed. */
+  function mobsDimmed(screen: ReplayScreen): boolean {
+    const bodies = screen['layers'].layer('mobBodies').children;
+    return bodies.some((body) => body.visible && body.alpha < 1);
+  }
+
+  /** A replay frame on which this boss dies, then a second of frames after it. */
+  function replayADeath(boss: 'banshee' | 'undertaker'): ReplayScreen {
+    const screen = replayScreen();
+    const run = createRun(7);
+    spawnMob(
+      run,
+      'shambler',
+      { x: 100, y: 100, vx: 0, vy: 1, index: 0 },
+      false,
+      'wave',
+    );
+    const advance = vi.spyOn(screen['session'], 'advance');
+    advance.mockReturnValue(
+      playing(run, [{ type: 'bossKilled', boss, x: 270, y: 200 }]),
+    );
+    screen.update(frame(TICK_MS));
+    advance.mockReturnValue(playing(run, []));
+    for (let i = 0; i < 60; i += 1) screen.update(frame(TICK_MS));
+    return screen;
+  }
+
+  it("the Banshee's death fades nothing on a replay, because the run goes on after her", () => {
+    // bossKilled fires for both bosses and only the Undertaker's ends the run
+    // (R6). A scene clock started at the Banshee's death would fade the shots
+    // out and leave the mobs dim for the whole rest of the replay.
+    expect(mobsDimmed(replayADeath('banshee'))).toBe(false);
+  });
+
+  it("the Undertaker's death dims the field on a replay, as it does live", () => {
+    expect(mobsDimmed(replayADeath('undertaker'))).toBe(true);
   });
 });

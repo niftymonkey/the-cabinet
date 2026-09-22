@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
-import { asSwallowable } from '../corpses';
+import { asSwallowable, CORPSE_HALF_EXTENT } from '../corpses';
 import type { SimEvent } from '../events';
 import type { WeaponLine } from '../lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -16,11 +16,12 @@ import { createRun, uniformLevels } from '../run';
 import type { Swallowable } from '../swallow';
 import { swallow } from '../swallow';
 import {
-  FEAST_PAYOUT,
+  freshnessScale,
   FRESHNESS_PAYOUT_FLOOR,
   RESERVOIR_CAPACITY,
   SIZE_CEILING,
   SIZE_FLOOR,
+  SIZE_START,
   TRASH_CORPSE_PAYOUT,
 } from '../tuning';
 import type { TuningRecord } from '../tuningRecord';
@@ -29,9 +30,23 @@ import { DEFAULT_TUNING, resolveTuning } from '../tuningRecord';
 /** An id no body of any offer holds, so a hand-built food takes no option. */
 const NO_BODY = 0;
 
+/**
+ * Where a hand-built piece of food is lying and how fast, which the fall's own
+ * drawing reads off the swallowed event (design record R5). None of it changes
+ * a payout, so every food below shares one still body at the origin.
+ */
+const LYING_STILL = {
+  x: 0,
+  y: 0,
+  halfExtent: CORPSE_HALF_EXTENT,
+  vx: 0,
+  vy: 0,
+};
+
 function corpse(freshness: number): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'corpse',
     freshness,
     payout: TRASH_CORPSE_PAYOUT,
@@ -44,6 +59,7 @@ function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
   // Treasure never decays, so a power-up always arrives fully fresh (ADR 0004).
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -57,6 +73,7 @@ function powerUp(line: 'wisps' | 'skullStream'): Swallowable {
 function bodyWithNoOption(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'powerUp',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -69,6 +86,7 @@ function bodyWithNoOption(): Swallowable {
 function fallenRung(line: WeaponLine): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'fallenRung',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -81,9 +99,10 @@ function fallenRung(line: WeaponLine): Swallowable {
 function feast(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'feast',
     freshness: 1,
-    payout: FEAST_PAYOUT,
+    payout: FEAST_GROWTH,
     tier: 'rich',
     treasureBody: false,
   };
@@ -93,6 +112,7 @@ function feast(): Swallowable {
 function richCorpse(): Swallowable {
   return {
     id: NO_BODY,
+    ...LYING_STILL,
     kind: 'corpse',
     freshness: 1,
     payout: TRASH_CORPSE_PAYOUT,
@@ -104,6 +124,12 @@ function richCorpse(): Swallowable {
 /** What one meal at a maxed ladder pays under a record, in points (ADR 0064). */
 const mealUnder = (tuning: TuningRecord): number =>
   tuning.score.mealAtMaxedInKills * tuning.score.trashKillScore;
+
+/**
+ * What a fully fresh feast pays in growth under the record the build compiles,
+ * in size units: its own row, in fresh trash corpses, at the corpse's own unit.
+ */
+const FEAST_GROWTH = DEFAULT_TUNING.growth.feastInCorpses * TRASH_CORPSE_PAYOUT;
 
 /** The meal the build compiles, which is what every run below starts under. */
 const DEFAULT_MEAL_AT_MAXED = mealUnder(DEFAULT_TUNING);
@@ -157,25 +183,23 @@ describe('the swallow', () => {
   });
 
   it('growth scales by freshness, and a fully fresh corpse pays its full payout (ADR 0004)', () => {
+    // The growth is what the grave is owed on the tip tick and swells into
+    // over the ticks after it (Mark's ruling of 2026-09-21), so it is read off
+    // the debt and not off the size.
     const fresh = createRun(1);
     swallow(fresh, corpse(1));
-    expect(fresh.grave.size - SIZE_FLOOR).toBeCloseTo(
-      createRun(1).grave.size - SIZE_FLOOR + TRASH_CORPSE_PAYOUT,
-      10,
-    );
+    expect(fresh.grave.owed).toBeCloseTo(TRASH_CORPSE_PAYOUT, 10);
 
     const half = createRun(1);
-    const start = half.grave.size;
     swallow(half, corpse(0.5));
-    expect(half.grave.size - start).toBeCloseTo(TRASH_CORPSE_PAYOUT * 0.5, 10);
+    expect(half.grave.owed).toBeCloseTo(TRASH_CORPSE_PAYOUT * 0.5, 10);
   });
 
   it('freshness scales down to the quarter floor and never below, so a nearly gone corpse still pays (ADR 0004)', () => {
     for (const freshness of [0, 0.05, FRESHNESS_PAYOUT_FLOOR]) {
       const run = createRun(1);
-      const start = run.grave.size;
       swallow(run, corpse(freshness));
-      expect(run.grave.size - start).toBeCloseTo(
+      expect(run.grave.owed).toBeCloseTo(
         TRASH_CORPSE_PAYOUT * FRESHNESS_PAYOUT_FLOOR,
         10,
       );
@@ -209,10 +233,10 @@ describe('the swallow', () => {
       expect(kinds(events)).toContain('chimed');
       expect(kinds(events)).toContain('reservoirCharged');
     }
-    expect(small.grave.size).toBeGreaterThan(SIZE_FLOOR);
+    expect(small.grave.owed).toBeGreaterThan(0);
     expect(small.score).toBe(0);
     expect(big.grave.size).toBe(SIZE_CEILING);
-    expect(big.score).toBeCloseTo(FEAST_PAYOUT, 10);
+    expect(big.score).toBeCloseTo(FEAST_GROWTH, 10);
   });
 
   it('the reservoir charges on a swallow (ADR 0008)', () => {
@@ -280,11 +304,10 @@ describe('the swallow', () => {
 
   it("a power-up's freshness is 1 and it is never scaled: treasure never decays (ADR 0004)", () => {
     const run = createRun(1);
-    const start = run.grave.size;
     const treasure = powerUp('wisps');
     expect(treasure.freshness).toBe(1);
     swallow(run, treasure);
-    expect(run.grave.size - start).toBeCloseTo(treasure.payout, 10);
+    expect(run.grave.owed).toBeCloseTo(treasure.payout, 10);
   });
 
   it('the chime fires on every swallow including the very first, whatever the loadout (glossary: swallow chime)', () => {
@@ -305,7 +328,56 @@ describe('the swallow', () => {
       kind: 'corpse',
       freshness: 0.4,
       payout: food.payout,
+      offsetX: -run.grave.x,
+      offsetY: -run.grave.y,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
+      graveSize: SIZE_START,
+      tier: 'trash',
+      treasureBody: false,
+      line: undefined,
     });
+  });
+
+  it("a swallowed event carries the food's place as an offset from the grave's centre", () => {
+    // Design record R5: the fall is anchored in the grave's proportions, so
+    // the event says where the food was against the grave rather than where it
+    // was on the field. The subtraction lives in swallow.ts alone.
+    const run = createRun(1);
+    run.grave.x = 200;
+    run.grave.y = 500;
+    const food = { ...corpse(1), x: 214, y: 486 };
+    const event = find(swallow(run, food), 'swallowed');
+    expect(event.offsetX).toBe(14);
+    expect(event.offsetY).toBe(-14);
+  });
+
+  it("a swallowed event carries the food's half extent, its way and the grave's size at the tip", () => {
+    // The size is the one the grave had when the food went over, never the one
+    // the swallow just bought: a feast is paid its whole growth on this tick,
+    // and a fall anchored against the grown size would start in mid-hole.
+    const run = createRun(1);
+    const before = run.grave.size;
+    const food = { ...feast(), halfExtent: 20, vx: 30, vy: -12 };
+    const event = find(swallow(run, food), 'swallowed');
+    expect(event.halfExtent).toBe(20);
+    expect(event.vx).toBe(30);
+    expect(event.vy).toBe(-12);
+    expect(event.graveSize).toBe(before);
+    expect(run.grave.owed).toBeGreaterThan(0);
+  });
+
+  it("a swallowed event carries the food's look, so the drawing code never has to hold the corpse", () => {
+    // Slots are reused inside a fall's lifetime, so a fall that held the body
+    // would draw whatever killed next. The look travels as values, exactly as
+    // the freshness and the payout already do.
+    const run = createRun(1);
+    const taken = find(swallow(run, fallenRung('bell')), 'swallowed');
+    expect(taken.treasureBody).toBe(true);
+    expect(taken.line).toBe('bell');
+    expect(find(swallow(run, richCorpse()), 'swallowed').tier).toBe('rich');
+    expect(find(swallow(run, corpse(1)), 'swallowed').tier).toBe('trash');
   });
 
   it('a fully fresh feast at an empty reservoir fills it exactly and splashes nothing (entry 5.11)', () => {
@@ -334,7 +406,7 @@ describe('the swallow', () => {
     run.grave.size = SIZE_CEILING;
     run.reservoir = RESERVOIR_CAPACITY / 2;
     const events = swallow(run, feast());
-    expect(run.score).toBeCloseTo(FEAST_PAYOUT, 10);
+    expect(run.score).toBeCloseTo(FEAST_GROWTH, 10);
     expect(run.grave.size).toBe(SIZE_CEILING);
     expect(run.reservoir).toBe(RESERVOIR_CAPACITY);
     expect(find(events, 'splashed').wasted).toBeCloseTo(
@@ -440,12 +512,10 @@ describe('a fallen rung swallowed (ADR 0055)', () => {
     // Nothing swallowed is ever worthless (ADR 0002): the rung is food on the
     // way back in as well as a level.
     const run = createRun(1);
-    const before = run.grave.size;
 
     const events = swallow(run, fallenRung('wisps'));
 
-    expect(run.grave.size).toBeGreaterThan(before);
-    expect(kinds(events)).toContain('grew');
+    expect(run.grave.owed).toBeGreaterThan(0);
     expect(kinds(events)).toContain('reservoirCharged');
     expect(find(events, 'chimed').treasureBody).toBe(true);
   });
@@ -456,6 +526,7 @@ describe('a fallen rung swallowed (ADR 0055)', () => {
     const run = createRun(1);
     const noLine: Swallowable = {
       id: NO_BODY,
+      ...LYING_STILL,
       kind: 'fallenRung',
       freshness: 1,
       payout: TRASH_CORPSE_PAYOUT,
@@ -508,7 +579,7 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
     expect(find(events, 'scorePaid').input).toBe('mealAtMaxed');
     expect(find(events, 'scorePaid').amount).toBe(DEFAULT_MEAL_AT_MAXED);
     expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
-    expect(kinds(events)).toContain('grew');
+    expect(run.grave.owed).toBeGreaterThan(0);
     expect(kinds(events)).toContain('reservoirCharged');
   });
 
@@ -579,5 +650,56 @@ describe('large food taken at a maxed ladder pays score (design record R4)', () 
 
     expect(run.score).toBe(DEFAULT_MEAL_AT_MAXED);
     expect(WEAPON_LINES.length).toBeGreaterThan(roster.length);
+  });
+});
+
+/**
+ * Entry 5.11's identity, once the feast's growth and the reservoir's capacity
+ * stopped being one number (Mark's ruling of 2026-09-21).
+ */
+describe('what a feast pays the reservoir and what it pays in growth (entry 5.11)', () => {
+  it('a feast swallowed at a part-full reservoir fills it and splashes exactly what was in it, as it does today', () => {
+    // The swallow of a feast slams the reservoir full, so what goes over the
+    // side is whatever was standing in it. Not one event about the reservoir
+    // moves in timing or in amount.
+    const run = createRun(1);
+    run.reservoir = RESERVOIR_CAPACITY / 3;
+
+    const events = swallow(run, feast());
+
+    expect(run.reservoir).toBeCloseTo(RESERVOIR_CAPACITY, 10);
+    expect(find(events, 'reservoirCharged').amount).toBeCloseTo(
+      (RESERVOIR_CAPACITY * 2) / 3,
+      10,
+    );
+    expect(find(events, 'splashed').wasted).toBeCloseTo(
+      RESERVOIR_CAPACITY / 3,
+      10,
+    );
+  });
+
+  it('a feast pays the reservoir its whole capacity and pays growth the far smaller figure its own row names', () => {
+    // The two stopped being one number: the charge is the capacity by entry
+    // 5.11's ruling, and the growth is its own row, 45 corpses against the
+    // reservoir's 300.
+    const run = createRun(1);
+
+    swallow(run, feast());
+
+    expect(run.reservoir).toBe(RESERVOIR_CAPACITY);
+    expect(run.grave.owed).toBeCloseTo(FEAST_GROWTH, 10);
+    expect(FEAST_GROWTH * 6).toBeLessThan(RESERVOIR_CAPACITY);
+  });
+
+  it('a corpse charges the reservoir what it pays in growth, unchanged', () => {
+    // Everything that is not a feast still charges what it paid, scaled by its
+    // own freshness, which is the line entry 5.11 does not touch.
+    const run = createRun(1);
+
+    swallow(run, corpse(0.5));
+
+    const paid = TRASH_CORPSE_PAYOUT * freshnessScale(0.5);
+    expect(run.reservoir).toBeCloseTo(paid, 10);
+    expect(run.grave.owed).toBeCloseTo(paid, 10);
   });
 });

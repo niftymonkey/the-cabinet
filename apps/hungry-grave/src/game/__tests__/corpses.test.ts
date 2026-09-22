@@ -10,6 +10,7 @@ import corpsesSource from '../corpses.ts?raw';
 import { stepping } from '../../dev/stepping';
 import { createExecution, executeTick } from '../execution';
 import { TICK_HZ } from '../clock';
+import type { Corpse } from '../corpses';
 import {
   advanceCorpses,
   asSwallowable,
@@ -146,9 +147,14 @@ describe('freshness (ADR 0004)', () => {
     const corpse = corpseOf(state);
     corpse.freshness = 0;
 
-    const events = swallow(state, asSwallowable(corpse));
-    const grew = events.find((event) => event.type === 'grew');
-    expect(grew?.amount).toBeCloseTo(corpse.payout * FRESHNESS_PAYOUT_FLOOR, 9);
+    // The growth is what the grave is owed on the tip tick and swells into over
+    // the ticks after it (Mark's ruling of 2026-09-21), so the payment is read
+    // off the debt rather than off the size or off a grew event.
+    swallow(state, asSwallowable(corpse));
+    expect(state.grave.owed).toBeCloseTo(
+      corpse.payout * FRESHNESS_PAYOUT_FLOOR,
+      9,
+    );
   });
 
   it('an empty corpse is taken under, and one leaving the bottom edge with value left is lost instead', () => {
@@ -179,7 +185,7 @@ describe('freshness (ADR 0004)', () => {
     // Nothing in this dispatch spawns one. The mechanism lands here so the boss
     // dispatch authors a shed rather than inventing a never-decaying flag.
     const state = quietRun();
-    spawnFeast(state, 60, 40, 5);
+    spawnFeast(state, 60, 40);
     const feast = corpseOf(state);
     expect(feast.decays).toBe(false);
 
@@ -281,6 +287,13 @@ describe('what a corpse shows and what it hides (tracer plan section 4)', () => 
       tier: MOB_TYPES.revenant.corpseTier,
       treasureBody: false,
       line: undefined,
+      // Where it was lying, how big it is and how fast it was moving, which
+      // the swallowed event carries out to the fall (design record R5).
+      x: corpse.x,
+      y: corpse.y,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
     });
     // The id travels because the offer names the body that went in by id, and
     // an id is a value like every other field here. What must not travel is the
@@ -599,7 +612,7 @@ describe('a corpse a shove is carrying (design record R10)', () => {
     dirty(0);
     leaveCorpse(state, killAt(state, 'shambler', 60, 200));
     dirty(0);
-    spawnFeast(state, 120, 200, 4);
+    spawnFeast(state, 120, 200);
     dirty(0);
     spawnPowerUp(state, 180, 200, 'wisps');
 
@@ -705,27 +718,42 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
     // The storm reaches mobs and never food (stormTargets.ts), and this stands
     // a rung where the belch's burst and the toll's cones both cover it so the
     // claim is taken against a live storm rather than against an empty field.
-    const state = quietRun();
-    const step = stepping(state);
-    state.reservoir = RESERVOIR_CAPACITY;
-    state.levels.bell = MAX_LEVEL;
-    state.lines.tollIn = 1;
-    // Inside the belch's burst and the toll's cones, and clear of the grave's
-    // own swallow box, so what the tick does to it is the storm's doing alone.
-    spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
-    const rung = rungOf(state);
-    const from = { x: rung.x, y: rung.y };
+    //
+    // It is measured against the same scene with the storm silent rather than
+    // against the scroll alone, because the grave's own pull reaches food near
+    // its rim now (grave-in-the-ground R3) and the scroll carries this rung
+    // into that reach partway through the window. The two scenes landing the
+    // rung on the same double is what says the storm moved none of it.
+    const stage = (state: RunState): Corpse => {
+      state.reservoir = RESERVOIR_CAPACITY;
+      // Inside the belch's burst and the toll's cones, and clear of the grave's
+      // own swallow box.
+      spawnFallenRung(state, state.grave.x, state.grave.y - 80, 'bell');
+      return rungOf(state);
+    };
+    const stormed = quietRun();
+    const underTheStorm = stage(stormed);
+    stormed.levels.bell = MAX_LEVEL;
+    stormed.lines.tollIn = 1;
+    const calm = quietRun();
+    const underNothing = stage(calm);
+    const from = { x: underTheStorm.x, y: underTheStorm.y };
 
     // Long enough for the belch's whole press and for a toll to expand fully.
     const ticks = BELL_EXPAND_TICKS + 2;
-    const events = [...step({ move: { x: 0, y: 0 }, belch: true })];
-    for (let tick = 1; tick < ticks; tick++) events.push(...step(STILL));
+    const stormStep = stepping(stormed);
+    const calmStep = stepping(calm);
+    const events = [...stormStep({ move: { x: 0, y: 0 }, belch: true })];
+    for (let tick = 1; tick < ticks; tick++) events.push(...stormStep(STILL));
+    for (let tick = 0; tick < ticks; tick++) calmStep(STILL);
 
     expect(events.map((event) => event.type)).toContain('belched');
     expect(events.map((event) => event.type)).toContain('tolled');
-    expect(rung.x).toBe(from.x);
-    expect(rung.y - from.y).toBeCloseTo(ticks * SCROLL_SPEED, 9);
-    expect(rung.impulse.source).toBeNull();
+    expect(underTheStorm.x).toBe(from.x);
+    expect(underTheStorm.y).toBeGreaterThan(from.y);
+    expect(underTheStorm.x).toBe(underNothing.x);
+    expect(underTheStorm.y).toBe(underNothing.y);
+    expect(underTheStorm.impulse.source).toBeNull();
   });
 
   it('is caught by an ordinary dive, through the tick loop the rendered game runs', () => {

@@ -30,6 +30,7 @@ import {
   openOffer,
 } from './offer';
 import { overlaps } from './overlap';
+import { pullFood } from './pull';
 import type { RunState } from './run';
 import { clearRefusals } from './run';
 import { advanceSetPiece } from './stage/setPiece';
@@ -40,6 +41,7 @@ import {
   winStage,
 } from './stage/stage';
 import { impulseSpent } from './shove';
+import { shareOverMouth } from './tip';
 import { resolveStorm } from './storm';
 import { swallow } from './swallow';
 import { SCROLL_SPEED } from './tuning';
@@ -48,11 +50,13 @@ import { SCROLL_SPEED } from './tuning';
  * The constant downward drift of everything on the field. Mob fire does not
  * carry it: an aimed shot that then drifts downward is not aimed.
  *
- * A corpse has no motion of its own, so for every corpse nothing threw this is
- * the only thing that moves it, and that is what makes ADR 0004's coupling true
- * by construction. A corpse a shove is carrying takes this drift as well as the
- * throw, exactly as a shoved body does: the scroll composes with every shove
- * and is exempted for neither line (design record R11's fourth ruling).
+ * For every corpse nothing threw and nothing pulled this is the only thing that
+ * moves it, and that is what makes ADR 0004's coupling true by construction. A
+ * corpse a shove is carrying takes this drift as well as the throw, exactly as
+ * a shoved body does, and a corpse near the rim takes it as well as the pull:
+ * the scroll composes with every shove and is exempted for neither line (design
+ * record R11's fourth ruling), and the pull is a third displacement on the same
+ * terms (grave-in-the-ground R3).
  */
 const scrollField = (state: RunState): void => {
   for (const mob of state.mobs) {
@@ -114,11 +118,22 @@ interface CoveredFood {
 /**
  * Every piece of food the grave is under as this pass begins, read once so a
  * swallow that grows and shoves the grave cannot change what the pass sees.
+ *
+ * Under is most of it over the mouth and no longer the first touch of two boxes
+ * (design record R1): food goes in on the tick its share reaches the run's own
+ * threshold, so a sliver over the edge lies there and can still rot away or
+ * ride off the bottom. The threshold is read off the run rather than compiled
+ * in, because it is a tuning row (ADR 0064).
  */
 const coveredFood = (state: RunState): CoveredFood[] => {
-  const box = graveHitbox(state.grave);
+  const mouth = graveHitbox(state.grave);
+  const threshold = state.conditions.tuning.swallow.tipThreshold;
   return state.corpses
-    .filter((corpse) => corpse.alive && overlaps(corpseHitbox(corpse), box))
+    .filter(
+      (corpse) =>
+        corpse.alive &&
+        shareOverMouth(corpseHitbox(corpse), mouth) >= threshold,
+    )
     .map((body) => ({ body, id: body.id }));
 };
 
@@ -252,9 +267,10 @@ const resolveDeaths = (
  *
  * The order is scroll, the move command, the press's own clock, the belch,
  * spawns, the director's own spend, mob motion and fire, the boss's own tick,
- * the set piece's own tick, the weapon lines, the bank's own tick, overlap
- * detection, deaths, the stage's own ending, decay, culling, the offer's own
- * loss, then the grave's own tick, the pressure signal and the counters.
+ * the set piece's own tick, the weapon lines, the bank's own tick, the pull,
+ * overlap detection, deaths, the stage's own ending, decay, culling, the
+ * offer's own loss, then the grave's own tick, the pressure signal and the
+ * counters.
  *
  * The boss ticks with the mobs and before the lines, because its pattern is
  * fire on the field and a shot fired this tick must not also fly this tick,
@@ -317,6 +333,10 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   events.push(...advanceSetPiece(state));
   events.push(...advanceLines(state));
   events.push(...openBankedOffer(state, bankOpensNow(state)));
+  // Immediately before the overlaps, so it follows every rule that can put food
+  // on the field this tick and reads the grave where this tick's steering left
+  // it, and after the mobs so a shove has already travelled (design record R3).
+  pullFood(state);
   events.push(...resolveOverlaps(state));
   events.push(...resolveDeaths(state, events));
   // Straight after the deaths, because the deaths section is the last of the
@@ -332,7 +352,9 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   // After the cull, because an offer is lost on the tick its last body leaves
   // the field and the cull is what takes it (ADR 0034).
   events.push(...loseOffer(state));
-  ageGrave(state.grave);
+  events.push(
+    ...ageGrave(state.grave, state.conditions.tuning.growth.swellPerSecond),
+  );
   advanceDirectorSignal(state, events);
   state.tick += 1;
   state.stage.sectionTick += 1;

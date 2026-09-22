@@ -15,6 +15,7 @@ import { runTickBudget } from './harnessRun';
 import type { Measurement, Metrics } from './measure';
 import type { NumberRecord } from './numbersByName';
 import { endedSpans } from './readings/fallenRungLedger';
+import { foodLedgerNumbers } from './readings/foodLedger';
 import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { addsBySection } from './readings/pressure';
 import type { DirectedCardSeen } from './readings/pressure';
@@ -881,6 +882,12 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   // The one reading this step widened by line, which is #98's acceptance line.
   perLineReading('tuning.powerUpLedger.byLine', (report) =>
     ledgerByLineNumbers(report.tuning.powerUpLedger.byLine),
+  ),
+  // Swallowed against lost against rotted, for every kind of food. One entry
+  // for the whole ledger, because every figure under it is the same count of
+  // one end and reads the same way.
+  byNameReading('tuning.foodLedger', (report) =>
+    foodLedgerNumbers(report.tuning.foodLedger),
   ),
   countReading('tuning.offerChoices.choices', takesBySite),
   spreadReading(

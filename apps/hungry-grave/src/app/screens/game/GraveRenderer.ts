@@ -1,202 +1,138 @@
-import { Graphics } from 'pixi.js';
+import type { ICanvas } from 'pixi.js';
+import { CanvasSource, Container, DOMAdapter, Sprite, Texture } from 'pixi.js';
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
-import { PALETTE } from '../../palette';
+import type { GraveCanvas } from './graveCanvas';
+import { clamp } from './graveCanvas';
+import {
+  BAKE_PADDING,
+  BAKE_PIXELS_PER_UNIT,
+  HOLE_REBUILD_STEP,
+} from './graveDrawingValues';
+import { paintLip } from './graveLip';
+import { mouthPolygon } from './graveMouth';
+import { paintPit } from './graveWalls';
 import type { FieldLayers } from './layering';
 
-// The rounded rectangle's corner radius, as a share of the grave's width.
-const GRAVE_CORNER_RATIO = 0.2;
-
 /**
- * The rim's stroke in field units, stroked inward.
- *
- * Do not derive this from BOUNDARY_STROKE's reasoning. That path gives 8, and
- * at SIZE_FLOOR two 8-unit rims leave 2 units of mouth on an 18-unit grave: the
- * grave stops being a hole exactly when the player most needs to read it.
- * BOUNDARY_STROKE sits in APCA's Lc 30 bracket, which carries a 5.5 rendered
- * pixel floor, because fieldFrame cannot be raised far enough to reach Lc 45
- * against night without eating mob fire's own margin. graveRim is not in that
- * position: it measures Lc 52.9 against night and Lc 53.4 against graveHole,
- * both inside the Lc 45 fine-detail bracket, and that bracket carries no pixel
- * floor at all. An APCA bracket belongs to the element it was chosen for.
- *
- * With no floor from APCA the number is bracketed from both ends instead. Not
- * thinner than about 2 CSS pixels on the phone, which is 2.77 units, borrowing
- * WCAG 2.2 SC 2.4.13's focus indicator area loosely as the nearest published
- * figure for a thin outline a person must see, and nothing more. And not
- * thicker than 4, so that at SIZE_FLOOR the mouth's interior stays wider than a
- * power-up. 3 is the only integer in that bracket with margin at both ends, and it
- * leaves a floor grave a mouth 12 units wide.
+ * What the bake reads off the renderer each frame: how wide the stage is in
+ * its own units, and how wide the page shows the canvas in CSS pixels.
  */
-const GRAVE_RIM_STROKE = 3;
-
-/**
- * The rim's dark companion, stroked inward immediately inside the bright band,
- * in field units.
- *
- * ADR 0014 requires the rim to read above the food layer even under a pile, and
- * graveRim measures APCA Lc 0.00 against corpse, feast, power-up and mob, all four.
- * Re-valuing either side is arithmetically impossible, so the rim becomes two
- * colours, which is ADR 0014's own construction for exactly this problem. The
- * pair spans 62.12 luma and the dark band clears the Lc 45 fine-detail bracket
- * against everything the rim can cross.
- *
- * It costs the mouth one unit on each side, so a floor-size grave reads ten
- * units wide inside its rim rather than twelve. Nothing is drawn outside the
- * hitbox and the hitbox is untouched. What binds a power-up is the grave's own
- * width and never the mouth's interior: ADR 0003 rules that size never gates a
- * swallow, so the mouth is not a gate.
- */
-const GRAVE_RIM_SHADOW = 1;
-
-/**
- * The reservoir's glow is the rim's own band wearing treasure's colour, drawn
- * over it at the identical geometry rather than as a ring of its own.
- *
- * It takes no width at all, which is what ADR 0003 requires: that ADR makes the
- * drawn grave the health bar and graveHitbox is exactly the sim rect, so the
- * visible outer edge has to equal the hitbox. A glow standing outside the rim
- * would make the grave read wider than the box the player passes under, and a
- * glow standing inside it would eat the mouth at the size floor, where the hole
- * most needs to read as a hole.
- *
- * Its dark companion is the rim's own graveHole band, already stroked one unit
- * inside it, so the pair is the construction ADR 0014 asks for without a second
- * dark edge of its own.
- */
-// How fast the glow pulses at a full reservoir, in ticks per cycle.
-const GLOW_PULSE_TICKS = 40;
-
-// How far the pulse swings, as a share of full brightness.
-const GLOW_PULSE_DEPTH = 0.35;
-
-/**
- * How bright the glow draws at this much charge, and this far into a pulse.
- *
- * Below full it builds with the fullness alone, so the player reads the meter on
- * the thing they are already looking at. At full it pulses, which is the concept
- * doc's own language for the feast beat, and pulsing rather than brightening
- * further is what makes full a state rather than the top of a ramp.
- */
-const glowAlpha = (fullness: number, tick: number): number => {
-  const charge = Math.max(0, Math.min(1, fullness));
-  if (charge < 1) return charge;
-  const phase = (tick % GLOW_PULSE_TICKS) / GLOW_PULSE_TICKS;
-  return 1 - GLOW_PULSE_DEPTH * (1 - Math.cos(phase * Math.PI * 2)) * 0.5;
-};
-
-/**
- * How many segments Territory's charge arc is sampled at. It doubles as the
- * redraw quantum: the charge moves every tick, and rebuilding the trace only
- * when it crosses a segment keeps the redraw rate at the arc's own visible
- * resolution rather than the clock's.
- */
-const ARC_SEGMENTS = 64;
-
-/**
- * A point this far around a rounded rectangle's perimeter, clockwise from
- * top-centre, with `along` from 0 to 1. The rectangle is centred on the
- * origin. Piecewise over the four edges and four corner arcs, so the trace
- * follows the rim's own geometry exactly rather than approximating it with a
- * circle the grave does not have.
- */
-const perimeterPoint = (
-  width: number,
-  height: number,
-  corner: number,
-  along: number,
-): { x: number; y: number } => {
-  const straightX = width - 2 * corner;
-  const straightY = height - 2 * corner;
-  const quarter = (Math.PI * corner) / 2;
-  const total = 2 * straightX + 2 * straightY + 4 * quarter;
-  let s = along * total;
-
-  const cornerAt = (
-    cx: number,
-    cy: number,
-    from: number,
-    walked: number,
-  ): { x: number; y: number } => ({
-    x: cx + corner * Math.cos(from + walked / corner),
-    y: cy + corner * Math.sin(from + walked / corner),
-  });
-
-  if (s < straightX / 2) return { x: s, y: -height / 2 };
-  s -= straightX / 2;
-  if (s < quarter) {
-    return cornerAt(width / 2 - corner, -height / 2 + corner, -Math.PI / 2, s);
-  }
-  s -= quarter;
-  if (s < straightY) return { x: width / 2, y: -height / 2 + corner + s };
-  s -= straightY;
-  if (s < quarter) {
-    return cornerAt(width / 2 - corner, height / 2 - corner, 0, s);
-  }
-  s -= quarter;
-  if (s < straightX) return { x: width / 2 - corner - s, y: height / 2 };
-  s -= straightX;
-  if (s < quarter) {
-    return cornerAt(-width / 2 + corner, height / 2 - corner, Math.PI / 2, s);
-  }
-  s -= quarter;
-  if (s < straightY) return { x: -width / 2, y: height / 2 - corner - s };
-  s -= straightY;
-  if (s < quarter) {
-    return cornerAt(-width / 2 + corner, -height / 2 + corner, Math.PI, s);
-  }
-  s -= quarter;
-  return {
-    x: -width / 2 + corner + Math.min(s, straightX / 2),
-    y: -height / 2,
+interface RendererView {
+  readonly screen: { readonly width: number };
+  readonly canvas: {
+    getBoundingClientRect?(): { readonly width: number };
   };
+}
+
+// The view and the texture density the hole was last baked at.
+interface Baked {
+  readonly size: number;
+  readonly viewScale: number;
+  readonly pixelsPerUnit: number;
+}
+
+// The 2D context of a canvas Pixi's adapter made, or a loud failure: a bake with no context is a broken environment.
+const contextOf = (canvas: ICanvas): GraveCanvas => {
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) throw new Error('the grave cannot bake: no 2D context');
+  return ctx;
 };
 
 /**
- * The grave on screen: a rounded rectangle drawn twice, once as the mouth
- * beneath the food layers and once as the rim above them, with the reservoir's
- * glow around it.
+ * One canvas, one texture, painted in field units around the grave's origin
+ * and shown at the size it was painted at (the prototype's bakeLayer). The
+ * canvas comes from Pixi's own adapter, which is the browser's document in the
+ * game.
+ */
+const bakeLayer = (
+  size: number,
+  pad: number,
+  pxPerUnit: number,
+  paint: (ctx: GraveCanvas) => void,
+): Sprite => {
+  const w = graveWidth(size) / 2 + pad;
+  const h = size + pad;
+  const canvas = DOMAdapter.get().createCanvas(
+    Math.ceil(w * 2 * pxPerUnit),
+    Math.ceil(h * 2 * pxPerUnit),
+  );
+  const ctx = contextOf(canvas);
+  ctx.setTransform(
+    pxPerUnit,
+    0,
+    0,
+    pxPerUnit,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
+  paint(ctx);
+  const sprite = new Sprite(
+    new Texture({
+      source: new CanvasSource({ resource: canvas, resolution: 1 }),
+    }),
+  );
+  sprite.anchor.set(0.5);
+  sprite.width = w * 2;
+  sprite.height = h * 2;
+  return sprite;
+};
+
+// Swaps a layer's baked sprite for a fresh one, freeing the old canvas's texture.
+const replaceArt = (art: Container, sprite: Sprite): void => {
+  art.removeChildren().forEach((child) => child.destroy(true));
+  art.addChild(sprite);
+};
+
+/**
+ * The grave on screen: the prototype's hole, baked to two canvases, the cut and
+ * its walls beneath the falls, and the ground at the lip above them.
  *
- * Two Graphics in two different layers rather than one, because ADR 0014's
- * stack puts graveMouth beneath the food and graveRim above it, and one
- * Graphics cannot be in two layers.
- *
- * The glow takes a number from 0 to 1 and never the RunState. Handing a renderer
- * live sim state is the thing the rest of this design works to avoid, and
- * fullness is everything it needs.
+ * The hole is baked afresh once the size has moved past HOLE_REBUILD_STEP, as
+ * the prototype's rebuildHole is, because several of its details are a screen
+ * pixel or two wide and must not scale with the grave. Between bakes the art is
+ * stretched to the size the sim says, so the grave grows with every swallow. The bake needs the
+ * view's pixels per field unit, which only the renderer knows, so it happens in
+ * the renderer's own pass (onRender) rather than in sync.
  */
 class GraveRenderer {
-  private readonly mouth = new Graphics();
-  private readonly rim = new Graphics();
-  private readonly glow = new Graphics();
-  private readonly arc = new Graphics();
-  private drawnSize: number | null = null;
-  private glowSize: number | null = null;
-  private arcSize: number | null = null;
-  private arcStep: number | null = null;
+  private readonly pitArt = new Container();
+  /**
+   * Where falling food draws: inside the hole, between the cut and the turf, so
+   * a body lying across the opening stays visible until it tips (design record
+   * R5).
+   *
+   * It follows the grave and is never scaled: a fall holds its own place in the
+   * grave's proportions and multiplies by the size itself, so a container scaled
+   * here would apply the size twice.
+   */
+  public readonly falls = new Container();
+  private readonly lipArt = new Container();
+  private wantedSize: number | null = null;
+  private baked: Baked | null = null;
+  private warnedUnmeasured = false;
+
+  constructor() {
+    this.pitArt.onRender = (renderer) => this.bakeForThisFrame(renderer);
+  }
 
   /**
-   * Puts the pieces into their layers. FieldLayers.clear() empties every layer
-   * between runs, so the renderer has to be able to put itself back rather than
-   * assume it is still attached.
+   * Puts the pieces into their layers, in the order the hole is read from the
+   * ground down: the cut and its walls, the place a fall draws, and the ground
+   * at the lip over the top of it all.
+   *
+   * FieldLayers.clear() empties every layer between runs, so the renderer has to
+   * be able to put itself back rather than assume it is still attached.
    */
   public attach(layers: FieldLayers): void {
-    layers.layer('graveMouth').addChild(this.mouth);
-    layers.layer('graveRim').addChild(this.rim);
-    // Over the rim in the same layer, at the rim's own geometry, so a charged
-    // grave reads as the rim itself warming rather than as a second shape.
-    layers.layer('graveRim').addChild(this.glow);
-    // Territory's charge arc rides the same band, over the glow, so the rim
-    // does three jobs on one geometry rather than growing a second shape.
-    layers.layer('graveRim').addChild(this.arc);
+    layers.layer('graveMouth').addChild(this.pitArt, this.falls, this.lipArt);
   }
 
   public detach(): void {
-    this.mouth.removeFromParent();
-    this.glow.removeFromParent();
-    this.arc.removeFromParent();
-    this.rim.removeFromParent();
+    this.pitArt.removeFromParent();
+    this.falls.removeFromParent();
+    this.lipArt.removeFromParent();
   }
 
   /**
@@ -204,132 +140,94 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * The geometry is rebuilt only when the size changes, which is on a swallow
-   * or a hit. Position is a container transform and is free. territoryCharge
-   * is territoryCharge(run), 0 to 1: the arc fills with it and empties on the
-   * lay, rebuilt only when the charge crosses a segment.
+   * Position is free, and the size is recorded for the next bake.
    */
-  public sync(
-    grave: Grave,
-    reservoirFullness: number,
-    tick: number,
-    territoryCharge: number,
+  public sync(grave: Grave): void {
+    this.wantedSize = grave.size;
+    for (const piece of [this.pitArt, this.falls, this.lipArt]) {
+      piece.position.set(grave.x, grave.y);
+    }
+  }
+
+  /**
+   * CSS pixels per field unit on this frame (the prototype's viewScale), or
+   * null while the page shows no canvas to measure. The field's own placement
+   * is read off the art's transform, so the grave needs nothing from its
+   * screen.
+   */
+  private viewScaleFor(renderer: RendererView): number | null {
+    // Read off the falls, which are never scaled, so the art's own stretch
+    // between bakes never feeds back into the view it is baked for.
+    const transform = this.falls.getGlobalTransform();
+    const stageUnits = Math.hypot(transform.a, transform.b);
+    const shown = renderer.canvas.getBoundingClientRect?.().width;
+    const viewScale =
+      shown === undefined ? 0 : (stageUnits * shown) / renderer.screen.width;
+    if (Number.isFinite(viewScale) && viewScale > 0) return viewScale;
+    if (!this.warnedUnmeasured) {
+      console.warn(
+        `the grave cannot measure the view (canvas shown ${String(shown)} CSS pixels over a ${renderer.screen.width}-unit stage), so its hole waits to be baked`,
+      );
+      this.warnedUnmeasured = true;
+    }
+    return null;
+  }
+
+  /**
+   * Bakes the hole when the size has moved past the step since the last bake,
+   * or the view has changed under it, at the pixels per unit the prototype
+   * chooses: the view's CSS pixels times the device pixel ratio.
+   */
+  private bakeForThisFrame(renderer: RendererView): void {
+    const size = this.wantedSize;
+    if (size === null) return;
+    const viewScale = this.viewScaleFor(renderer);
+    if (viewScale === null) return;
+    const pixelsPerUnit = clamp(
+      viewScale * (globalThis.devicePixelRatio || 1),
+      BAKE_PIXELS_PER_UNIT.min,
+      BAKE_PIXELS_PER_UNIT.max,
+    );
+    const last = this.baked;
+    const stillFits =
+      last !== null &&
+      Math.abs(size - last.size) <= HOLE_REBUILD_STEP &&
+      last.viewScale === viewScale &&
+      last.pixelsPerUnit === pixelsPerUnit;
+    if (!stillFits) this.rebuildHole(size, viewScale, pixelsPerUnit);
+    this.stretchArtToSize(size);
+  }
+
+  // The baked art scaled from the size it was baked at to the size now, which is uniform because the grave's width, length and padding all scale with its size.
+  private stretchArtToSize(size: number): void {
+    const bakedAt = this.baked?.size;
+    if (bakedAt === undefined) return;
+    this.pitArt.scale.set(size / bakedAt);
+    this.lipArt.scale.set(size / bakedAt);
+  }
+
+  /** The hole baked at one size (the prototype's rebuildHole): the pit, then the lip. */
+  private rebuildHole(
+    size: number,
+    viewScale: number,
+    pixelsPerUnit: number,
   ): void {
-    if (grave.size !== this.drawnSize) {
-      this.redraw(grave.size);
-      this.drawnSize = grave.size;
-    }
-    if (grave.size !== this.glowSize) {
-      this.redrawGlow(grave.size);
-      this.glowSize = grave.size;
-    }
-    const step = Math.round(
-      Math.max(0, Math.min(1, territoryCharge)) * ARC_SEGMENTS,
-    );
-    if (grave.size !== this.arcSize || step !== this.arcStep) {
-      this.redrawArc(grave.size, step);
-      this.arcSize = grave.size;
-      this.arcStep = step;
-    }
-    this.mouth.position.set(grave.x, grave.y);
-    this.rim.position.set(grave.x, grave.y);
-    this.glow.position.set(grave.x, grave.y);
-    this.arc.position.set(grave.x, grave.y);
-    // Alpha rather than a redraw, because the charge changes on every swallow
-    // and the geometry only changes with the size.
-    this.glow.alpha = glowAlpha(reservoirFullness, tick);
-  }
-
-  /**
-   * The filled share of the rim's perimeter in Territory's colour, clockwise
-   * from top-centre. The trace runs on the rim path inset by half the stroke
-   * and is stroked centred, so its outer edge equals the hitbox exactly: ADR
-   * 0003 makes the drawn grave the health bar, and the arc must never make it
-   * read wider.
-   */
-  private redrawArc(size: number, step: number): void {
-    this.arc.clear();
-    if (step <= 0) return;
-    const width = graveWidth(size) - GRAVE_RIM_STROKE;
-    const height = size * 2 - GRAVE_RIM_STROKE;
-    const corner = Math.max(
-      0,
-      graveWidth(size) * GRAVE_CORNER_RATIO - GRAVE_RIM_STROKE / 2,
-    );
-    const start = perimeterPoint(width, height, corner, 0);
-    this.arc.moveTo(start.x, start.y);
-    for (let segment = 1; segment <= step; segment++) {
-      const at = perimeterPoint(width, height, corner, segment / ARC_SEGMENTS);
-      this.arc.lineTo(at.x, at.y);
-    }
-    // Round caps and joins: a miter at a sampled corner would spike past the
-    // stroke's own envelope, and the envelope is what the hitbox bound rests on.
-    this.arc.stroke({
-      width: GRAVE_RIM_STROKE,
-      color: PALETTE.territory.hex,
-      alignment: 0.5,
-      cap: 'round',
-      join: 'round',
-    });
-  }
-
-  /**
-   * The rim's bright band in treasure's colour, drawn once per size and then
-   * only faded. The geometry is the rim's exactly, so the grave's outer edge is
-   * unchanged at every charge.
-   */
-  private redrawGlow(size: number): void {
+    const mouth = mouthPolygon(size);
     const width = graveWidth(size);
-    this.glow
-      .clear()
-      .roundRect(-width / 2, -size, width, size * 2, width * GRAVE_CORNER_RATIO)
-      .stroke({
-        width: GRAVE_RIM_STROKE,
-        color: PALETTE.graveGlow.hex,
-        alignment: 1,
-      });
-  }
-
-  /**
-   * The rim strokes inward, the same as the field's boundary readout. ADR 0003
-   * makes the drawn grave the health bar and graveHitbox is exactly the sim
-   * rect, so the visible outer edge has to equal the hitbox: a player reads the
-   * outer edge as what they pass under and swallow. The cost is that the stroke
-   * eats into the mouth, which is why it is thin.
-   */
-  private redraw(size: number): void {
-    const width = graveWidth(size);
-    const radius = width * GRAVE_CORNER_RATIO;
-    const left = -width / 2;
-    const top = -size;
-
-    this.mouth
-      .clear()
-      .roundRect(left, top, width, size * 2, radius)
-      .fill({ color: PALETTE.graveHole.hex });
-
-    const inset = GRAVE_RIM_STROKE;
-    this.rim
-      .clear()
-      .roundRect(left, top, width, size * 2, radius)
-      .stroke({
-        width: GRAVE_RIM_STROKE,
-        color: PALETTE.graveRim.hex,
-        alignment: 1,
-      })
-      .roundRect(
-        left + inset,
-        top + inset,
-        width - inset * 2,
-        size * 2 - inset * 2,
-        Math.max(0, radius - inset),
-      )
-      .stroke({
-        width: GRAVE_RIM_SHADOW,
-        color: PALETTE.graveHole.hex,
-        alignment: 1,
-      });
+    replaceArt(
+      this.pitArt,
+      bakeLayer(size, width * BAKE_PADDING.pit, pixelsPerUnit, (ctx) =>
+        paintPit(ctx, mouth, size, viewScale),
+      ),
+    );
+    replaceArt(
+      this.lipArt,
+      bakeLayer(size, width * BAKE_PADDING.lip, pixelsPerUnit, (ctx) =>
+        paintLip(ctx, mouth, size, viewScale),
+      ),
+    );
+    this.baked = { size, viewScale, pixelsPerUnit };
   }
 }
 
-export { glowAlpha, GraveRenderer, GRAVE_RIM_STROKE, GRAVE_RIM_SHADOW };
+export { GraveRenderer };

@@ -32,6 +32,7 @@ import {
 import { advanceWisps, launchWisps } from '../lines/wisps';
 import { NEVER_FIRES } from '../mobFire';
 import type { Corpse } from '../corpses';
+import { CORPSE_HALF_EXTENT } from '../corpses';
 import type { Mob, MobType } from '../mobs';
 import {
   advanceMobs,
@@ -703,6 +704,11 @@ describe('what a kill pays into the score (design record R4, #99)', () => {
     state.grave.size = SIZE_CEILING;
     swallow(state, {
       id: 9001,
+      x: 0,
+      y: 0,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
       kind: 'corpse',
       freshness: 1,
       payout: TRASH_CORPSE_PAYOUT,

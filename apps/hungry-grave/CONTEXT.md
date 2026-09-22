@@ -12,7 +12,15 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Grave**: The protagonist: a moving open grave, a hole in the ground shaped like a grave, taller than wide. It swallows and passes under; it never drives. _Avoid_: player character, hole, ship, hero.
 
-**Swallow**: The one verb of collection: the grave passes under a corpse or power-up and it falls in. Every payout in the game arrives through a swallow. _Avoid_: eat, collect, pick up, consume, drive over.
+**Swallow**: The one verb of collection: the grave passes under a corpse or power-up, and when most of it is over the mouth it tips at the rim and falls in. Every payout of collection arrives through a swallow, at the tip: growth, the reservoir's charge, the level a power-up's offer gives and the score an overflow or a rich meal at full power pays. A kill pays score at the kill instead, which is what keeps the two currencies clean. _Avoid_: eat, collect, pick up, consume, drive over.
+
+**Pull**: The grave's tug on food close to its rim. It moves food only, never a living mob. Territory's hands have their own pull, which belongs to that line. _Avoid_: suck, vacuum, magnet.
+
+**Tip**: The moment food goes over the rim, turning about the point of the rim it crosses. The payout of the swallow lands here. _Avoid_: topple (that word is the Undertaker's ending).
+
+**Fall**: What follows the tip: the food drops into the dark, shrinks, darkens, and never lands. The grave has no bottom. _Avoid_: poof, vanish, sink.
+
+**Swell**: The grave taking in the growth a swallow paid it, over the ticks after the tip, so that no swallow ever pops. The payout still lands whole at the tip and the grave is owed it at once; the size is the part that takes time. _Avoid_: grow instantly, jump, inflate, lerp.
 
 **Dive**: The move that swallows: steering the grave under what it wants until the thing falls in. It is ordinary steering rather than a move of its own, so every payout is bought with position: growth, weapon levels and the belch's charge alike, and the way back from a rung the floor ladder took is the same verb as the way up. _Avoid_: dash, lunge, plunge, dip, special move.
 
@@ -46,7 +54,7 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Offer**: What a power-up spawns: three option bodies falling side by side and apart, and the grave gets exactly the one it passes under while the others vanish. Options draw from unowned lines and level-ups of owned, un-maxed lines; a maxed line is never offered. One offer is live at a time, and a power-up paid while one stands banks toward the next. _Avoid_: menu, loot table, choice wheel, spinner.
 
-**Feast**: A boss-shed reward corpse that never decays, dropped at phase breaks and at a miniboss death; the death feast is big enough to jump the grave's size. _Avoid_: bonus, health pack, jackpot.
+**Feast**: A boss-shed reward corpse that never decays, dropped at phase breaks and at a miniboss death; the death feast is the largest single swallow in the game, a swell the player watches the grave take in, and it fills the reservoir whole on the tip. _Avoid_: bonus, health pack, jackpot, jump.
 
 **Treasure**: The never-decaying class of food: power-ups and feasts. Steady-bright beside fading corpses, so steady-bright always means treasure. _Avoid_: rare drop, special item.
 

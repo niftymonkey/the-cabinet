@@ -4,7 +4,7 @@
  * the ground the run drew.
  */
 
-import type { Container, Sprite, TilingSprite } from 'pixi.js';
+import type { Container, Renderer, Sprite, TilingSprite } from 'pixi.js';
 import { Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
@@ -12,9 +12,10 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
-import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/waves';
 import type { SetPiece } from '../../../../game/stage/setPiece';
 import { SECTIONS } from '../../../../game/stage/stage';
+import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/waves';
+import { SCROLL_SPEED } from '../../../../game/tuning';
 import { PALETTE } from '../../../palette';
 import type { BackgroundProps } from '../BackgroundRenderer';
 import {
@@ -23,13 +24,58 @@ import {
   DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
 } from '../BackgroundRenderer';
-import {
-  artAt,
-  DRESSING_SETS,
-  EYE_CELL_PIXELS,
-  GROUND_FLOOR,
-} from '../groundDressing';
+import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
+import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
+
+/** Pixi's own no-tint, which is what the ground wears now that it is painted. */
+const NO_TINT = 0xffffff;
+
+/**
+ * The renderer as the ground reads it, with the bake counted. Only the three
+ * readings the bake takes are given: how wide the stage is in its own units,
+ * how wide the page shows the canvas, and the bake itself.
+ */
+function viewing(shown: number): {
+  view: Renderer;
+  baked: number[];
+} {
+  const baked: number[] = [];
+  const view = {
+    screen: { width: FIELD_WIDTH },
+    canvas: { getBoundingClientRect: () => ({ width: shown }) },
+    generateTexture: (options: { resolution: number }): Texture => {
+      baked.push(options.resolution);
+      return new Texture({
+        source: new TextureSource({ width: FIELD_WIDTH, height: FIELD_HEIGHT }),
+      });
+    },
+  } as unknown as Renderer;
+  return { view, baked };
+}
+
+function groundOf(layers: FieldLayers): TilingSprite {
+  return layers.layer('ground').children[0] as TilingSprite;
+}
+
+/** The renderer's own pass reaching the ground, which is where it meets a renderer. */
+function drawn(layers: FieldLayers, view: Renderer): void {
+  (groundOf(layers) as Container).onRender?.(view);
+}
+
+/**
+ * One whole frame of the loop, in its order: the screen's update, which is
+ * where sync runs, and then the renderer's own pass.
+ */
+function frame(
+  layers: FieldLayers,
+  renderer: BackgroundRenderer,
+  view: Renderer,
+  run: RunState = runInSection('procession', 0, 0),
+): void {
+  renderer.sync(run);
+  drawn(layers, view);
+}
 
 /**
  * A texture per alias, made without a renderer. Every alias answers a source of
@@ -102,7 +148,7 @@ function drawnEyeWidth(): number {
 
 function dressing(layers: FieldLayers): Sprite[] {
   const children = layers.layer('ground').children as Container[];
-  // The tiled ground is first and the source's two sprites are last.
+  // The painted ground is first and the source's two sprites are last.
   return children.slice(1, children.length - 2) as Sprite[];
 }
 
@@ -164,18 +210,6 @@ describe('the stand-in ground (module 105)', () => {
     const from = floor.tilePosition.y;
     renderer.sync(runInSection('procession', ticks, ticks));
     expect(floor.tilePosition.y - from).toBeCloseTo(patchFell, 6);
-  });
-
-  it('lays the floor from the one baked at import and never from the pack tile sheet', () => {
-    // The pack ships twenty 16-pixel blocks, each bordered by its own groove and
-    // lit at its own angle, so tiled whole they read as a lattice of loose
-    // blocks rather than as a floor. What the ground draws is the floor the
-    // import bakes from an authored layout of those cells.
-    const stub = artStub();
-    const { renderer } = attached(stub);
-    renderer.sync(runInSection('procession', 600, 600));
-    expect(stub.asked).toContain(GROUND_FLOOR.alias);
-    expect(stub.asked.filter((alias) => alias.includes('tiles'))).toEqual([]);
   });
 
   it('dresses the ground thickly, at an interval derived from the density row', () => {
@@ -278,6 +312,109 @@ describe('the stand-in ground (module 105)', () => {
     );
     expect(modes.length).toBeGreaterThan(0);
     expect([...new Set(modes)]).toEqual(['nearest']);
+  });
+});
+
+describe('the ground painted from the prototype (design record R4)', () => {
+  it('the ground is the painted field and no longer a tinted tile', () => {
+    // Mark's ruling of 2026-09-21: the prototype's ground goes on the whole
+    // field. It is painted and baked here rather than laid from an imported
+    // tile wearing a palette entry, so nothing tints it.
+    const { layers, renderer } = attached();
+    const floor = groundOf(layers);
+    const { view, baked } = viewing(390);
+    expect(floor.texture).toBe(Texture.EMPTY);
+    frame(layers, renderer, view);
+    frame(layers, renderer, view);
+    expect(baked).toHaveLength(1);
+    expect(floor.texture).not.toBe(Texture.EMPTY);
+    expect(floor.tint).toBe(NO_TINT);
+  });
+
+  it('the field is baked outside the pass it is drawn in, never inside it', () => {
+    // generateTexture is renderer.render under another name
+    // (GenerateTextureSystem), so a bake inside onRender re-enters the pass
+    // that is drawing the screen. The rendered check at slice 8 caught exactly
+    // that: the ground came back carrying a photograph of the frame it was
+    // baked during, HUD and pause button and all, and it then scrolled down the
+    // field with the rest of the picture. So onRender only asks, and the bake
+    // happens in the next update, which is where the screen's own sync runs.
+    const { layers, renderer } = attached();
+    const { view, baked } = viewing(390);
+    drawn(layers, view);
+    expect(baked).toEqual([]);
+    renderer.sync(runInSection('procession', 1, 1));
+    expect(baked).toHaveLength(1);
+  });
+
+  it('the ground still runs at the rate a landed patch drifts', () => {
+    // Territory is lobbed onto the ground, so a patch and the earth under it
+    // move as one (Mark, after the slice 13b deploy). The painted field has to
+    // keep that rate, and one repeat of the baked picture has to be one field
+    // height, or the rate would be right and the picture would still slide.
+    const { layers, renderer } = attached();
+    const { view } = viewing(390);
+    frame(layers, renderer, view);
+    frame(layers, renderer, view);
+    const floor = groundOf(layers);
+    const ticks = 120;
+    renderer.sync(runInSection('procession', 0, 0));
+    const from = floor.tilePosition.y;
+    renderer.sync(runInSection('procession', ticks, ticks));
+    expect(floor.tilePosition.y - from).toBeCloseTo(ticks * SCROLL_SPEED, 6);
+    expect(floor.tileScale.y * floor.texture.height).toBeCloseTo(
+      FIELD_HEIGHT,
+      6,
+    );
+  });
+
+  it('the ground repaints only when the view changes what it asks for', () => {
+    // One bake a run is the shape: the picture is a function of the field,
+    // which is fixed, and of the texture density, which moves only when the
+    // viewport does. A bake a frame would rasterise some four thousand shapes
+    // every frame, which is what the prototype measured as 8 frames a second
+    // against 34.
+    const { layers, renderer } = attached();
+    const phone = viewing(390);
+    for (let each = 0; each < 3; each++) frame(layers, renderer, phone.view);
+    expect(phone.baked).toEqual([
+      groundResolution(390 / FIELD_WIDTH, 1, {
+        width: FIELD_WIDTH,
+        height: FIELD_HEIGHT,
+      }),
+    ]);
+
+    const wide = viewing(1600);
+    for (let each = 0; each < 3; each++) frame(layers, renderer, wide.view);
+    expect(wide.baked).toEqual([
+      groundResolution(1600 / FIELD_WIDTH, 1, {
+        width: FIELD_WIDTH,
+        height: FIELD_HEIGHT,
+      }),
+    ]);
+  });
+
+  it("the dressing and the Waking's source still draw over the new ground", () => {
+    // ADR 0049's dressing and the Waking's own source are untouched by the
+    // ruling: the ground it draws on changed and the layer order did not, so
+    // the painted field stays the bottom child of the one ground layer.
+    const { layers, renderer } = attached();
+    const { view } = viewing(390);
+    frame(layers, renderer, view);
+    const run = runInSection('waking', 20000, 200);
+    run.setPiece = sourceOnField({ x: 200, y: 380, open: true });
+    renderer.sync(run);
+    drawn(layers, view);
+    const children = layers.layer('ground').children as Container[];
+    expect(groundOf(layers).texture).not.toBe(Texture.EMPTY);
+    expect(children[0]).toBe(groundOf(layers));
+    expect(
+      dressing(layers).filter((sprite) => sprite.visible).length,
+    ).toBeGreaterThan(0);
+    expect(fromEnd(children, 1).visible).toBe(true);
+    for (const piece of children.slice(1)) {
+      expect(layers.layer('ground').getChildIndex(piece)).toBeGreaterThan(0);
+    }
   });
 });
 

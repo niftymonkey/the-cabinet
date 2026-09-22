@@ -62,7 +62,8 @@ const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 /** One landed hit, with the invulnerability window it opens counted back down. */
 const land = (run: RunState): readonly SimEvent[] => {
   const events = hitGrave(run, 'contact');
-  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++) ageGrave(run.grave);
+  for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
   return events;
 };
 

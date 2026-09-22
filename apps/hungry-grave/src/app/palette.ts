@@ -46,8 +46,89 @@ const PALETTE = {
    */
   fieldFrame: { hex: 0x8fa0c7, luma: 62.43 },
 
-  // the grave
-  graveHole: { hex: 0x04060b, luma: 2.33 },
+  /**
+   * The ground the whole field is painted from, in the prototype's own colours
+   * (build 7, which Mark approved; slice 8 of #148 ports its `paintGround` line
+   * for line on his ruling of 2026-09-21). Every row is a colour that painter
+   * draws with, most of them at an alpha the painter sets, so the declared
+   * value is the most a row can ever put on screen.
+   *
+   * The prototype's `COLOR` comment states the relationship they were chosen
+   * for, and it is a statement about a grayscale squint: the moonlit ground is
+   * the brightest, then the lit side wall, then the far wall and the shaded
+   * side, and the depth the walls fall away into is the only true black.
+   *
+   * The ground's grass is not here. The tufts draw in `graveTurf` and
+   * `graveTurfDark`, which are the prototype's own `COLOR.moss` and
+   * `COLOR.mossDark` that slice 6 already declared.
+   */
+  // The whole field's base earth, which every other ground colour is laid over.
+  groundNight: { hex: 0x454f5d, luma: 30.54 },
+  // The pale fleck of the grain, and the three wide patches of damp and dry.
+  groundSpeckle: { hex: 0x66748a, luma: 44.95 },
+  groundCold: { hex: 0x56657a, luma: 38.95 },
+  groundWet: { hex: 0x466050, luma: 35.03 },
+  groundDamp: { hex: 0x2c3644, luma: 20.74 },
+  // The hairline cracks in the dry earth, and the dark fleck of the grain.
+  groundCrack: { hex: 0x28313d, luma: 18.81 },
+  // A speck of gravel lying on the earth.
+  groundGravel: { hex: 0x8d9cae, luma: 60.44 },
+
+  /**
+   * The grave, in the prototype's own colours (build 7, which Mark approved;
+   * slice 6 of #148 ports its painters line for line). Each row is a colour the
+   * prototype's grave painters draw with, most of them at an alpha the painter
+   * sets, so the declared value is the most a row can ever put on screen.
+   *
+   * These values were chosen against the prototype's own ground, which the
+   * field has carried since slice 8, so the cut earth sits under the earth it
+   * is cut into the way the prototype has it. Mark decides the colours after he
+   * has seen the port (2026-09-21), so nothing below is re-valued.
+   */
+  // The dark the walls fall away into, and the black the depth fade lays over them.
+  graveHole: { hex: 0x000000, luma: 0 },
+  // The pale band of subsoil, the brightest earth the cut shows (SOIL at 0.18).
+  graveWall: { hex: 0x414b5c, luma: 29.06 },
+  // The lighter grass blade hanging in over the cut (the prototype's COLOR.moss).
+  graveTurf: { hex: 0x6e8a58, luma: 50.37 },
+  // The darker grass blade, most of the overhang (the prototype's COLOR.mossDark).
+  graveTurfDark: { hex: 0x4a6040, luma: 34.91 },
+  // The shadow the overhanging turf throws at the top of the cut (SOIL at 0).
+  graveSoilShadow: { hex: 0x232a38, luma: 16.28 },
+  // The subsoil below the pale band (SOIL at 0.52).
+  graveSubsoil: { hex: 0x333c4b, luma: 23.2 },
+  // The subsoil darkening toward where the light dies (SOIL at 0.78).
+  graveSubsoilDark: { hex: 0x212834, luma: 15.44 },
+  // The earth where the light has gone (SOIL at 1).
+  graveSubsoilDeep: { hex: 0x080b10, luma: 4.21 },
+  // The seam of darker earth along each layer boundary.
+  graveSeam: { hex: 0x05080c, luma: 3 },
+  // A spade mark catching the moon, and one in shadow.
+  graveSpadePale: { hex: 0x889ab4, luma: 59.63 },
+  graveSpadeDark: { hex: 0x06090f, luma: 3.45 },
+  // A stone standing in the face, and the shadow it throws under itself.
+  graveStone: { hex: 0x68768a, luma: 45.67 },
+  graveStoneShadow: { hex: 0x04070b, luma: 2.61 },
+  // A cut root end in the face.
+  graveRoot: { hex: 0x7a8272, luma: 49.86 },
+  // The wash on the face that catches the moon, and on the faces in its shade.
+  graveMoonWash: { hex: 0x8498b6, luma: 58.79 },
+  graveShadeWash: { hex: 0x030509, luma: 1.91 },
+  // The light a side wall loses toward the near lip.
+  graveNearLipShade: { hex: 0x020408, luma: 1.52 },
+  // The edge where the far wall meets a side wall.
+  graveCornerEdge: { hex: 0x020306, luma: 1.18 },
+  // The bare trodden earth round the lip, its dark patches and its pale ones.
+  graveMarginDark: { hex: 0x202731, luma: 14.99 },
+  graveMarginPale: { hex: 0x37404e, luma: 24.74 },
+  // A lump of turned earth on the margin: its shadow, and the moon on its top.
+  graveCrumbShadow: { hex: 0x1a2029, luma: 12.3 },
+  graveCrumbTop: { hex: 0x5e6a7c, luma: 41.08 },
+  // The line of shadow the turf throws just inside the edge.
+  graveTurfShadow: { hex: 0x020407, luma: 1.49 },
+  // The band round the lip that shows when Territory fires next, which nothing
+  // draws until #155 builds the countdown. It is priced here all the same,
+  // because it is what the pair below and its exceptions are measured for.
   graveRim: { hex: 0x93a7bd, luma: 64.45 },
   graveGlow: { hex: 0xd8a941, luma: 67.25 },
 
@@ -181,18 +262,25 @@ const PALETTE = {
    * tester's reaction to the look be separable from a reaction to the game, so
    * a report can say which build drew stand-ins.
    *
-   * The ground tile itself is not here. It wears `nightSpeckle`, which was
-   * declared and drawn nowhere at all, and the ground is its consumer.
+   * The earth the dressing stands on is not here. It is the block of `ground`
+   * rows above, which slice 8 ports from the prototype.
    *
-   * The three dressing tints sit at the bottom of the value range because they
-   * are the ground and not a sprite, which is why they are excluded from sprite
-   * separation with `night` and `nightSpeckle` rather than beside the bodies.
-   * What that costs is measured rather than assumed: a corpse over the
-   * Procession's statues reads APCA Lc 42.4 against 47.0 over bare ground, and
-   * every mob-fire core clears Lc 70.9 over the brightest of them, which is the
-   * check the band is actually about.
+   * The three dressing tints are the ground and not a sprite, which is why they
+   * are excluded from sprite separation with `night` and the ground's own rows
+   * rather than beside the bodies. What that costs is measured rather than
+   * assumed: a corpse over the Procession's statues reads APCA Lc 27.19
+   * against 35.21 over bare ground, and every mob-fire core clears Lc 75.29
+   * over the brightest of them, which is the check the band is actually about.
+   *
+   * The Procession's tint was re-valued on 2026-09-21 from `#303947` luma
+   * 22.00, when the field took the prototype's ground: it keeps the 8.01 luma
+   * it stood above the old tile, measured over the new base at 30.54, with its
+   * hue and saturation held. The other two are one and the other side of the
+   * new base and could not follow it, because the Waking's source at luma 42.02
+   * has to stay 2.0 clear of every ground colour and that caps a ground row at
+   * 40.02; the rule wanted 40.54 and 46.55.
    */
-  standInGroundDressCold: { hex: 0x303947, luma: 22 },
+  standInGroundDressCold: { hex: 0x54647c, luma: 38.56 },
   standInGroundDressWet: { hex: 0x2d423d, luma: 23.99 },
   /**
    * The Vigil's one real departure, and the only colour this game adds after
@@ -205,8 +293,7 @@ const PALETTE = {
    * sprite-separation minimum. `reservoirCharge` joined the band at 199.79 on
    * 2026-09-16, a readout rather than a sprite and 37.25 luma above this one,
    * so it changes neither clearance. It carries the highest saturation of the
-   * four ground colours,
-   * 0.500, because the addition has to be the event.
+   * ground's own colours, 0.500, because the addition has to be the event.
    */
   standInVigilTint: { hex: 0x2e545c, luma: 30 },
   /**
@@ -218,8 +305,11 @@ const PALETTE = {
    * What that costs is a source in the same family as the Crowd's own eye
    * dressing, and the stand-in answer is size (design record section 7).
    *
-   * It is the brightest thing the ground layer draws, Lc 23.45 over the ground
-   * tile, because it is the loudest beat in the run. That is bought from the
+   * It is the brightest thing the ground layer draws, Lc 11.63 over the
+   * ground's own earth, because it is the loudest beat in the run. It is also
+   * the ceiling on every other ground colour: it has to stay 2.0 luma clear of
+   * each of them, which is what a ground row may not pass. That is bought from
+   * the
    * sprites crossing it: a corpse over its body reads Lc 22.8, which is the
    * measured cost of a source that can be seen at all, and it is why the
    * companion is drawn as a rim past the body rather than behind it.
@@ -308,10 +398,6 @@ const MENU = {
  */
 const SPRITE_OUTLINE = {
   graveRim: 'graveHole',
-  // The glow is the rim's own band in treasure's colour, drawn over it at the
-  // identical geometry, so its dark companion is the rim's: the one-unit
-  // graveHole band already stroked immediately inside it.
-  graveGlow: 'graveHole',
   corpse: 'foodOutline',
   corpseRevenant: 'foodOutline',
   feast: 'foodOutline',

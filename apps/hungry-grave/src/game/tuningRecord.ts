@@ -203,6 +203,126 @@ type ScoreTuning = {
 };
 
 /**
+ * The swallow's own magnitudes: how much of a piece of food has to be over the
+ * mouth before it tips in, and the three the grave's tug on food near its rim
+ * is described by (design record `grave-in-the-ground.md` R1 and R3).
+ *
+ * The pull's three sit in the swallow's group rather than a group of their own
+ * because they are the same act read one step earlier: what the pull decides is
+ * which food arrives at the mouth at all, and a reading that moves the
+ * threshold reads them together.
+ */
+type SwallowTuning = {
+  /**
+   * The share of a piece of food that has to be over the grave's mouth before
+   * it is swallowed, from 0 to 1. Food goes in on the tick its share reaches
+   * this.
+   *
+   * The share is the area the food and the mouth share, over the most of the
+   * food that could ever be over this mouth, counting only the part of the food
+   * inside the field (`tip.ts`). So it is a share of what is reachable and not
+   * of the food's own area, which is what lets food wider than the mouth reach
+   * it at all: a power-up is 28 wide against a mouth 27 wide at the start and
+   * 18 at the floor, and ADR 0003 rules that size never gates a swallow.
+   *
+   * It is Mark's own value, sent after 403 swallows on prototype build 6 with a
+   * natural fall in it: "most of the body", where an earlier build with hands
+   * hauling bodies in had wanted a low threshold and a long strong pull. It is
+   * a starting value all the same, and what it gets read against is the food
+   * ledger's swallowed against lost, before and after this step
+   * (`docs/design/grave-in-the-ground.md`, "Values are data").
+   *
+   * Near zero is the old first-touch rule, which is what the game did before
+   * this step and what made a corpse vanish at the first pixel of contact.
+   */
+  tipThreshold: number;
+  /**
+   * How far from the mouth the pull reaches, in field units, measured from the
+   * food's box to the mouth's box rather than from either centre (`pull.ts`).
+   *
+   * Mark's own value after 403 swallows on prototype build 6, where a natural
+   * fall brought him back to a short gentle pull from the long strong one the
+   * earlier build with hands hauling bodies in had wanted. The prototype
+   * measured its gap from an ellipse round the hole to a point a third of the
+   * way into the body, which has no honest rectangle form, so the box gap
+   * reaches a little farther than the prototype's did at the same figure.
+   *
+   * At zero the pull is off, exactly as a strength of zero is: no food is ever
+   * inside a reach of nothing. Below zero is refused (`refusePullBelowZero`).
+   */
+  pullReach: number;
+  /**
+   * About the speed food reaches at the rim, in field units a second. It is a
+   * speed the pull steers toward rather than one food is set to, because the
+   * catch-up below is what food actually moves by.
+   *
+   * Read against the scroll, which is 38 a second: at the rim the pull is more
+   * than three times the pace the field runs at, which is what lets food below
+   * the grave be held against its deadline, and that is the first tuning
+   * round's own question (#39).
+   *
+   * Zero turns the pull off and the threshold rule stands without it, which is
+   * how design record R3 states the reversal.
+   */
+  pullStrength: number;
+  /**
+   * How quickly food takes up the speed the pull wants, per second: the share
+   * of the difference one second closes is `1 - exp(-response)`, so 4.6 closes
+   * about 99% of it in a second and about 7.4% in one tick.
+   *
+   * It is what makes the pull read as a tug rather than a teleport, and it is
+   * also the ground's drag: out of the reach the wanted speed is zero and the
+   * same line brings a sliding corpse to a stop.
+   */
+  pullResponse: number;
+};
+
+/**
+ * How the grave's size is paid and how fast it arrives (Mark's ruling of
+ * 2026-09-21: the grave swells as it eats rather than sitting still and then
+ * popping).
+ *
+ * A group of its own rather than two rows on the swallow's, because what these
+ * two decide is the size on screen: the swallow's rows decide which food goes
+ * in at all, and a reading that moves the grave's growth reads these two
+ * together and neither of those.
+ */
+type GrowthTuning = {
+  /**
+   * What a feast pays in growth, in fresh trash corpses.
+   *
+   * Stated in corpses because that is the unit the whole food economy is
+   * stated in (`tuning.ts`'s CORPSES_TO_CEILING and TRASH_CORPSE_PAYOUT), so a
+   * feast is read against the mowing it stands for rather than against a bare
+   * count of size units.
+   *
+   * Forty-five is the share the feast paid on the day entry 5.11 ruled it, nine
+   * corpses of an eighty-corpse climb, carried across to a climb of four
+   * hundred. Before this row the feast was written as the reservoir's own count
+   * of 300, which is 75% of the whole climb from the starting size to the
+   * ceiling paid on one tick: that single payment is the pop Mark saw, and the
+   * two figures stopped being one number when it came down.
+   *
+   * At or below zero is refused (`refuseUnpayableFeast`). A feast that pays
+   * nothing is not a feast, and a negative one would shrink the grave through a
+   * path that has nothing to do with a hit.
+   */
+  feastInCorpses: number;
+  /**
+   * How fast the grave takes in the growth it is owed, in size units a second.
+   *
+   * At 4.5 the largest single swallow, a fully fresh feast at 4.55625 units,
+   * takes about a second to come in, and no tick moves the grave by more than
+   * 0.075 units, which is well under a tenth of one.
+   *
+   * At or below zero is refused (`refuseFrozenSwell`): at zero the grave would
+   * never take in anything it was paid and would never grow again at all, which
+   * is the state the ruling exists to end.
+   */
+  swellPerSecond: number;
+};
+
+/**
  * Every magnitude a batch reading can move, grouped by the module that owns it
  * (CONTEXT.md Tuning record, ADR 0064).
  *
@@ -215,6 +335,8 @@ type ScoreTuning = {
 type TuningRecord = {
   stage: StageTuning;
   score: ScoreTuning;
+  swallow: SwallowTuning;
+  growth: GrowthTuning;
 };
 
 /**
@@ -227,6 +349,8 @@ type TuningRecord = {
 interface TuningOverlay {
   stage?: Partial<StageTuning>;
   score?: Partial<ScoreTuning>;
+  swallow?: Partial<SwallowTuning>;
+  growth?: Partial<GrowthTuning>;
 }
 
 /** One row under the one addressable name every text surface uses for it. */
@@ -258,6 +382,16 @@ const DEFAULT_TUNING: TuningRecord = {
     bossHealthPerKill: 100,
     sourceKillInKills: 24,
     mealAtMaxedInKills: 1,
+  },
+  swallow: {
+    tipThreshold: 0.55,
+    pullReach: 24,
+    pullStrength: 125,
+    pullResponse: 4.6,
+  },
+  growth: {
+    feastInCorpses: 45,
+    swellPerSecond: 4.5,
   },
 };
 
@@ -317,22 +451,92 @@ const refuseZeroBossHealthRate = (score: ScoreTuning): void => {
 };
 
 /**
+ * The swallow's own bound, and it is the one row of the group (design record
+ * R1's closing paragraph).
+ *
+ * Both ends turn the one verb of collection off, in opposite directions. The
+ * share `tip.ts` computes is never below zero, so a threshold at or below zero
+ * tips every piece of food on the field at once, on the run's very first tick;
+ * and the share is never above one, so a threshold above one leaves nothing
+ * that can ever be swallowed. Neither is a candidate anybody could read a
+ * figure off, and a record comes from a document, so it is rejected here rather
+ * than repaired.
+ */
+const refuseUnplayableTipThreshold = (swallow: SwallowTuning): void => {
+  if (swallow.tipThreshold > 0 && swallow.tipThreshold <= 1) return;
+  throw new Error(
+    `swallow.tipThreshold is written as ${swallow.tipThreshold}, outside the 0 to 1 a share can take: at or below 0 every piece of food tips at once, and above 1 nothing can ever be swallowed`,
+  );
+};
+
+/**
+ * The pull's own bound (design record R3): none of its three rows is below
+ * zero.
+ *
+ * Zero is a reading, the pull switched off, which R3 names as the way to
+ * reverse it. Below zero is not one: a negative response makes the food's
+ * velocity run away from the wanted one and grow every tick, a negative
+ * strength is a push, and a negative reach is no distance at all.
+ */
+const refusePullBelowZero = (swallow: SwallowTuning): void => {
+  const rows = {
+    pullReach: swallow.pullReach,
+    pullStrength: swallow.pullStrength,
+    pullResponse: swallow.pullResponse,
+  };
+  for (const [row, value] of Object.entries(rows)) {
+    if (value >= 0) continue;
+    throw new Error(
+      `swallow.${row} is written as ${value}, below zero: zero switches the pull off, and nothing below it is a pull`,
+    );
+  }
+};
+
+/**
+ * The growth group's own bounds (Mark's ruling of 2026-09-21), and both ends of
+ * the ruling turn it off in opposite directions.
+ *
+ * A feast that pays nothing is not a feast and a negative one would shrink the
+ * grave through a path that has nothing to do with a hit; a swell of nothing
+ * leaves the grave owed growth it can never take in, which is exactly the
+ * standing-still the ruling exists to end. A record comes from a document, so
+ * both are rejected here rather than repaired.
+ */
+const refuseUnpaidGrowth = (growth: GrowthTuning): void => {
+  const rows = {
+    feastInCorpses: growth.feastInCorpses,
+    swellPerSecond: growth.swellPerSecond,
+  };
+  for (const [row, value] of Object.entries(rows)) {
+    if (value > 0) continue;
+    throw new Error(
+      `growth.${row} is written as ${value}, at or below zero: a feast that pays nothing is not a feast, and a grave that swells at nothing never grows again`,
+    );
+  }
+};
+
+/**
  * The complete record an overlay stands for, every absent row filled from the
  * default.
  *
  * Its input is already typed, because parsing a raw name a person typed is the
  * edge's job: there is no such thing as an unknown row reaching here. What it
- * refuses is the three bounds above and nothing else, and a record our own code
+ * refuses is the six bounds above and nothing else, and a record our own code
  * produced cannot fail any of them, which is repair by origin.
  */
 const resolveTuning = (overlay: TuningOverlay): TuningRecord => {
   const resolved: TuningRecord = {
     stage: { ...DEFAULT_TUNING.stage, ...overlay.stage },
     score: { ...DEFAULT_TUNING.score, ...overlay.score },
+    swallow: { ...DEFAULT_TUNING.swallow, ...overlay.swallow },
+    growth: { ...DEFAULT_TUNING.growth, ...overlay.growth },
   };
   refuseInvertedQuietInterval(resolved.stage);
   refuseZeroQuietIntervalMinimum(resolved.stage);
   refuseZeroBossHealthRate(resolved.score);
+  refuseUnplayableTipThreshold(resolved.swallow);
+  refusePullBelowZero(resolved.swallow);
+  refuseUnpaidGrowth(resolved.growth);
   return resolved;
 };
 
@@ -359,8 +563,10 @@ const tuningRows = (record: TuningRecord): TuningRow[] =>
 
 export { DEFAULT_TUNING, resolveTuning, tuningRows };
 export type {
+  GrowthTuning,
   ScoreTuning,
   StageTuning,
+  SwallowTuning,
   TuningOverlay,
   TuningRecord,
   TuningRow,

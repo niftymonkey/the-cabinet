@@ -7,8 +7,8 @@
  *
  * The identity is written down here rather than taken from whatever string a
  * check happens to carry, because a fault record goes into a tape's third
- * section and hardens the moment the first tape exists. Twenty-four
- * identities against twenty-five checks: checkPools carries two, the caps and
+ * section and hardens the moment the first tape exists. Twenty-five
+ * identities against twenty-six checks: checkPools carries two, the caps and
  * the ids, checkStage carries two, one for each of the two things it watches,
  * and checkRefusals carries three, one per cap that can turn something away,
  * while the six bounds checks share one identity between them. The grave's own bounds
@@ -41,6 +41,7 @@ const FAULT_IDENTITIES = [
   'director purse not negative',
   'score rung re-armed by growth',
   'score not negative',
+  'growth owed in range',
 ] as const;
 
 // One member of the closed list above.
@@ -53,7 +54,7 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * How safe continued execution is after each fault, by semantic safety and
  * never by how cosmetic the symptom looks (ADR 0024).
  *
- * Fatal, five checks and six identities. NaN spreads and every comparison
+ * Fatal, six checks and seven identities. NaN spreads and every comparison
  * against it is false, so containment, culling and collision quietly stop
  * working. A level is an array index rather than a meter, and every per-level
  * table is sized to MAX_LEVEL. Two live slots sharing an id send a wisp after a
@@ -63,6 +64,16 @@ type FaultSeverity = 'fatal' | 'recoverable';
  * should be over keeps playing. And a pool whose shape changed means a
  * structural assumption was violated outside the pool API, after which no other
  * check's answer is trustworthy.
+ *
+ * The growth the grave is owed is fatal, because the debt is health in transit.
+ * The drawn size is not the whole of it: hitGrave reads the size plus the debt
+ * as the grave's true size, and the true size is what decides whether the floor
+ * ladder runs. A debt below zero therefore lands the ladder on a grave standing
+ * clear of the floor, which bleeds the score, strips a rung off every line and
+ * ends by sealing the run. The same figure sets the room growGrave measures
+ * against the ceiling, and the overflow that room leaves is paid straight into
+ * the score. The run's own tally and its ending both come off this number, so
+ * it is size by another name and it is guarded the way size is.
  *
  * Recoverable, eighteen checks and eighteen identities. A stray entity is culled or
  * draws off-screen and nothing reads it wrong, and the six checks that watch
@@ -142,6 +153,7 @@ const FAULT_SEVERITY: Readonly<Record<FaultIdentity, FaultSeverity>> = {
   'director purse not negative': 'recoverable',
   'score rung re-armed by growth': 'recoverable',
   'score not negative': 'recoverable',
+  'growth owed in range': 'fatal',
 };
 
 // One invariant found broken on one tick.

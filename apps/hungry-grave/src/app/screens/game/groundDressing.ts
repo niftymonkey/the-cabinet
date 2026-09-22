@@ -1,5 +1,5 @@
-// The stand-in ground's own art: the tile the ground is laid from, the three
-// sections' dressing sets, and the seeded stream that places them (ADR 0049,
+// The stand-in ground's own art: the three sections' dressing sets, the
+// Waking's source, and the seeded stream that places them (ADR 0049,
 // decision 22's amendment, design record stage-floor.md section 7).
 
 import type { SectionName } from '../../../game/stage/stage';
@@ -39,21 +39,6 @@ const sheetCell = (
   width: number,
   height: number,
 ): StandInArt => ({ alias, cell: { x, y: 0, width, height } });
-
-/**
- * The floor itself, one for all three sections because the rock is the same
- * rock (design record section 7). It wears `nightSpeckle`, which was declared
- * with no consumer in `src/app` at all and is a ready-made ground colour; the
- * floor is its consumer.
- *
- * It is the floor the import bakes and never the pack's own tile sheet: that
- * sheet is twenty bordered blocks lit at twenty angles, and tiled whole it read
- * as a lattice of loose blocks rather than as a floor (Mark, 2026-09-08). The
- * bake and its layout live in `scripts/grayscale-import.ts`; the renderer draws
- * one texture and knows nothing of the layout.
- */
-const GROUND_FLOOR = singleFrame('standIn/ground/floor.png');
-const GROUND_TINT: PaletteEntry = PALETTE.nightSpeckle;
 
 /** The Waking's own source, dormant and awake, both single frames. */
 const SOURCE_DORMANT = singleFrame('standIn/ground/waking-dormant.png');
@@ -199,8 +184,6 @@ const acrossAt = (index: number): number => streamDraw(index, ACROSS_SALT);
 
 export {
   STAND_IN_BUNDLE,
-  GROUND_FLOOR,
-  GROUND_TINT,
   SOURCE_DORMANT,
   SOURCE_AWAKE,
   EYE_CELL_PIXELS,

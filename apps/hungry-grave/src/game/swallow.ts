@@ -26,6 +26,16 @@ interface Swallowable {
    */
   readonly id: number;
   readonly kind: FoodKind;
+  /**
+   * Where the body stood and how big it is, in field units, and the way it was
+   * moving. The rules pay nothing for any of it: they travel so the swallowed
+   * event can carry the fall its drawing needs (design record R5).
+   */
+  readonly x: number;
+  readonly y: number;
+  readonly halfExtent: number;
+  readonly vx: number;
+  readonly vy: number;
   // 0 to 1. Treasure is always 1: power-ups and feasts never decay (ADR 0004).
   readonly freshness: number;
   // What this food pays before freshness scales it, in size units.
@@ -43,18 +53,15 @@ interface Swallowable {
   readonly line?: WeaponLine;
 }
 
-// Growth, with anything past the ceiling handed back as overflow (ADR 0003).
-const payGrowth = (
-  state: RunState,
-  amount: number,
-  events: SimEvent[],
-): number => {
-  const overflow = growGrave(state.grave, amount);
-  const grown = amount - overflow;
-  if (grown > 0) {
-    events.push({ type: 'grew', amount: grown, size: state.grave.size });
-  }
-  return overflow;
+/**
+ * Growth, with anything past the ceiling handed back as overflow (ADR 0003).
+ *
+ * The grave is owed the growth here, on the tip tick, and swells into it over
+ * the ticks after (Mark's ruling of 2026-09-21), so the `grew` event belongs to
+ * the swell and no longer fires from the swallow.
+ */
+const payGrowth = (state: RunState, amount: number): number => {
+  return growGrave(state.grave, amount);
 };
 
 /**
@@ -116,12 +123,32 @@ const swallow = (state: RunState, food: Swallowable): SimEvent[] => {
       kind: food.kind,
       freshness: food.freshness,
       payout: food.payout,
+      // The one place the offset is taken, so the arithmetic lives once, and it
+      // is taken before payGrowth: the size on the event is the size at the tip
+      // and never the size the swallow just bought.
+      offsetX: food.x - state.grave.x,
+      offsetY: food.y - state.grave.y,
+      halfExtent: food.halfExtent,
+      vx: food.vx,
+      vy: food.vy,
+      graveSize: state.grave.size,
+      tier: food.tier,
+      treasureBody: food.treasureBody,
+      line: food.line,
     },
     { type: 'chimed', kind: food.kind, treasureBody: food.treasureBody },
   ];
 
-  const overflow = payGrowth(state, paid, events);
-  payReservoir(state, paid, events);
+  const overflow = payGrowth(state, paid);
+  // Entry 5.11: the swallow of a feast slams the reservoir full, so a fully
+  // fresh feast fills it and wastes nothing. It is the charge and not the
+  // growth, because the two stopped being one number when the feast's growth
+  // came down (Mark's ruling of 2026-09-21).
+  payReservoir(
+    state,
+    food.kind === 'feast' ? RESERVOIR_CAPACITY : paid,
+    events,
+  );
   // The offer's own rule, held in offer.ts: a power-up is one body of an offer, so
   // taking it levels the option that body carried and vanishes its siblings.
   // A body belonging to no live offer answers with nothing, which is what

@@ -1,8 +1,8 @@
-// The ground under the field: the floor it is laid from, the per-section
-// dressing that drifts across a boundary, and the Waking's own source. It draws
-// into `ground` and adds no layer name (ADR 0014, ADR 0049).
+// The ground under the field: the field the prototype's painters bake it from,
+// the per-section dressing that drifts across a boundary, and the Waking's own
+// source. It draws into `ground` and adds no layer name (ADR 0014, ADR 0049).
 
-import { Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { RunState } from '../../../game/run';
@@ -17,12 +17,15 @@ import {
   DRESSING_BY_SECTION,
   DRESSING_SETS,
   EYE_CELL_PIXELS,
-  GROUND_FLOOR,
-  GROUND_TINT,
   SOURCE_AWAKE,
   SOURCE_DORMANT,
 } from './groundDressing';
+import type { Field } from './groundPainting';
+import { groundResolution, paintGround } from './groundPainting';
 import type { FieldLayers } from './layering';
+
+/** The field the ground is painted across, which ADR 0003 fixes. */
+const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
 
 /**
  * How fast the ground runs against the field: the field's own scroll, so what
@@ -108,6 +111,24 @@ interface BackgroundProps {
 }
 
 /**
+ * What the bake reads off the renderer each frame: how wide the stage is in its
+ * own units, how wide the page shows the canvas in CSS pixels, and the bake
+ * itself, which only the renderer can do.
+ */
+interface GroundView {
+  readonly screen: { readonly width: number };
+  readonly canvas: {
+    getBoundingClientRect?(): { readonly width: number };
+  };
+  generateTexture(options: {
+    target: Graphics;
+    frame: Rectangle;
+    resolution: number;
+    antialias: boolean;
+  }): Texture;
+}
+
+/**
  * The ground, drawn from the run's own tick. Render only: every sprite's
  * placement is a function of the tick, so a replay rendering a pinned tape at a
  * chosen tick draws the ground the run drew and this renderer holds nothing
@@ -125,13 +146,15 @@ class BackgroundRenderer {
   private readonly textures = new Map<string, Texture>();
   private readonly props: BackgroundProps;
   private built = false;
+  private bakedAt: number | null = null;
+  private wanted: { view: GroundView; resolution: number } | null = null;
+  private warnedUnmeasured = false;
 
   constructor(props: BackgroundProps) {
     this.props = props;
-    this.ground.tint = GROUND_TINT.hex;
-    // The floor draws at the same pixel size as everything else on this layer,
-    // or the ground is pixel art at two scales in one picture.
-    this.ground.tileScale.set(DRESSING_SCALE);
+    // The renderer is handed out nowhere else, so this is where the ground
+    // reads the view. It only asks for a bake; see askForABake.
+    this.ground.onRender = (renderer) => this.askForABake(renderer);
     this.sourceRim.tint = PALETTE.standInWakingDark.hex;
     this.source.tint = PALETTE.standInWaking.hex;
     for (const sprite of [this.sourceRim, this.source]) {
@@ -169,17 +192,102 @@ class BackgroundRenderer {
 
   // The ground as the run's own tick says it is.
   public sync(run: RunState): void {
+    this.bakeIfAsked();
     this.syncGround(run.tick);
     this.syncDressing(run);
     this.syncSource(run.setPiece);
   }
 
+  // The picture is one field tall and repeats down the screen, so the run's own
+  // tick is the whole of where the ground stands.
   private syncGround(tick: number): void {
-    const floor = this.textureFor(GROUND_FLOOR);
-    if (floor !== null && this.ground.texture !== floor) {
-      this.ground.texture = floor;
-    }
     this.ground.tilePosition.y = tick * GROUND_SPEED;
+  }
+
+  /**
+   * CSS pixels per field unit on this frame (the prototype's viewScale), or
+   * null while the page shows no canvas to measure. The field's own placement
+   * is read off the ground's transform, so the ground needs nothing from its
+   * screen.
+   */
+  private viewScaleFor(renderer: GroundView): number | null {
+    const transform = this.ground.getGlobalTransform();
+    const stageUnits = Math.hypot(transform.a, transform.b);
+    const shown = renderer.canvas.getBoundingClientRect?.().width;
+    const viewScale =
+      shown === undefined ? 0 : (stageUnits * shown) / renderer.screen.width;
+    if (Number.isFinite(viewScale) && viewScale > 0) return viewScale;
+    if (!this.warnedUnmeasured) {
+      console.warn(
+        `the ground cannot measure the view (canvas shown ${String(shown)} CSS pixels over a ${renderer.screen.width}-unit stage), so its field waits to be painted`,
+      );
+      this.warnedUnmeasured = true;
+    }
+    return null;
+  }
+
+  /**
+   * Notes that the view wants a density the field has not been baked at. It
+   * asks and never bakes: `generateTexture` is `renderer.render` under another
+   * name, so a bake inside the renderer's own pass re-enters the pass drawing
+   * the screen and the field comes back carrying a photograph of that frame.
+   *
+   * The picture is a function of the field, which ADR 0003 fixes, and of the
+   * texture density, which moves only when the viewport does, so this asks
+   * once a run rather than once a frame.
+   */
+  private askForABake(renderer: GroundView): void {
+    const viewScale = this.viewScaleFor(renderer);
+    if (viewScale === null) return;
+    const resolution = groundResolution(
+      viewScale,
+      globalThis.devicePixelRatio || 1,
+      FIELD,
+    );
+    if (this.bakedAt === resolution) return;
+    this.wanted = { view: renderer, resolution };
+  }
+
+  /**
+   * Bakes what the last pass asked for. It runs from sync, which the screen
+   * calls in the frame's update, before Pixi renders: the one place this
+   * renderer holds a view and is outside the pass.
+   *
+   * The field is empty for the frame between the first ask and this bake, which
+   * is the same shape the dressing already takes while its bundle is coming.
+   */
+  private bakeIfAsked(): void {
+    const asked = this.wanted;
+    if (asked === null) return;
+    this.wanted = null;
+    this.bakeGround(asked.view, asked.resolution);
+    this.bakedAt = asked.resolution;
+  }
+
+  /**
+   * The painted field as one texture, shown at the field's own size.
+   *
+   * Left as live Graphics it is some four thousand shapes rasterised every
+   * frame, which the prototype measured as the difference between 8 and 34
+   * frames a second.
+   */
+  private bakeGround(renderer: GroundView, resolution: number): void {
+    const art = new Graphics();
+    paintGround(art, FIELD);
+    const texture = renderer.generateTexture({
+      target: art,
+      frame: new Rectangle(0, 0, FIELD.width, FIELD.height),
+      resolution,
+      antialias: true,
+    });
+    const spent = this.ground.texture;
+    this.ground.texture = texture;
+    this.ground.tileScale.set(
+      FIELD.width / texture.width,
+      FIELD.height / texture.height,
+    );
+    art.destroy(true);
+    if (spent !== Texture.EMPTY) spent.destroy(true);
   }
 
   /**

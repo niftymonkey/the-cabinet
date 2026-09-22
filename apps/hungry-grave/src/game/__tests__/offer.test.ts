@@ -31,6 +31,7 @@ import { createRun, uniformLevels } from '../run';
 import { PROCESSION_WAVES } from '../stage/waves';
 import { SECTIONS } from '../stage/stage';
 import { SIZE_CEILING } from '../tuning';
+import { DEFAULT_TUNING } from '../tuningRecord';
 
 const STILL = { move: { x: 0, y: 0 }, belch: false } as const;
 
@@ -356,28 +357,67 @@ describe('the take (ADR 0034)', () => {
     expect(state.corpses.filter((corpse) => corpse.alive)).toEqual([]);
   });
 
-  it('takes exactly one when the grave covers two, and the other vanishes on the same tick', () => {
-    // The two-touch case is possible only at the size ceiling, which is what
-    // the spacing is derived to give. The tie-break is the body whose centre is
-    // nearest the grave's, so the grave stands nearer the right body of the
-    // pair than the middle one: a rule that only ever took the first body in
-    // pool order would take the middle and pass this by luck.
+  it('takes the one option that reaches the threshold, and its siblings vanish on that tick', () => {
+    // ADR 0034's take under design record R1: the body that tips is the one
+    // taken, and the take is what vanishes the other two. At the ceiling the
+    // mouth is 67.5 wide and the middle body stands with 16.75 of its 28 over
+    // it, a share of 0.598 against the record's 0.55, while its siblings are 90
+    // away and nowhere near the mouth.
     const state = quietRun();
     state.grave.size = SIZE_CEILING;
     const step = stepping(state);
-    openOffer(state, state.grave.x - 47, state.grave.y);
+    openOffer(state, state.grave.x + 31, state.grave.y);
     const options = [...state.offer!.options];
-    const reach = graveWidth(SIZE_CEILING) / 2 + POWER_UP_HALF_EXTENT;
-    expect(reach).toBeGreaterThan(47);
 
     const events = step(STILL);
 
     const swallows = events.filter((event) => event.type === 'swallowed');
     expect(swallows).toHaveLength(1);
     const taken = events.find((event) => event.type === 'offerTaken')!;
-    expect(taken.line).toBe(options[2]);
-    expect([...taken.passed]).toEqual([options[0], options[1]]);
+    expect(taken.line).toBe(options[1]);
+    expect([...taken.passed]).toEqual([options[0], options[2]]);
     expect(state.corpses.filter((corpse) => corpse.alive)).toEqual([]);
+  });
+
+  it('leaves an option the grave has only touched standing', () => {
+    // R1 again, at the offer: an accidental pick gets harder than it was,
+    // because first touch no longer counts. Two of the three bodies are over
+    // the mouth here, by 3.75 and 1.75 of their 28, and the old rule took one
+    // of them and vanished the other two on this tick.
+    const state = quietRun();
+    state.grave.size = SIZE_CEILING;
+    const step = stepping(state);
+    openOffer(state, state.grave.x + 44, state.grave.y);
+
+    const events = step(STILL);
+
+    expect(events.filter((event) => event.type === 'swallowed')).toEqual([]);
+    expect(events.filter((event) => event.type === 'offerTaken')).toEqual([]);
+    expect(state.offer).not.toBeNull();
+    expect(offerBodies(state)).toHaveLength(OFFER_SIZE);
+  });
+
+  it('tips neither option when the widest grave stands between two of them', () => {
+    // What OFFER_SPACING is derived to give under the new rule: two bodies 90
+    // apart are 62 apart edge to edge, and each needs the threshold's share of
+    // its own 28 over the mouth, so a mouth that took both would have to span
+    // that gap plus both shares. The widest mouth is far short of it, so two
+    // options can never tip on one tick and the tie-break below is the guard
+    // for a record that asks for far less.
+    const state = quietRun();
+    state.grave.size = SIZE_CEILING;
+    const step = stepping(state);
+    openOffer(state, state.grave.x - OFFER_SPACING / 2, state.grave.y);
+    const bodyWidth = POWER_UP_HALF_EXTENT * 2;
+    const mouthThatTookBoth =
+      2 * DEFAULT_TUNING.swallow.tipThreshold * bodyWidth +
+      (OFFER_SPACING - bodyWidth);
+
+    const events = step(STILL);
+
+    expect(events.filter((event) => event.type === 'swallowed')).toEqual([]);
+    expect(offerBodies(state)).toHaveLength(OFFER_SIZE);
+    expect(graveWidth(SIZE_CEILING)).toBeLessThan(mouthThatTookBoth);
   });
 
   it('breaks a dead heat on the lower entity id', () => {

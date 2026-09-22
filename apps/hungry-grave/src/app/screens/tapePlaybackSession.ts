@@ -239,6 +239,17 @@ const primePlayback = (
     );
     return NOTHING_DRAWN;
   }
+  // Nothing abnormal is ever silent. Without this a tape naming a starting
+  // condition this build does not have fell through to a bound of zero, and
+  // the screen read PLAYED TO TICK 0 over a drawn starting field with no
+  // reason given, while measure.ts over the same bytes named the missing row.
+  if (result.outcome === 'conditionNotImplemented') {
+    refuse(
+      session,
+      `THIS TAPE NAMES A STARTING CONDITION THIS BUILD DOES NOT IMPLEMENT: ${(result.unimplementedCondition ?? 'NO REASON RECORDED').toUpperCase()}.`,
+    );
+    return NOTHING_DRAWN;
+  }
   if (result.outcome === 'witnessVersionMismatch') {
     refuse(
       session,

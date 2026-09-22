@@ -1,6 +1,7 @@
 // The held-transient registry, and the replay lead-in that has to outlast every
 // lifetime in it (#58).
 
+import { FALL_RENDERER_TRANSIENT_TICKS } from './FallRenderer';
 import { FIELD_RENDERER_TRANSIENT_TICKS } from './FieldRenderer';
 import { STORM_RENDERER_TRANSIENT_TICKS } from './StormRenderer';
 import { WATCHED_LOSS_TRANSIENT_TICKS } from './watchedLoss';
@@ -9,10 +10,11 @@ import { WATCHED_LOSS_TRANSIENT_TICKS } from './watchedLoss';
  * Every lifetime the screen keeps across frames, aggregated from the owners'
  * own declarations. A held transient is view state born of a past tick rather
  * than drawn from the run: a scatter's or a burst's born tick, the shot memory
- * a cancel read compares against, the score's bleed and a stripped rung's mark
- * emptying on the row.
+ * a cancel read compares against, a fall on its way into the hole, the score's
+ * bleed and a stripped rung's mark emptying on the row.
  */
 const HELD_TRANSIENT_TICKS = {
+  ...FALL_RENDERER_TRANSIENT_TICKS,
   ...FIELD_RENDERER_TRANSIENT_TICKS,
   ...STORM_RENDERER_TRANSIENT_TICKS,
   ...WATCHED_LOSS_TRANSIENT_TICKS,

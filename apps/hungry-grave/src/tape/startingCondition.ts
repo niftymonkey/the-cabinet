@@ -215,14 +215,19 @@ const valueOf = (values: ReadonlyMap<string, number>, name: string): number => {
 /**
  * The tuning record the block states, every row named.
  *
- * Written out row by row rather than walked, so the compiler holds it total: a
- * row added to the record fails to compile here, and the fence in
- * `startingCondition.test.ts` holds this list against the record's own nesting
- * so neither can gain a row the other has not heard of.
+ * Written out row by row rather than walked, and stated as a whole record
+ * before the resolver takes it, so the compiler holds it total: a row or a
+ * group added to the record fails to compile here. The annotation is what makes
+ * that true, because the resolver's own parameter is an overlay where every
+ * group is optional, so a group left out of the literal would type-check and
+ * replay under this build's defaults with the header still naming the tape's.
+ * The fences in `startingCondition.test.ts` hold this against the record's own
+ * nesting from both ends, the rows the block requires and the values it
+ * resolves to, so neither can gain a row the other has not heard of.
  */
 const tuningIn = (values: ReadonlyMap<string, number>): TuningRecord => {
   const row = (name: string): number => valueOf(values, name);
-  return resolveTuning({
+  const stated: TuningRecord = {
     stage: {
       processionPurse: row('stage.processionPurse'),
       crowdPurse: row('stage.crowdPurse'),
@@ -237,7 +242,18 @@ const tuningIn = (values: ReadonlyMap<string, number>): TuningRecord => {
       sourceKillInKills: row('score.sourceKillInKills'),
       mealAtMaxedInKills: row('score.mealAtMaxedInKills'),
     },
-  });
+    swallow: {
+      tipThreshold: row('swallow.tipThreshold'),
+      pullReach: row('swallow.pullReach'),
+      pullStrength: row('swallow.pullStrength'),
+      pullResponse: row('swallow.pullResponse'),
+    },
+    growth: {
+      feastInCorpses: row('growth.feastInCorpses'),
+      swellPerSecond: row('growth.swellPerSecond'),
+    },
+  };
+  return resolveTuning(stated);
 };
 
 /**

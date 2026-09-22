@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { capsFor } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
-import { FIELD_HEIGHT } from '../../../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
 import {
   CORPSE_HALF_EXTENT,
   POWER_UP_HALF_EXTENT,
@@ -16,6 +16,7 @@ import {
   spawnPowerUp,
   spawnFallenRung,
 } from '../../../../game/corpses';
+import { graveWidth } from '../../../../game/grave';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { WEAPON_LINES } from '../../../../game/lines/roster';
 import type { Mob, MobType } from '../../../../game/mobs';
@@ -34,8 +35,15 @@ import { FieldRenderer } from '../FieldRenderer';
 import {
   POWER_UP_DRAW_HALF_EXTENT,
   freshnessBrightness,
+  freshnessTint,
   SPRITE_STROKE,
 } from '../foodSprite';
+import {
+  ENDING_FIELD_FADE,
+  TEETER_SHAKE,
+  TEETER_START,
+  TEETER_TILT,
+} from '../graveDrawingValues';
 import { FieldLayers } from '../layering';
 import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
 import { tellRadius } from '../mobSprite';
@@ -1245,5 +1253,213 @@ describe('a fallen rung on the field (ADR 0055)', () => {
     }
     expect(tints.size).toBe(1);
     expect(freshnessBrightness(rung, 0)).toBe(1);
+  });
+});
+
+/**
+ * The teeter: the tell for the swallow rule (design record R5). A corpse lying
+ * across the mouth leans in, shakes and darkens, more as it nears the
+ * threshold, and stands back up when the grave slides out from under it.
+ */
+describe('the teeter (grave-in-the-ground R5)', () => {
+  /**
+   * A corpse lying across the left rim with exactly this share of itself over
+   * the mouth.
+   *
+   * A corpse is 14 field units square and the mouth is 27 across at the start
+   * size, so the most of this body that could ever be over this mouth is the
+   * body itself: overlapping the full height and a share of the width makes the
+   * share that share exactly (`shareOverMouth`, design record R1).
+   */
+  function lyingOver(state: RunState, share: number) {
+    const dead = put(state, 'shambler', 60, 100);
+    dead.alive = false;
+    leaveCorpse(state, dead);
+    const corpse = state.corpses.find((each) => each.alive)!;
+    corpse.x =
+      state.grave.x -
+      graveWidth(state.grave.size) / 2 -
+      CORPSE_HALF_EXTENT +
+      CORPSE_HALF_EXTENT * 2 * share;
+    corpse.y = state.grave.y;
+    return corpse;
+  }
+
+  function corpseSprite(layers: FieldLayers, state: RunState): Graphics {
+    const slot = state.corpses.findIndex((each) => each.alive);
+    return spriteAt(layers, 'corpses', slot);
+  }
+
+  it('leaves a corpse with nothing over the mouth standing straight', () => {
+    // A lean of zero is written every frame, not skipped: a sprite left leaning
+    // would stay leaning for as long as that slot lives.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const corpse = lyingOver(state, 0);
+    renderer.sync(state);
+    const sprite = corpseSprite(layers, state);
+    expect(sprite.rotation).toBe(0);
+    expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));
+  });
+
+  it('leans a corpse further the closer its share is to the threshold', () => {
+    // R5: it leans "more as it nears the threshold", which is what tells the
+    // player that a sliver left out is a swallow that has not happened yet
+    // rather than one that was missed.
+    const { layers, renderer } = attached();
+    const leanAt = (share: number): number => {
+      const state = createRun(1);
+      lyingOver(state, share);
+      renderer.sync(state);
+      return Math.abs(corpseSprite(layers, state).rotation);
+    };
+    expect(leanAt(TEETER_START)).toBeCloseTo(0, 6);
+    expect(leanAt(0.25)).toBeGreaterThan(leanAt(TEETER_START));
+    expect(leanAt(0.4)).toBeGreaterThan(leanAt(0.25));
+    expect(leanAt(0.5)).toBeGreaterThan(leanAt(0.4));
+  });
+
+  it('leans a corpse at the threshold by the full tilt', () => {
+    // At the threshold the body is at the teeter's own tilt, trembling by the
+    // shake, and it goes no further however much of it is over the mouth.
+    const { layers, renderer } = attached();
+    const leanAt = (share: number): number => {
+      const state = createRun(1);
+      lyingOver(state, share);
+      renderer.sync(state);
+      return Math.abs(corpseSprite(layers, state).rotation);
+    };
+    const threshold = DEFAULT_TUNING.swallow.tipThreshold;
+    expect(leanAt(threshold)).toBeGreaterThanOrEqual(
+      TEETER_TILT - TEETER_SHAKE.radians,
+    );
+    expect(leanAt(threshold)).toBeLessThanOrEqual(
+      TEETER_TILT + TEETER_SHAKE.radians,
+    );
+    expect(leanAt(0.95)).toBeLessThanOrEqual(
+      TEETER_TILT + TEETER_SHAKE.radians,
+    );
+  });
+
+  it('stands a corpse back up when the grave slides out from under it', () => {
+    // The lean is computed from the run each frame and nothing is held, so a
+    // grave steered away leaves the body upright on the very next frame.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const corpse = lyingOver(state, 0.5);
+    renderer.sync(state);
+    const sprite = corpseSprite(layers, state);
+    expect(sprite.rotation).not.toBe(0);
+
+    state.grave.x = FIELD_WIDTH - graveWidth(state.grave.size) / 2;
+    renderer.sync(state);
+    expect(sprite.rotation).toBe(0);
+    expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));
+  });
+
+  it("reads the threshold off the run's own tuning record", () => {
+    // R1: the threshold is a tuning row, so a run under a record that moves it
+    // teeters on that record's own figure rather than on a compiled constant.
+    const { layers, renderer } = attached();
+    const leanUnder = (tipThreshold: number): number => {
+      const state = createRun(1, {
+        tuning: {
+          ...DEFAULT_TUNING,
+          swallow: { ...DEFAULT_TUNING.swallow, tipThreshold },
+        },
+      });
+      lyingOver(state, 0.5);
+      renderer.sync(state);
+      return Math.abs(corpseSprite(layers, state).rotation);
+    };
+    expect(leanUnder(0.5)).toBeGreaterThan(leanUnder(0.9));
+  });
+
+  it('stands every corpse straight under a threshold at or below where the teeter starts', () => {
+    // A tuning record may put the threshold anywhere above zero (R1's bounds),
+    // the teeter's start included. There is then no span to lean through: food
+    // below the threshold stands straight, and food at it is swallowed before
+    // it is drawn. The lean is never not-a-number and never full for a sliver.
+    const { layers, renderer } = attached();
+    const rotationUnder = (tipThreshold: number, share: number): number => {
+      const state = createRun(1, {
+        tuning: {
+          ...DEFAULT_TUNING,
+          swallow: { ...DEFAULT_TUNING.swallow, tipThreshold },
+        },
+      });
+      lyingOver(state, share);
+      renderer.sync(state);
+      return corpseSprite(layers, state).rotation;
+    };
+    expect(rotationUnder(TEETER_START, 0.05)).toBe(0);
+    expect(rotationUnder(0.1, 0.05)).toBe(0);
+  });
+
+  it("keeps a leaning corpse's freshness tint under the teeter's darkening", () => {
+    // R5: the darkening multiplies into the freshness tint rather than
+    // replacing it, so a body about to go in is still a body about to rot.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const corpse = lyingOver(state, DEFAULT_TUNING.swallow.tipThreshold);
+    corpse.freshness = 0.5;
+    renderer.sync(state);
+    const draining = corpseSprite(layers, state).tint;
+
+    const fresh = createRun(1);
+    lyingOver(fresh, DEFAULT_TUNING.swallow.tipThreshold);
+    renderer.sync(fresh);
+    const full = corpseSprite(layers, fresh).tint;
+
+    expect(draining).toBeLessThan(full);
+    expect(draining).toBeLessThan(freshnessTint(corpse, state.tick));
+  });
+});
+
+describe('the field under the ending (grave-in-the-ground R6)', () => {
+  it('the shots in the air fade out as the ending runs, and the mobs dim', () => {
+    // R6: the field under the scene is frozen and does not fight for
+    // attention. The shots go first and fast, which is what the genre does on
+    // a boss's death, and the mobs stay where they were so that the field
+    // freezing is itself the tell that the run is over.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    put(state, 'shambler', 100, 100);
+    putShot(state, 120, 120);
+    renderer.sync(state);
+    const mob = spriteAt(layers, 'mobBodies', 0);
+    const shot = layers.layer('mobFire').children[0] as Graphics;
+    expect(mob.alpha).toBe(1);
+    expect(shot.alpha).toBe(1);
+
+    renderer.fadeForEnding(ENDING_FIELD_FADE.shotsGoneBy / 2);
+    expect(shot.alpha).toBeCloseTo(0.5, 10);
+    expect(mob.alpha).toBeLessThan(1);
+
+    renderer.fadeForEnding(ENDING_FIELD_FADE.shotsGoneBy);
+    expect(shot.alpha).toBe(0);
+
+    renderer.fadeForEnding(1);
+    expect(shot.alpha).toBe(0);
+    expect(mob.alpha).toBeCloseTo(ENDING_FIELD_FADE.mobsKeep, 10);
+    // Dimmed and never gone: the mobs stay where they were.
+    expect(mob.alpha).toBeGreaterThan(0);
+    expect(mob.visible).toBe(true);
+  });
+
+  it('a new run gets its shots and its mobs back at full strength', () => {
+    // Screens are pooled and attach() is the one place per-run memory dies, so
+    // a faded field left standing opens the next run half invisible.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    put(state, 'shambler', 100, 100);
+    putShot(state, 120, 120);
+    renderer.sync(state);
+    renderer.fadeForEnding(1);
+
+    renderer.forgetPreviousRun();
+
+    expect(spriteAt(layers, 'mobBodies', 0).alpha).toBe(1);
+    expect((layers.layer('mobFire').children[0] as Graphics).alpha).toBe(1);
   });
 });

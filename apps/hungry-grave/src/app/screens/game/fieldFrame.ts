@@ -7,9 +7,10 @@ import { BOUNDARY_STROKE } from '../../layout';
 import { PALETTE } from '../../palette';
 
 /**
- * The playfield's boundary readout. The engine's background and the field's
- * ground are both night, so this outline is the only visible edge of the field,
- * and that edge is the bound on the grave's movement. That makes it a readout
+ * The playfield's boundary readout. The field's own earth runs to this line and
+ * stops, with the engine's night behind it, so this outline is the only visible
+ * edge of the field, and that edge is the bound on the grave's movement. That
+ * makes it a readout
  * and not scenery, which is why it carries a contrast floor of its own and a
  * width the floor depends on. It strokes inward so the whole of it stays inside
  * the field's own 540 by 760.

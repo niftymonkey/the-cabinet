@@ -23,6 +23,8 @@ const LAYER_ORDER = [
   'mobBodies',
   'treasure',
   'hitDim',
+  // Empty until #155, Territory's countdown, which is the caller ADR 0014 gives
+  // this layer: the rim is where a player is shown when Territory fires next.
   'graveRim',
   'fieldBoundary',
   'mobFire',
@@ -66,8 +68,16 @@ class FieldLayers {
 
   // The one way to reach a layer.
   public layer(name: LayerName): Container {
-    // LayerName is exactly LAYER_ORDER, and the constructor fills every name.
-    return this.layers.get(name)!;
+    const layer = this.layers.get(name);
+    // LayerName is exactly LAYER_ORDER and the constructor fills every name, so
+    // a miss is this class disagreeing with itself rather than anything a
+    // caller did. It dies by name here instead of handing back an undefined
+    // wearing a Container's type, which would surface as a renderer quietly
+    // drawing nothing (#121).
+    if (layer === undefined) {
+      throw new Error(`the field has no layer named ${name}`);
+    }
+    return layer;
   }
 
   /**

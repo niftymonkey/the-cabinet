@@ -4,9 +4,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Caps } from '../../game/caps';
 import { capsFor } from '../../game/caps';
 import type { SimEvent } from '../../game/events';
-import { territoryCharge } from '../../game/lines/territory';
 import type { RunState } from '../../game/run';
-import { RESERVOIR_CAPACITY } from '../../game/tuning';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
 import type { FieldPlacement } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
@@ -15,7 +13,10 @@ import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { BackgroundRenderer } from './game/BackgroundRenderer';
 import { BossRenderer } from './game/BossRenderer';
+import { ENDING_SCENE_MS } from './game/endingScene';
+import { EndingSceneRenderer } from './game/EndingSceneRenderer';
 import { boundaryReadout, fieldClip } from './game/fieldFrame';
+import { FallRenderer } from './game/FallRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
 import { FieldLayers } from './game/layering';
@@ -69,6 +70,19 @@ class ReplayScreen extends Container {
     standInArt: (alias) => this.props.standInArt(alias),
   });
   private readonly fieldRenderer = new FieldRenderer();
+  /**
+   * The food on its way into the hole, wired into this screen as well as the
+   * live one: a renderer wired into one of the two dressField sites and not the
+   * other is how a renderer ships unseen, and the lead-in's whole promise is
+   * that a replay shows what the run showed (design record R5).
+   */
+  private readonly falls = new FallRenderer();
+  /**
+   * The Undertaker's end, wired in here as well as into the live screen. A
+   * replay has no way out to hold, so it plays the scene where it stands, on
+   * its own frame clock, past the tape's own end (design record R6).
+   */
+  private readonly scene = new EndingSceneRenderer();
   private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
@@ -76,6 +90,13 @@ class ReplayScreen extends Container {
   private readonly backButton: Button;
 
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
+  /**
+   * How much of the ending scene this showing has played, in milliseconds, or
+   * null while no death has begun one. It is this screen's own two-line clock
+   * rather than a shared one: the live screen's hold is a way out being held
+   * back, and this screen has no way out at all.
+   */
+  private sceneMs: number | null = null;
   /**
    * The powers this showing was handed. The pool calls init() before the screen
    * reaches the stage, so it is set before the back button can be pressed.
@@ -130,6 +151,9 @@ class ReplayScreen extends Container {
     this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);
+    // After the grave, because the container the falls draw into is its child.
+    this.falls.attach(this.grave.falls, this.fieldCaps());
+    this.scene.attach(this.layers, this.grave.falls);
   }
 
   public init(props: ReplayScreenProps): void {
@@ -152,6 +176,7 @@ class ReplayScreen extends Container {
   }
 
   public reset(): void {
+    this.sceneMs = null;
     this.session.reset();
     this.readout.render(this.session.lines);
     this.layers.clear();
@@ -159,10 +184,27 @@ class ReplayScreen extends Container {
   }
 
   public update(ticker: Ticker): void {
+    // Before the playback, so a scene that begins on this frame opens on its first frame, as it does live.
+    this.runScene(ticker.elapsedMS);
     const frame = this.session.advance(ticker.elapsedMS);
     if (frame.forgetPreviousRun) this.beginDrawing(frame.run);
     if (frame.run !== null) this.syncScreen(frame.run, frame.events);
     this.readout.render(this.session.lines);
+  }
+
+  /**
+   * The ending scene, advanced on the frame clock and left on its last frame.
+   *
+   * It runs past the last tick the tape can verify, because the scene is
+   * drawing rather than playback: the run it belongs to ended on the tick the
+   * death was verified at, and nothing after that is claimed to be the run.
+   */
+  private runScene(elapsedMs: number): void {
+    if (this.sceneMs === null) return;
+    this.sceneMs = Math.min(this.sceneMs + elapsedMs, ENDING_SCENE_MS);
+    const progress = this.sceneMs / ENDING_SCENE_MS;
+    this.scene.show(progress);
+    this.fieldRenderer.fadeForEnding(progress);
   }
 
   /**
@@ -179,7 +221,11 @@ class ReplayScreen extends Container {
   private beginDrawing(run: RunState | null): void {
     if (run === null) this.fieldRenderer.forgetPreviousRun();
     else this.fieldRenderer.attach(this.layers, run.caps);
+    if (run === null) this.falls.forgetPreviousRun();
+    else this.falls.attach(this.grave.falls, run.caps);
     this.stormRenderer.forgetPreviousRun();
+    this.scene.forgetPreviousRun();
+    this.sceneMs = null;
   }
 
   /**
@@ -191,25 +237,27 @@ class ReplayScreen extends Container {
   private syncScreen(run: RunState, events: readonly SimEvent[]): void {
     this.field.visible = true;
     for (const event of events) {
+      if (event.type === 'swallowed') this.falls.swallowed(run, event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
       if (event.type === 'splashed') this.stormRenderer.splashed(run);
-      // The loss announcement, mirrored from GameScreen.announce: wired into
-      // the live screen alone it would simply not play on a replay, and the
-      // lead-in's whole promise is that a replay shows what the run showed
-      // (#58). The row's own countdown is not mirrored because the replay
-      // carries no HUD at all.
+      // The Undertaker's end, mirrored from GameScreen.announce for the same
+      // reason the strip's blow-up is: a replay shows what the run showed.
+      if (event.type === 'bossKilled' && this.scene.begin(event, run.grave)) {
+        this.sceneMs = 0;
+      }
+      // The weapon strip's blow-up, mirrored from GameScreen.announce: wired
+      // into the live screen alone it would simply not play on a replay, and
+      // the lead-in's whole promise is that a replay shows what the run showed
+      // (#58). The loss the live screen watches for is not mirrored, because
+      // its product is a HUD reading and this screen carries no HUD.
       if (event.type === 'weaponStripped') {
         this.stormRenderer.weaponStripped(run, event.lines);
       }
     }
-    this.grave.sync(
-      run.grave,
-      run.reservoir / RESERVOIR_CAPACITY,
-      run.tick,
-      territoryCharge(run),
-    );
+    this.grave.sync(run.grave);
     this.background.sync(run);
     this.fieldRenderer.sync(run);
+    this.falls.sync(run);
     this.bossRenderer.sync(run);
     this.stormRenderer.sync(run);
   }

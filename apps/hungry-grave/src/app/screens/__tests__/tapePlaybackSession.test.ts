@@ -113,4 +113,57 @@ describe('the playback session', () => {
     expect(forgets).toBe(1);
     expect(drawn).toBeGreaterThan(0);
   });
+
+  it("a replay of a run that ended between checkpoints plays to the run's last tick", async () => {
+    // ADR 0019: the bound is the last checkpoint that verified, and the seal
+    // stamps one at the run's own last tick, so a run that stopped between
+    // checkpoints is watched through the ticks that ended it. 370 against the
+    // recorder's spacing of 60 leaves 10 ticks past the last periodic one.
+    const { tape, bytes } = scriptedTape(370);
+    serveTape(bytes);
+
+    const session = createTapePlaybackSession();
+    session.begin('blob:tape', 300);
+    await vi.waitFor(() => expect(session.phase).not.toBe('fetching'));
+    for (let each = 0; each < 2000 && session.phase !== 'played'; each++) {
+      session.advance(TICK_MS);
+    }
+
+    expect(tape.checkpoints[tape.checkpoints.length - 1]?.index).toBe(370);
+    expect(session.bound).toBe(370);
+    expect(session.playback!.run.tick).toBe(370);
+    expect(session.lines.posture).toContain('PLAYED TO TICK 370');
+  });
+
+  it('a tape that does not name a starting condition this build requires is refused by the name of the condition', async () => {
+    // Nothing abnormal is ever silent. A tape recorded before a tuning row
+    // existed used to fall through to a bound of zero, and the screen read
+    // PLAYED TO TICK 0 over a drawn starting field with nothing said, while
+    // measure.ts over the same bytes named the missing row.
+    const { tape } = scriptedTape(120);
+    const missing = 'swallow.tipThreshold';
+    const older: Tape = {
+      ...tape,
+      header: {
+        ...tape.header,
+        startingCondition: tape.header.startingCondition.filter(
+          (row) => row.name !== missing,
+        ),
+      },
+    };
+    expect(older.header.startingCondition.length).toBe(
+      tape.header.startingCondition.length - 1,
+    );
+    serveTape(encodeTape(older));
+
+    const session = createTapePlaybackSession();
+    session.begin('blob:tape', 0);
+    await vi.waitFor(() => expect(session.phase).not.toBe('fetching'));
+    session.advance(TICK_MS);
+
+    expect(session.phase).toBe('idle');
+    expect(session.lines.posture).toBe('NO REPLAY');
+    expect(session.lines.statement).toContain(missing.toUpperCase());
+    expect(session.lines.statement).not.toContain('PLAYED TO TICK 0');
+  });
 });

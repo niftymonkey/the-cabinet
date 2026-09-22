@@ -126,12 +126,23 @@ describe('levelsFromUrl', () => {
     expect(levelsFromUrl('?levels=1', '#/?levels=4')).toBe(4);
   });
 
-  it('accepts exactly zero to the max line level, whole numbers only', () => {
-    expect(levelsFromUrl('?levels=0', '')).toBe(0);
+  it('accepts exactly one to the max line level, whole numbers only', () => {
+    expect(levelsFromUrl('?levels=1', '')).toBe(1);
     expect(levelsFromUrl(`?levels=${MAX_LEVEL}`, '')).toBe(MAX_LEVEL);
     expect(levelsFromUrl(`?levels=${MAX_LEVEL + 1}`, '')).toBeNull();
     expect(levelsFromUrl('?levels=-1', '')).toBeNull();
     expect(levelsFromUrl('?levels=2.5', '')).toBeNull();
+  });
+
+  it('a pinned level of zero is ignored, because a birthright line never stands below one', () => {
+    // checkLevels gives every birthright line a floor of one, so a run pinned
+    // at zero faults on tick 1 and opens on THE GAME BROKE. A URL is a live
+    // environment input: it is repaired to the birthright, and said out loud.
+    expect(levelsFromUrl('?levels=0', '')).toBeNull();
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(callArgsOf(vi.mocked(console.warn).mock, 0).join(' ')).toContain(
+      '?levels=0',
+    );
   });
 
   it('warns about garbage and ignores it, so a typo still yields a game', () => {

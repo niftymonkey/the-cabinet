@@ -1,13 +1,30 @@
 import { Graphics } from 'pixi.js';
 
 import type { Caps } from '../../../game/caps';
+import { TICK_HZ } from '../../../game/clock';
+import type { Corpse } from '../../../game/corpses';
+import { corpseHitbox } from '../../../game/corpses';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { graveHitbox } from '../../../game/grave';
 import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
+import { shareOverMouth } from '../../../game/tip';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import { drawCorpse, drawTreasureBody, freshnessTint } from './foodSprite';
+import {
+  drawCorpse,
+  drawTreasureBody,
+  freshnessBrightness,
+  greyTint,
+} from './foodSprite';
+import {
+  ENDING_FIELD_FADE,
+  TEETER_DARKEN,
+  TEETER_SHAKE,
+  TEETER_START,
+  TEETER_TILT,
+} from './graveDrawingValues';
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
@@ -64,6 +81,47 @@ const requireSlot = <T>(
 ): T => {
   if (value === undefined) throw new Error(`no ${what} at slot ${slot}`);
   return value;
+};
+
+// How far through a fade of this length the ending has come, from nothing to whole.
+const shareBy = (progress: number, length: number): number =>
+  Math.max(0, Math.min(1, progress / length));
+
+/**
+ * How far into the teeter a piece of food is, from nothing at the teeter's own
+ * start to the whole of it at the run's tip threshold (design record R5).
+ *
+ * It asks the rules' own question through the rules' own function, so the tell
+ * and the swallow can never answer differently, and it reads the threshold off
+ * the run because that is a tuning row (ADR 0064).
+ */
+const leanOf = (corpse: Corpse, run: RunState): number => {
+  const threshold = run.conditions.tuning.swallow.tipThreshold;
+  // A record may put the threshold at or below the teeter's start, which
+  // leaves no span to lean through: food under the threshold stands straight.
+  const span = threshold - TEETER_START;
+  if (span <= 0) return 0;
+  const share = shareOverMouth(corpseHitbox(corpse), graveHitbox(run.grave));
+  return Math.max(0, Math.min(1, (share - TEETER_START) / span));
+};
+
+/**
+ * How far over a leaning body is turned this frame: the lean toward the mouth's
+ * centre, and the tremble it carries there.
+ *
+ * The tremble is a function of the run's own tick and the body's own id, never
+ * of a wall clock, so a replay shakes the same body the same way; the id offsets
+ * the phase, the device the corpse flicker already uses, so a wave of food
+ * lying across the mouth does not shiver in lockstep.
+ */
+const teeterTurn = (corpse: Corpse, run: RunState, lean: number): number => {
+  if (lean === 0) return 0;
+  const toward = corpse.x <= run.grave.x ? 1 : -1;
+  const phase =
+    (run.tick / TICK_HZ) * Math.PI * 2 * TEETER_SHAKE.hertz + corpse.id;
+  return (
+    toward * lean * TEETER_TILT + Math.sin(phase) * TEETER_SHAKE.radians * lean
+  );
 };
 
 // One cancelled shot, on its way out, in the kind it was fired in.
@@ -166,6 +224,32 @@ class FieldRenderer {
       scatter.extent = 0;
       scatter.sprite.visible = false;
     }
+    // The ending's fade, undone. It is an alpha rather than a visibility, so
+    // nothing above puts it back and a pooled screen's next run would open on
+    // a field faded to the last run's ending.
+    this.fadeForEnding(0);
+  }
+
+  /**
+   * The field under the Undertaker's end: the shots in the air fade out and
+   * the mobs dim where they stand (design record R6).
+   *
+   * It is a per-slot alpha rather than one over the whole field, because the
+   * two go at different rates and the layers they sit in hold other renderers'
+   * sprites. forgetPreviousRun puts both back to full, or a pooled screen's
+   * next run opens on a faded field.
+   */
+  public fadeForEnding(progress: number): void {
+    const shots = 1 - shareBy(progress, ENDING_FIELD_FADE.shotsGoneBy);
+    const mobs =
+      1 -
+      (1 - ENDING_FIELD_FADE.mobsKeep) *
+        shareBy(progress, ENDING_FIELD_FADE.mobsDimBy);
+    for (const sprite of this.shotSprites) sprite.alpha = shots;
+    // A cancelled shot on its way out is mob fire that the stopped sim will
+    // never step again, so it goes with the shots rather than freezing lit.
+    for (const scatter of this.scatters) scatter.sprite.alpha = shots;
+    for (const sprite of this.mobSprites) sprite.alpha = mobs;
   }
 
   public detach(): void {
@@ -317,9 +401,19 @@ class FieldRenderer {
         }
       }
       sprite.position.set(corpse.x, corpse.y);
+      // The teeter, on every live piece of food and on every frame (design
+      // record R5). A lean of zero is written as deliberately as a full one:
+      // a body the grave slid out from under has to stand back up, and a
+      // recycled slot must not inherit the last body's lean.
+      const lean = leanOf(corpse, run);
+      sprite.rotation = teeterTurn(corpse, run, lean);
       // Steady-bright always means treasure (ADR 0004), so a power-up never takes
-      // the freshness tint and never flickers.
-      sprite.tint = freshnessTint(corpse, run.tick);
+      // the freshness tint and never flickers. The teeter's darkening multiplies
+      // into that brightness rather than replacing it.
+      sprite.tint = greyTint(
+        freshnessBrightness(corpse, run.tick) *
+          (1 - (1 - TEETER_DARKEN) * lean),
+      );
     }
   }
 

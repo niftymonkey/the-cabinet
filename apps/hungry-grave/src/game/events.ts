@@ -4,18 +4,39 @@ import type { GraveHitSource } from './grave';
 import type { WeaponLine } from './lines/roster';
 import type { PatchClosing } from './lines/territory';
 import type { FireKind } from './mobFire';
-import type { DamageSource, MobType } from './mobs';
+import type { CorpseTier, DamageSource, MobType } from './mobs';
 import type { ShoveSource } from './shove';
 import type { BossKind, DirectorCard } from './stage/waves';
 import type { SectionMusic, SectionName } from './stage/stage';
 import type { FoodKind } from './swallow';
 
-// Food went in.
+/**
+ * Food went in: everything the rules knew at the tip, so the drawing code can
+ * show the fall without holding the body (design record R5).
+ *
+ * The place is an offset from the grave's centre and the grave's own size rides
+ * beside it, because a fall is anchored in the grave's proportions: a feast
+ * pays 30.375 of size on this very tick, and a place in field units would start
+ * the next frame in mid-hole rather than at the rim the food crossed.
+ */
 interface Swallowed {
   readonly type: 'swallowed';
   readonly kind: FoodKind;
   readonly freshness: number;
   readonly payout: number;
+  // Where the food's centre was, from the grave's centre, in field units.
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly halfExtent: number;
+  // The way it was moving when it tipped, in field units a second.
+  readonly vx: number;
+  readonly vy: number;
+  // The grave's size on the tip tick, before the swallow's own growth.
+  readonly graveSize: number;
+  // What it looked like, so a fall draws the food that went in and never a stand-in.
+  readonly tier: CorpseTier;
+  readonly treasureBody: boolean;
+  readonly line?: WeaponLine;
 }
 
 /**
@@ -31,7 +52,15 @@ interface Chimed {
   readonly treasureBody: boolean;
 }
 
-// The grave grew. Size is the new size, so a renderer needs nothing else.
+/**
+ * The grave grew. Size is the new size, so a renderer needs nothing else.
+ *
+ * It fires from the swell rather than from the swallow, once a tick, carrying
+ * what the grave took in on that tick (Mark's ruling of 2026-09-21: the grave
+ * swells as it eats rather than popping). A swallow is paid its whole growth on
+ * the tip tick and the size is what takes time, so the amount here is a slice
+ * of a payment and never the payment.
+ */
 interface Grew {
   readonly type: 'grew';
   readonly amount: number;
@@ -346,9 +375,17 @@ interface SetPieceClosed {
   readonly left: number;
 }
 
-// The dirt took an empty corpse under (ADR 0004). The missed-food instrument reads it.
+/**
+ * The dirt took an empty corpse under (ADR 0004). The missed-food instrument
+ * reads it.
+ *
+ * It carries the kind on the same terms CorpseLost does: the food ledger files
+ * every end under the kind that reached it, and a rot that named no kind would
+ * leave one of the three ends unfilable from the event stream alone.
+ */
 interface CorpseExpired {
   readonly type: 'corpseExpired';
+  readonly kind: FoodKind;
   readonly x: number;
   readonly y: number;
 }
@@ -744,6 +781,7 @@ type SimEvent =
 // be reachable from the vocabulary it subscribes to.
 export type {
   BodyInFrame,
+  BossKilled,
   CarrierLoss,
   OfferSite,
   PressedBody,
@@ -752,4 +790,5 @@ export type {
   SectionMusic,
   SetPieceClosing,
   SimEvent,
+  Swallowed,
 };

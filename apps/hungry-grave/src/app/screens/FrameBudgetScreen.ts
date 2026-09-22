@@ -10,8 +10,10 @@ import type { FieldSize } from '../../dev/syntheticField';
 import { standSyntheticField } from '../../dev/syntheticField';
 import type { Caps } from '../../game/caps';
 import { capsFor } from '../../game/caps';
+import { CORPSE_HALF_EXTENT } from '../../game/corpses';
 import type { Execution } from '../../game/execution';
 import { createExecution, executeTick } from '../../game/execution';
+import { graveWidth } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
@@ -19,6 +21,9 @@ import { MENU } from '../palette';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
+import type { Swallowed } from '../../game/events';
+import { FALL_TICKS } from './game/fall';
+import { FallRenderer } from './game/FallRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { FieldLayers } from './game/layering';
 
@@ -96,6 +101,15 @@ class FrameBudgetScreen extends Container {
   private readonly field = new Container();
   private readonly layers = new FieldLayers();
   private readonly fieldRenderer = new FieldRenderer();
+  /**
+   * The falls, drawn straight into the mouth layer and not into a grave.
+   *
+   * This screen builds no grave renderer: a grave's own art would be folded
+   * into every row, and what this column is for is the falls' own cost. The
+   * renderer takes the container it draws into for exactly that reason (design
+   * record R5).
+   */
+  private readonly falls = new FallRenderer();
 
   private queue: FieldSize[] = [];
   private measured: FrameSpans[] = [];
@@ -140,6 +154,7 @@ class FrameBudgetScreen extends Container {
     // every one of them derives.
     const caps = capsFor(DEFAULT_TUNING);
     this.fieldRenderer.attach(this.layers, caps);
+    this.falls.attach(this.layers.layer('graveMouth'), caps);
     this.queue = ROUND_ZERO_FIELDS.filter((size) => fits(size, caps));
     this.measured = [];
     this.current = this.beginNextField();
@@ -157,10 +172,12 @@ class FrameBudgetScreen extends Container {
     const measuring = this.current;
     if (measuring === null) return;
     standSyntheticField(measuring.run, measuring.size);
+    this.standFalls(measuring);
     const beforeTick = performance.now();
     executeTick(measuring.execution, { move: { x: 0, y: 0 }, belch: false });
     const afterTick = performance.now();
     this.fieldRenderer.sync(measuring.run);
+    this.falls.sync(measuring.run);
     this.props.drawField(this.field);
     const afterDraw = performance.now();
     if (measuring.frame >= WARM_UP_FRAMES) {
@@ -174,12 +191,53 @@ class FrameBudgetScreen extends Container {
     this.showWhatIsMeasured();
   }
 
+  /**
+   * This frame's share of the falls the row wants in the air.
+   *
+   * A fall is drawing state and not field state, so standSyntheticField cannot
+   * stand one: nothing in the run knows a fall exists. They are born through
+   * the same seam the game screen uses instead, spread evenly over one fall's
+   * own lifetime, so that after that first second the row holds its whole count
+   * in the air and holds it there. The spread is exact, which is what keeps the
+   * pool from ever wrapping and logging a recycle.
+   *
+   * The count is the row's own corpse count, so falls scale with the row
+   * exactly as corpses do. It is a headroom figure and not a field a player can
+   * reach: every body on the field going in on the same second is not play, it
+   * is the ceiling, which is what the record already says of its two largest
+   * rows.
+   */
+  private standFalls(measuring: Measuring): void {
+    const wanted = measuring.size.corpses;
+    const already = Math.floor((measuring.frame * wanted) / FALL_TICKS);
+    const through = Math.floor(((measuring.frame + 1) * wanted) / FALL_TICKS);
+    if (through === already) return;
+    const overTheRim: Swallowed = {
+      type: 'swallowed',
+      kind: 'corpse',
+      freshness: 1,
+      payout: 0,
+      offsetX: graveWidth(measuring.run.grave.size) / 2,
+      offsetY: 0,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
+      graveSize: measuring.run.grave.size,
+      tier: 'trash',
+      treasureBody: false,
+    };
+    for (let born = already; born < through; born++) {
+      this.falls.swallowed(measuring.run, overTheRim);
+    }
+  }
+
   /** The next field standing and its run fresh, or null once every field is measured. */
   private beginNextField(): Measuring | null {
     const size = this.queue[this.measured.length];
     if (size === undefined) return null;
     const run = createRun(SEED);
     this.fieldRenderer.forgetPreviousRun();
+    this.falls.forgetPreviousRun();
     return {
       size,
       run,
@@ -230,6 +288,7 @@ class FrameBudgetScreen extends Container {
     this.measured = [];
     this.current = null;
     this.fieldRenderer.detach();
+    this.falls.detach();
   }
 
   public resize(width: number, height: number) {

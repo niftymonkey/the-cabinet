@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BELCH_BURST_RADIUS, fireBelch } from '../../../game/belch';
+import { CORPSE_HALF_EXTENT } from '../../../game/corpses';
 import { spawnMob } from '../../../game/mobs';
 import { createRun } from '../../../game/run';
 import { swallow } from '../../../game/swallow';
@@ -168,6 +169,11 @@ describe('belch cadence', () => {
     observeBelchCadence(accumulator, 1, [], run);
     const spilling = swallow(run, {
       id: 1,
+      x: 0,
+      y: 0,
+      halfExtent: CORPSE_HALF_EXTENT,
+      vx: 0,
+      vy: 0,
       kind: 'corpse',
       freshness: 1,
       payout: PAYOUT,

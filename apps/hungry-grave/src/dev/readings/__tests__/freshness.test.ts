@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { CORPSE_HALF_EXTENT } from '../../../game/corpses';
 import { createRun } from '../../../game/run';
 import { swallow } from '../../../game/swallow';
 import {
@@ -29,6 +30,11 @@ describe('freshness paid', () => {
       accumulator,
       swallow(run, {
         id: 1,
+        x: 0,
+        y: 0,
+        halfExtent: CORPSE_HALF_EXTENT,
+        vx: 0,
+        vy: 0,
         kind: 'corpse',
         freshness: 0.5,
         payout: PAYOUT,
@@ -40,6 +46,11 @@ describe('freshness paid', () => {
       accumulator,
       swallow(run, {
         id: 1,
+        x: 0,
+        y: 0,
+        halfExtent: CORPSE_HALF_EXTENT,
+        vx: 0,
+        vy: 0,
         kind: 'corpse',
         freshness: 0.1,
         payout: PAYOUT,
@@ -51,6 +62,11 @@ describe('freshness paid', () => {
       accumulator,
       swallow(run, {
         id: 1,
+        x: 0,
+        y: 0,
+        halfExtent: CORPSE_HALF_EXTENT,
+        vx: 0,
+        vy: 0,
         kind: 'powerUp',
         freshness: 1,
         payout: PAYOUT,

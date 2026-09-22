@@ -50,6 +50,12 @@ import {
   fieldPerLineOf,
   observeFieldPerLine,
 } from './fieldPerLine';
+import type { FoodLedger, FoodLedgerAcc } from './foodLedger';
+import {
+  createFoodLedger,
+  foodLedgerOf,
+  observeFoodLedger,
+} from './foodLedger';
 import type { FreshnessPaid, FreshnessPaidAcc } from './freshness';
 import {
   createFreshnessPaid,
@@ -134,6 +140,8 @@ interface TuningReadings {
   readonly belchCadence: BelchCadence;
   readonly pressure: Pressure;
   readonly powerUpLedger: PowerUpLedger;
+  // Swallowed against lost, for every kind of food (grave-in-the-ground.md, "Values are data").
+  readonly foodLedger: FoodLedger;
   readonly offerChoices: OfferChoices;
   readonly wakingSwallows: WakingSwallows;
   readonly territoryPatches: TerritoryPatches;
@@ -159,6 +167,7 @@ interface ReadingsAcc {
   readonly belchCadence: BelchCadenceAcc;
   readonly pressure: PressureAcc;
   readonly powerUpLedger: PowerUpLedgerAcc;
+  readonly foodLedger: FoodLedgerAcc;
   readonly offerChoices: OfferChoicesAcc;
   readonly wakingSwallows: WakingSwallowsAcc;
   readonly territoryPatches: TerritoryPatchesAcc;
@@ -199,6 +208,7 @@ const createReadings = (
   belchCadence: createBelchCadence(),
   pressure: createPressure(signalLock),
   powerUpLedger: createPowerUpLedger(),
+  foodLedger: createFoodLedger(),
   offerChoices: createOfferChoices(),
   wakingSwallows: createWakingSwallows(),
   territoryPatches: createTerritoryPatches(),
@@ -238,6 +248,7 @@ const observeReadings = (
   observeBelchCadence(acc.belchCadence, tick, events, state);
   observePressure(acc.pressure, tick, events);
   observePowerUpLedger(acc.powerUpLedger, events, state);
+  observeFoodLedger(acc.foodLedger, events);
   observeOfferChoices(acc.offerChoices, tick, events);
   observeWakingSwallows(acc.wakingSwallows, tick, events);
   observeTerritoryPatches(acc.territoryPatches, events);
@@ -263,6 +274,7 @@ const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   belchCadence: belchCadenceOf(acc.belchCadence),
   pressure: pressureOf(acc.pressure),
   powerUpLedger: powerUpLedgerOf(acc.powerUpLedger),
+  foodLedger: foodLedgerOf(acc.foodLedger),
   offerChoices: offerChoicesOf(acc.offerChoices),
   wakingSwallows: wakingSwallowsOf(acc.wakingSwallows),
   territoryPatches: territoryPatchesOf(acc.territoryPatches),

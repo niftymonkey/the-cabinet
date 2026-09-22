@@ -8,7 +8,6 @@ import { cos, sin } from '../math';
 import type { FireRow } from '../mobFire';
 import { fireDirectedShot } from '../mobFire';
 import type { RunState } from '../run';
-import { FEAST_PAYOUT } from '../tuning';
 import type { Boss } from './phases';
 
 /**
@@ -152,8 +151,8 @@ const advanceBanshee = (state: RunState, boss: Boss): SimEvent[] => {
 };
 
 /**
- * Her death: a feast where she fell, worth nine fresh trash corpses and never
- * decaying (ADR 0004, game-concept.md:68).
+ * Her death: a feast where she fell, worth the fresh trash corpses its own
+ * tuning row names and never decaying (ADR 0004, game-concept.md:68).
  *
  * The Wall her death launches is not fired from here. Her section ends because
  * she is gone and the Crowd's own first wave is the curtain, so the anchor
@@ -161,7 +160,7 @@ const advanceBanshee = (state: RunState, boss: Boss): SimEvent[] => {
  * swallow, and a player who never dives meets the Wall unloaded.
  */
 const bansheeDied = (state: RunState, boss: Boss): SimEvent[] => {
-  return spawnFeast(state, boss.x, boss.y, FEAST_PAYOUT);
+  return spawnFeast(state, boss.x, boss.y);
 };
 
 export { advanceBanshee, bansheeDied, RING_ROWS, TEAR_FIRE };

@@ -76,7 +76,9 @@ function isCodeWritingDispatch(toolName, toolInput) {
 }
 
 function promptCarriesContract(prompt) {
-  return prompt.includes(FEATURE_FLOW_POINTER) || NON_CODING_MARKER.test(prompt);
+  return (
+    prompt.includes(FEATURE_FLOW_POINTER) || NON_CODING_MARKER.test(prompt)
+  );
 }
 
 function shouldDeny(payload) {
