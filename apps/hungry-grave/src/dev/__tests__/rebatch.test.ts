@@ -24,6 +24,9 @@ import { CANDIDATES } from '../tuningCandidates';
 /** Two seeds the sharp hand finishes on well inside the budget, so a whole batch is affordable here. */
 const SEEDS = [202, 203];
 
+/** The seed on the far side of a one-tape gap, played rather than renamed, because a renamed tape is now refused for the rename. */
+const SEED_ACROSS_THE_GAP = 204;
+
 /** What the shell would hand the runner: git's answer and the clock's, once. */
 const COMMIT_HASH = 'e6f6c0dd2f6a4b5c8d9e0f1a2b3c4d5e6f7a8b9c';
 const RECORDED_AT = 1_757_000_000_000;
@@ -57,6 +60,21 @@ const playedBatch = () => {
     ),
   };
   return batch;
+};
+
+let acrossTheGap: Uint8Array | null = null;
+
+/** The tape the gap test folds beside the first, played under its own seed. */
+const playedTapeAcrossTheGap = () => {
+  acrossTheGap ??= playHarnessRun(
+    CONFIGURATIONS[SHARP_HAND],
+    RIGS.birthright,
+    CANDIDATES.default.record,
+    SEED_ACROSS_THE_GAP,
+    COMMIT_HASH,
+    RECORDED_AT,
+  ).bytes;
+  return acrossTheGap;
 };
 
 describe('a batch report folded again from stored tapes', () => {
@@ -110,11 +128,38 @@ describe('a batch report folded again from stored tapes', () => {
         header: { ...sound.header, witnessVersion: WITNESS_VERSION + 1 },
       });
 
-      const folded = rebatchOf([{ name: '9001.tape', bytes: bent }]);
+      // The name is the seed the bent tape's header still holds, because a file
+      // whose name disagrees with that seed is refused for the rename before
+      // any replay is spent on it, and this test is about the replay.
+      const folded = rebatchOf([
+        { name: `${SEEDS[0] ?? 0}.tape`, bytes: bent },
+      ]);
 
       expect(folded.outcome).toBe('refused');
       if (folded.outcome !== 'refused') return;
-      expect(folded.why).toContain('9001.tape');
+      expect(folded.why).toContain(`${SEEDS[0] ?? 0}.tape`);
+    },
+    A_PLAYED_AND_REFOLDED_BATCH_MS,
+  );
+
+  it(
+    'refuses a tape whose file name disagrees with the seed in its header, by both seeds',
+    () => {
+      // The bytes are authoritative and the name is a convenience (ADR 0057),
+      // so a renamed tape is a document with a bad value in it and a document
+      // is rejected rather than guessed at. Folding it would report a verified
+      // run under a seed nobody played, and a folder renamed consistently
+      // would walk its seeds by one and never show as a gap at all.
+      const played = playedBatch();
+
+      const folded = rebatchOf([
+        { name: '555.tape', bytes: played.tapes[0] ?? new Uint8Array() },
+      ]);
+
+      expect(folded.outcome).toBe('refused');
+      if (folded.outcome !== 'refused') return;
+      expect(folded.why).toContain('555');
+      expect(folded.why).toContain(`${SEEDS[0] ?? 0}`);
     },
     A_PLAYED_AND_REFOLDED_BATCH_MS,
   );
@@ -129,13 +174,19 @@ describe('a batch report folded again from stored tapes', () => {
       const played = playedBatch();
 
       const folded = rebatchOf([
-        { name: '202.tape', bytes: played.tapes[0] ?? new Uint8Array() },
-        { name: '204.tape', bytes: played.tapes[1] ?? new Uint8Array() },
+        {
+          name: `${SEEDS[0] ?? 0}.tape`,
+          bytes: played.tapes[0] ?? new Uint8Array(),
+        },
+        {
+          name: `${SEED_ACROSS_THE_GAP}.tape`,
+          bytes: playedTapeAcrossTheGap(),
+        },
       ]);
 
       expect(folded.outcome).toBe('refused');
       if (folded.outcome !== 'refused') return;
-      expect(folded.why).toContain('203');
+      expect(folded.why).toContain(`${SEEDS[1] ?? 0}`);
     },
     A_PLAYED_AND_REFOLDED_BATCH_MS,
   );

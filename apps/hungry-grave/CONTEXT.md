@@ -12,7 +12,7 @@ The system layer uses the words the genre's designers and players already use, a
 
 **Grave**: The protagonist: a moving open grave, a hole in the ground shaped like a grave, taller than wide. It swallows and passes under; it never drives. _Avoid_: player character, hole, ship, hero.
 
-**Swallow**: The one verb of collection: the grave passes under a corpse or power-up, and when most of it is over the mouth it tips at the rim and falls in. Every payout in the game arrives through a swallow, at the tip. _Avoid_: eat, collect, pick up, consume, drive over.
+**Swallow**: The one verb of collection: the grave passes under a corpse or power-up, and when most of it is over the mouth it tips at the rim and falls in. Every payout of collection arrives through a swallow, at the tip: growth, the reservoir's charge, the level a power-up's offer gives and the score an overflow or a rich meal at full power pays. A kill pays score at the kill instead, which is what keeps the two currencies clean. _Avoid_: eat, collect, pick up, consume, drive over.
 
 **Pull**: The grave's tug on food close to its rim. It moves food only, never a living mob. Territory's hands have their own pull, which belongs to that line. _Avoid_: suck, vacuum, magnet.
 

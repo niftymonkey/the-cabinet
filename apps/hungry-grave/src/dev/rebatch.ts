@@ -15,11 +15,13 @@ interface StoredTape {
 }
 
 /**
- * One tape read back: the seed its file name gave it, the two header fields the
+ * One tape read back: the seed it was played under, the two header fields the
  * batch's own identity is rebuilt from, and what the measuring pass made of it.
  *
- * The hand and the stamp come off the header rather than off the folder's name,
- * because the bytes are authoritative and the name is a convenience (ADR 0057).
+ * The seed, the hand and the stamp all come off the header rather than off the
+ * folder's name, because the bytes are authoritative and the name is a
+ * convenience (ADR 0057). The name still has to agree with the seed inside it,
+ * or the file was renamed and the fold refuses it.
  */
 interface ReadTape {
   readonly seed: number;
@@ -33,9 +35,10 @@ interface ReadTape {
  * stopped it.
  *
  * A folder of tapes is a document and a document is rejected rather than
- * guessed at: a tape this build cannot reproduce, a file that is not a tape and
- * a folder holding two batches all end the fold rather than producing a report
- * over whatever was left.
+ * guessed at: a tape this build cannot reproduce, a file that is not a tape, a
+ * tape whose name disagrees with the seed inside it and a folder holding two
+ * batches all end the fold rather than producing a report over whatever was
+ * left.
  */
 type Rebatch =
   | { readonly outcome: 'report'; readonly report: BatchReport }
@@ -72,8 +75,8 @@ const seedInName = (name: string): number | null => {
  * build's own codec and flies, on the same terms measure.ts's own shell states.
  */
 const readStoredTape = (stored: StoredTape): TapeRead => {
-  const seed = seedInName(stored.name);
-  if (seed === null) {
+  const named = seedInName(stored.name);
+  if (named === null) {
     return refused(
       `${stored.name} is not named <seed>.tape, so this folder is not a batch's own tapes`,
     );
@@ -85,13 +88,23 @@ const readStoredTape = (stored: StoredTape): TapeRead => {
     if (!(error instanceof TapeFormatError)) throw error;
     return refused(`${stored.name} is not a tape (${error.message})`);
   }
+  const { seed, policy, recordedAt } = decoded.tape.header;
+  // A renamed file is refused before the replay is spent on it: the report
+  // names its seeds as a first seed and a count (ADR 0053), so a tape folded
+  // under the name's seed would report a verified run under a seed nobody
+  // played, and a folder renamed consistently would step by one and never show
+  // as a gap.
+  if (seed !== named) {
+    return refused(
+      `${stored.name} holds seed ${seed} in its header, not ${named}, so the file was renamed and the bytes are what a seed means (ADR 0057)`,
+    );
+  }
   const measurement = measure(decoded);
   if (measurement.outcome !== 'verified') {
     return refused(
       `${stored.name} did not verify (${measurement.outcome}), and metrics come only from a verified replay (ADR 0019)`,
     );
   }
-  const { policy, recordedAt } = decoded.tape.header;
   return { outcome: 'read', tape: { seed, policy, recordedAt, measurement } };
 };
 
