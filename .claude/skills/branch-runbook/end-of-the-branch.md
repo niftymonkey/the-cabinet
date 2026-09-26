@@ -15,7 +15,7 @@ The branch's work is finished when Mark says so. Then close it in this order:
 
 ## The ticket pass
 
-List every finding ticket filed on the branch and give each one an end: fixed on the branch, carried to named later work, or closed with the reason. Done when every finding ticket from the branch is closed or names its return point. It runs before the ADR pass, because its fixes can change what the ADR pass reads.
+List every finding the branch sent to a ticket, as a comment on an owning ticket or as a new ticket, and give each one an end: fixed on the branch, carried to named later work, or closed with the reason. Done when every such finding is closed or names its return point. It runs before the ADR pass, because its fixes can change what the ADR pass reads.
 
 ## The ADR pass
 

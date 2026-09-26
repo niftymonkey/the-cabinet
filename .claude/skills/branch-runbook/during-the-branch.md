@@ -15,7 +15,7 @@ While building, record each decision in the step's design record with its eviden
 
 ## The main session and its agents
 
-The main session plans, decides, and reviews. Cheap agents read and gather for it.
+The main session plans, decides, and reviews. Cheap agents read and gather for it. Every fix, of any size, goes to a small agent, whose brief names the finding, the file, the test to write first with its expected red, and the checks to run. A bug hunt goes to a diagnosis agent with Mark's words and the leads. The main session writes no production code and no tests. A handoff or note that routes a fix names the agent that makes it.
 
 The branch is checked out in its own git worktree: a second folder of the repo, separate from the main repo folder where Mark works and other sessions run. All work on the branch happens in the worktree, and the main repo folder stays untouched. One coder builds one slice, and each agent writes scratch files under a name no other agent uses.
 
@@ -58,9 +58,9 @@ Slice entries go straight to the coder. They carry decisions the design record g
 
 A finding is a problem that a gate, a reviewer, or a measurement reports during a build. Route each finding down the ladder and stop at the first rung that fits:
 
-1. Fix it in the task at hand.
+1. Fix it in the task at hand, through a small agent ("The main session and its agents").
 2. Write it into the next dispatch that touches that area.
-3. File a ticket that names its return point: the step, the branch close, or the named later work that picks it up.
+3. Comment it on the ticket that already owns that work. File a new ticket only when no ticket owns it. Either way, name its return point: the step, the branch close, or the named later work that picks it up.
 4. Ask Mark, only when prior art and data cannot decide it and it is hard to reverse.
 
 A finding that argues against something Mark ruled changes nothing. The build follows his ruling, and the finding goes on the handoff's "for Mark's read" list.
