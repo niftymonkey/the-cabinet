@@ -205,7 +205,9 @@
   <span>swallowed <b id="r-count">0</b></span>
   <span>size <b id="r-size">0</b></span>
   <span>angle <b id="r-tilt">0</b>&deg;</span>
-  <span>tilt <b>1</b></span>
+  <span>cam <b id="r-camera">0</b></span>
+  <span>hole <b id="r-hole">own</b></span>
+  <span>tilt <b>6</b></span>
   <span id="held">held</span>
 </div>
 
@@ -215,6 +217,10 @@
   <div class="knob">
     <div class="top"><label for="k-tilt">Tilt off straight down</label><span class="val" id="v-tilt"></span></div>
     <input type="range" id="k-tilt" />
+  </div>
+  <div class="knob">
+    <div class="top"><label for="k-camera">Camera height</label><span class="val" id="v-camera"></span></div>
+    <input type="range" id="k-camera" />
   </div>
   <div class="knob">
     <div class="top"><label for="k-reach">Pull reach</label><span class="val" id="v-reach"></span></div>
@@ -244,12 +250,14 @@
   <div class="hr"></div>
   <div class="group">
     <button id="t-headstone" aria-pressed="false"><span class="key">Headstone</span><span class="sub">faint, no collision</span></button>
+    <button id="t-holecam" aria-pressed="true"><span class="key">Hole camera</span><span class="sub">own, or shared</span></button>
     <button id="k-reset"><span class="key">Reset</span><span class="sub">back to the defaults</span></button>
   </div>
   <p class="note">Fall is the natural one. The pull is an acceleration rather than a speed, so a body leans into it, gathers way, and still carries that way when the ground under it ends. Pull strength is about the speed it reaches at the rim.</p>
   <p class="note">A body tips over the rim it crosses, keeps the momentum it had, and then falls under the same projection the hole is drawn with. The grave has no bottom, so nothing lands: it shrinks toward the vanishing point, the light dies with depth, and the dark takes it. Drop time is how long that takes.</p>
   <p class="note">The grave takes a body whatever its own size. What a body needs over the hole is a share of the most it could have over it, so a body bigger than the opening reaches the same mark by covering the opening, and folds into the mouth on the way in.</p>
-  <p class="note">Tilt is the only knob that moves the camera, and everything on screen answers to it at once: the ground leans away so more field fits, anything with height stands up out of it, and the hole is cut for the same angle. It opens on 12.2&deg;, which is the angle the hole was already drawn at through build 7, so the first thing you see is what the old camera really was. Nothing in the simulation reads it.</p>
+  <p class="note">Tilt is the angle off straight down and camera height is how far up the camera stands, in grave half lengths. Between them they are one perspective camera looking at the grave: the ground leans and recedes, the far end is narrower with smaller grass, anything with height stands up, and the hole is cut for the same angle. Tilt opens on 12.2&deg;, the angle the hole was already drawn at through build 7. Nothing in the simulation reads either of them.</p>
+  <p class="note">Hole camera is the one place the two part company. One camera cannot both look into a grave and look down a field: build 7&rsquo;s height is five grave lengths, which over a field twenty of them long is a fisheye, and a height that suits the field leaves the walls too shallow to see. On <b>own</b> the hole keeps build 7&rsquo;s height and the field keeps yours, and the rim is identical either way because the rim is what the camera is looking at. On <b>shared</b> there is one camera for everything and the hole flattens out as you raise it.</p>
   <p class="note">Every other slider opens centred, so its default has the same room either way. Grave size only moves the grave when you move it; swallowing grows it by the game's own 0.10 units a body and stops at 48, the same top the slider has.</p>
   <p class="note">A and B are the older falls, kept beside the new one to compare. Poof is what the game does today.</p>
   <p class="note">Drag anywhere to move the grave. Keys: arrows or WASD steer, 1-4 pick a fall, space holds, full stop steps one frame. URL: ?style=F|A|B|P, ?hold=tip|drop.</p>
@@ -346,6 +354,14 @@
    */
   const CAMERA_HEIGHT = 4.95;
   const BUILD_7_SETBACK = 1.07;
+
+  /**
+   * How high the scene's camera opens. It is not build 7's, and it cannot be:
+   * a camera five grave lengths up looks at a field twenty of them long across
+   * a hundred and thirty odd degrees, which is a fisheye. The hole keeps build
+   * 7's height through its own camera instead.
+   */
+  const DEFAULT_CAMERA_HEIGHT = 30;
   const DEFAULT_TILT = Math.atan(BUILD_7_SETBACK / CAMERA_HEIGHT);
   const DEFAULT_TILT_DEGREES = (DEFAULT_TILT * 180) / Math.PI;
 
@@ -368,6 +384,10 @@
     size: 33,
     headstone: false,
     tilt: DEFAULT_TILT_DEGREES,
+    camera: DEFAULT_CAMERA_HEIGHT,
+    // The hole cut by its own camera, which is the pair this screen is for:
+    // build 7's walls under a field that leans.
+    ownHole: true,
   };
 
   /**
@@ -393,6 +413,13 @@
      * travel runs from there to further over than the field is likely to want.
      */
     tilt: { min: 0, max: 50, step: 0.1 },
+    /**
+     * How far above the ground the camera stands, in the grave's own half
+     * lengths. The bottom of the travel is build 7's own height, which is a
+     * fisheye over a field this long; the top is where the perspective goes
+     * mild. With the hole on its own camera this knob is the field's alone.
+     */
+    camera: { min: 3, max: 60, step: 0.25 },
   };
 
   const STYLES = {
@@ -588,19 +615,22 @@
   const DARK_DEPTH = 2.4;
 
   /**
-   * One angle, one camera. Every number the drawing takes from the tilt comes
-   * from here and nowhere else: how far the ground leans away, how far up the
-   * screen a unit of height climbs, and how far behind the grave the camera has
-   * moved to look at it from that angle.
+   * One angle and one height, one camera. Every number the drawing takes from
+   * the camera comes from here and nowhere else: how far the ground leans away,
+   * how far up the screen a unit of height climbs, and how far behind the grave
+   * the camera has moved to look at it from that angle. The height is in the
+   * grave's own half lengths, which is what lets the one camera serve the hole
+   * and the field at once.
    */
-  const makeCamera = (degrees) => {
+  const makeCamera = (degrees, height) => {
     const tilt = (degrees * Math.PI) / 180;
     return {
       degrees,
       tilt,
+      height,
       lean: Math.cos(tilt),
       rise: Math.sin(tilt),
-      setback: CAMERA_HEIGHT * Math.tan(tilt),
+      setback: height * Math.tan(tilt),
     };
   };
 
@@ -609,18 +639,103 @@
    * argument for the reason `viewScale` is: every painter in the file reads it
    * and not one of them gets to choose it.
    */
-  let camera = makeCamera(DEFAULT_TILT_DEGREES);
+  let camera = makeCamera(DEFAULT_TILT_DEGREES, DEFAULT_CAMERA_HEIGHT);
 
   /**
-   * A point on the ground, as the screen offset it draws at. The lean is the
-   * whole of it: the ground plane is squashed toward the horizon and nothing on
-   * it converges, so a thing at the far end of the field is the size it would
-   * be at the near end.
+   * The camera the hole is cut with. Shared, it is the scene camera and there
+   * is only one. On its own, it takes the scene's angle but keeps build 7's
+   * height, so the walls read the way build 7 draws them while the field keeps
+   * whatever camera the scene is using.
+   *
+   * The two agree at the rim, and that is the cheat the pair rests on: the rim
+   * is the camera's target, and a target projects at scale one under any camera
+   * that is looking at it, so the opening lands in exactly the same place
+   * whichever height cut it. Nothing away from the target has that guarantee.
    */
-  const groundToScreen = (cam, x, y) => ({ x, y: y * cam.lean });
+  let holeCamera = camera;
 
-  /** The screen offset back to the ground point that draws there. */
-  const screenToGround = (cam, x, y) => ({ x, y: y / cam.lean });
+  /**
+   * Where the hole's camera stands over the grave, in the grave's own half
+   * lengths. On its own camera that is straight over the grave and its setback
+   * behind it, which is build 7's. Shared, it is wherever the scene camera
+   * actually is, and away from the middle of the screen that is off to one side
+   * as well as behind.
+   *
+   * Half lengths and not field units, because `belowGround` is handed the size
+   * to work in and a stance measured in anything else would only be right for
+   * one grave.
+   */
+  let holeNadir = { x: 0, y: BUILD_7_SETBACK };
+
+  /** The scene's camera, and the hole's, which is either the same one or build 7's. */
+  const useCameras = (degrees, height, ownHole) => {
+    camera = makeCamera(degrees, height);
+    holeCamera = ownHole ? makeCamera(degrees, CAMERA_HEIGHT) : camera;
+  };
+
+  /**
+   * The camera put on the field: the ground point it looks at, and how far it
+   * stands off that point along its own axis, both in field units. The target
+   * is always the grave, so the grave draws at the size and the place build 7
+   * draws it and the field moves around it.
+   */
+  const placeCamera = (cam, targetX, targetY, size) => ({
+    x: targetX,
+    y: targetY,
+    lean: cam.lean,
+    rise: cam.rise,
+    dist: (cam.height * size) / cam.lean,
+  });
+
+  /**
+   * How near the camera's own feet a point is allowed to get. Past that the
+   * ground is beside or behind the camera and its share of the screen runs
+   * away, so the projection is held here rather than returning an infinity for
+   * something to draw with.
+   */
+  const NEAREST_SHARE = 0.12;
+
+  /**
+   * What share of the screen a field unit takes at a given distance up the
+   * field. This is the whole of the perspective: a thing at the far end is
+   * drawn smaller than the same thing at the near end, and every size on the
+   * ground is multiplied by it.
+   */
+  const groundScale = (view, y) => {
+    const off = view.dist - (y - view.y) * view.rise;
+    return view.dist / Math.max(off, view.dist * NEAREST_SHARE);
+  };
+
+  /** A point on the ground, as the screen point it draws at and the size it draws at. */
+  const groundToScreen = (view, x, y) => {
+    const scale = groundScale(view, y);
+    return {
+      x: view.x + (x - view.x) * scale,
+      y: view.y + (y - view.y) * view.lean * scale,
+      scale,
+    };
+  };
+
+  /**
+   * How far above the target the ground's image stops. Everything past the far
+   * end of the field crowds into this one line and no ground draws above it, so
+   * it is where the mesh ends and the haze begins.
+   */
+  const horizonOffset = (view) =>
+    view.rise <= 1e-9 ? -Infinity : -(view.lean * view.dist) / view.rise;
+
+  /**
+   * The screen point back to the ground point that draws there. It is the
+   * projection's own inverse, and it comes back empty above the horizon,
+   * because up there the ground has no image for a finger to land on.
+   */
+  const screenToGround = (view, x, y) => {
+    const off = view.lean * view.dist + (y - view.y) * view.rise;
+    if (off <= 0) return null;
+    const groundY = view.y + ((y - view.y) * view.dist) / off;
+    const scale = groundScale(view, groundY);
+    return { x: view.x + (x - view.x) / scale, y: groundY };
+  };
 
   /**
    * Something standing on the ground: `deep` is how far behind its own ground
@@ -637,13 +752,13 @@
   const BLADE_LEAN = (62 * Math.PI) / 180;
 
   /**
-   * What a tuft's drawn length is worth at this angle, as a multiple of the
-   * length build 7 drew it at. The ground plane the tuft is baked into is
-   * leaning, so the lean is divided back out and what is left is the reach up
-   * the screen. At the default angle it comes to one and the field is build 7's.
+   * How long a tuft is drawn in the tile, as a multiple of the length build 7
+   * drew it at. It is a ground length and nothing more: the camera foreshortens
+   * the tile it is baked into, so the only thing the angle decides here is how
+   * much of the blade is lying down. At the default angle it comes to one.
    */
   const bladeReach = (cam) =>
-    Math.cos(cam.tilt - BLADE_LEAN) / (Math.cos(DEFAULT_TILT - BLADE_LEAN) * cam.lean);
+    Math.cos(cam.tilt - BLADE_LEAN) / Math.cos(DEFAULT_TILT - BLADE_LEAN);
 
   /**
    * The one projection the whole hole is built from. A point below ground
@@ -659,9 +774,13 @@
    * is among them.
    */
   const belowGround = (x, y, depth, size) => {
-    const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + depth);
-    const nadir = camera.setback * size;
-    return { x: x * shrink, y: nadir + (y - nadir) * shrink };
+    const shrink = (holeCamera.height * size) / (holeCamera.height * size + depth);
+    const nadirX = holeNadir.x * size;
+    const nadirY = holeNadir.y * size;
+    return {
+      x: nadirX + (x - nadirX) * shrink,
+      y: nadirY + (y - nadirY) * shrink,
+    };
   };
 
   /**
@@ -853,7 +972,7 @@
       // Skewed shallow, because a stone below the light is a stone nobody sees.
       const down = lerp(0.1, 0.72, Math.pow(random(), 1.5));
       const at = facePoint(face, size, lerp(0.06, 0.94, random()), down);
-      const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + DARK_DEPTH * size * down);
+      const shrink = (holeCamera.height * size) / (holeCamera.height * size + DARK_DEPTH * size * down);
       const r = Math.max(onePx(1), size * lerp(0.016, 0.034, random()) * shrink);
       ctx.fillStyle = `rgba(104, 118, 138, ${(0.34 + random() * 0.22).toFixed(2)})`;
       ctx.beginPath();
@@ -899,11 +1018,11 @@
     const fade = facesTheCamera(face)
       ? ctx.createLinearGradient(0, lip.y, 0, deep.y)
       : ctx.createLinearGradient(lip.x, 0, deep.x, 0);
-    const deepest = CAMERA_HEIGHT / (CAMERA_HEIGHT + DARK_DEPTH);
+    const deepest = holeCamera.height / (holeCamera.height + DARK_DEPTH);
     for (let k = 0; k <= 14; k++) {
       const t = k / 14;
       const shrink = 1 - t * (1 - deepest);
-      const depth = CAMERA_HEIGHT * size * (1 / shrink - 1);
+      const depth = holeCamera.height * size * (1 / shrink - 1);
       fade.addColorStop(t, `rgba(0, 0, 0, ${(1 - lightAtDepth(depth, size)).toFixed(3)})`);
     }
     traceFaceExtent(ctx, face, size);
@@ -1532,6 +1651,7 @@
     const pops = new PIXI.Container();
     const uprightsBehind = new PIXI.Container();
     const uprightsFront = new PIXI.Container();
+    const haze = makeHaze();
 
     // Near draws over far among the things that stand, so each layer sorts its
     // own children by where their feet are.
@@ -1553,16 +1673,20 @@
      * that rim it goes under the hole's art, so a stone the grave has been
      * dragged across is swallowed rather than left standing on the dark.
      */
-    root.addChild(ground, uprightsBehind, grave, bodies, graveLip, uprightsFront, pops);
+    root.addChild(ground, haze, uprightsBehind, grave, bodies, graveLip, uprightsFront, pops);
     app.stage.addChild(root);
 
     return {
       app, sound, root, ground, bodies, grave, graveLip, pitArt, pit, pitMask, lipArt, flash, headstone, pops,
-      uprightsBehind, uprightsFront, markerList: [],
+      uprightsBehind, uprightsFront, haze, markerList: [],
+      // The ground, and the camera placed on the grave for this frame.
+      groundTexture: null, groundMesh: null, view: null,
       // Field geometry, set on every resize.
       scale: 1, fieldH: 760,
+      // The simulation's field in ground units, set with the camera.
+      field: { left: 0, right: FIELD_W, top: 0, bottom: 760 },
       // The grave.
-      size: DEFAULTS.size, x: FIELD_W / 2, y: 400, drawnSize: 0, drawnTilt: null,
+      size: DEFAULTS.size, x: FIELD_W / 2, y: 400, drawnSize: 0, drawnCamera: null, drawnHoleCamera: null, drawnNadir: null,
       mouth: [], mouthArea: 1,
       // Play.
       style: 'F', swallows: 0, bodyList: [], popList: [], crumbs: [],
@@ -1584,35 +1708,83 @@
    * left alone; that is the whole mechanism by which a standing thing keeps its
    * proportions while the field under it leans away.
    */
+  /**
+   * The camera put on this frame's grave. Everything drawn on the ground reads
+   * it, so it is refreshed once a frame before anything is placed rather than
+   * rebuilt at each site.
+   */
+  const refreshView = (world) => {
+    // The camera looks at the middle of the screen and stays looking there.
+    // Aimed at the grave instead, every drag swung the whole field's vanishing
+    // point across with it, which is the camera of a game where the hole is
+    // always in the middle and not the camera of this one.
+    //
+    // Its distance is read off the game's starting grave rather than the one on
+    // screen, so a grave that has grown by swallowing does not slowly raise the
+    // camera and flatten the field under the player.
+    world.view = placeCamera(camera, FIELD_W / 2, world.fieldH / 2, SIZE_START);
+  };
+
+  /**
+   * The hole's camera aimed at the grave. On its own camera it is build 7's
+   * own stance and moves only when the grave grows. Shared, the scene camera
+   * is somewhere else entirely, and how far off it is decides which walls show.
+   */
+  const aimHoleCamera = (world) => {
+    if (holeCamera !== camera) {
+      holeNadir = { x: 0, y: holeCamera.setback };
+      return;
+    }
+    const view = world.view;
+    holeNadir = {
+      x: (view.x - world.x) / world.size,
+      y: (view.y + view.dist * view.rise - world.y) / world.size,
+    };
+  };
+
   const layoutWorld = (world) => {
     const w = world.app.screen.width;
     const h = world.app.screen.height;
     world.scale = w / FIELD_W;
     viewScale = world.scale;
-    // The leaning field fits more of its own length on the same screen.
-    world.fieldH = h / (world.scale * camera.lean);
+    // The field is the screen, as build 7 has it. The camera changes what the
+    // field looks like and never how much of it there is, so the spawn line and
+    // the edge that holds the grave mean what they have always meant.
+    world.fieldH = h / world.scale;
     world.root.scale.set(world.scale);
     world.root.position.set(0, 0);
-    for (const layer of [world.ground, world.grave, world.bodies, world.graveLip]) {
-      layer.scale.set(1, camera.lean);
-    }
-    world.y = clamp(world.y, world.size, world.fieldH - world.size);
+    // The grave's own scale is the camera's at wherever it stands, so it is set
+    // every frame by `placeGrave` rather than pinned here.
+    refreshView(world);
+    world.field = measureField(world);
+    world.y = clamp(world.y, world.field.top + world.size, world.field.bottom - world.size);
   };
+
+  /**
+   * The simulation's field: everything the screen can see, as a rectangle of
+   * ground. Its far edge is the ground under the top of the screen, or under
+   * the haze where the haze starts, and its width is that far row's, which is
+   * the widest ground the screen sees. The near row is narrower, so the
+   * rectangle runs past the screen's bottom corners; bodies that drift out
+   * there have left the screen and are simply not drawn anywhere it looks.
+   */
+  const measureField = (world) => {
+    const view = world.view;
+    const topRow = Math.max(0, groundFadeRow(world));
+    const farLeft = screenToGround(view, 0, topRow);
+    const farRight = screenToGround(view, FIELD_W, topRow);
+    const near = screenToGround(view, FIELD_W / 2, world.fieldH);
+    return { left: farLeft.x, right: farRight.x, top: farLeft.y, bottom: near.y };
+  };
+
+  const fieldWide = (field) => field.right - field.left;
+  const fieldLong = (field) => field.bottom - field.top;
 
   const resizeWorld = (world) => {
     layoutWorld(world);
     paintGround(world);
+    buildGroundMesh(world);
     buildMarkers(world);
-  };
-
-  /**
-   * The baked field stretched to a new length, so a slider drag has ground
-   * under it while the repaint waits for the drag to stop.
-   */
-  const stretchGround = (world) => {
-    const sprite = world.ground.children[0];
-    if (!sprite) return;
-    sprite.height = world.fieldH;
   };
 
   /** Every figure in the field is drawn from the camera, so a new angle redraws them all. */
@@ -1630,38 +1802,62 @@
    * texture is the one slow piece, so the caller repaints it once the slider has
    * settled and the old one is stretched to the new field until then.
    */
-  const retiltWorld = (world, degrees) => {
-    camera = makeCamera(degrees);
+  const retiltWorld = (world, degrees, height, ownHole) => {
+    useCameras(degrees, height, ownHole);
     layoutWorld(world);
-    stretchGround(world);
+    aimHoleCamera(world);
+    updateGroundMesh(world);
+    updateHaze(world);
+    fillField(world);
     buildMarkers(world);
     redrawWalkers(world);
   };
 
   /**
-   * How many texture pixels the baked field gets per field unit. The cap is the
+   * How many texture pixels the baked tile gets per field unit. The cap is the
    * smallest texture size a phone is sure to allow.
    */
   const MAX_GROUND_TEXTURE_PX = 4096;
 
-  const groundResolution = (world, fieldHeight) => {
-    const wanted = world.scale * (window.devicePixelRatio || 1);
-    const fits = Math.min(MAX_GROUND_TEXTURE_PX / FIELD_W, MAX_GROUND_TEXTURE_PX / fieldHeight);
-    return clamp(Math.min(wanted, fits), 1, 3);
-  };
+  /**
+   * The ground is baked as one square tile and repeated across the field. A
+   * leaning field runs thousands of units into the distance and no single sheet
+   * can hold that at the detail the near end needs, so the sheet became a tile.
+   * It repeats mirrored, which is what keeps the joins from drawing a grid.
+   */
+  const GROUND_TILE = 512;
 
-  /** The night field: speckle, cold patches, moss, gravel, and a few far markers. */
+  /**
+   * The field height build 7's counts were tuned against, on his own phone. The
+   * counts below are its counts, so a patch of this ground is exactly as busy
+   * as a patch of that one however big the tile is cut.
+   */
+  const BUILD_7_FIELD_H = 1169;
+
+  const tileCount = (build7Count) =>
+    Math.max(1, Math.round((build7Count * GROUND_TILE) / BUILD_7_FIELD_H));
+
+  /**
+   * Texture pixels per field unit, kept to one or two so the tile comes out a
+   * power of two on a side. A tile that repeats has to be one: an odd size
+   * falls back to clamping on the older graphics stacks, and a clamped tile
+   * smears its last row of pixels across everything past its own edge.
+   */
+  const groundResolution = (world) =>
+    world.scale * (window.devicePixelRatio || 1) > 1.4 && GROUND_TILE * 2 <= MAX_GROUND_TEXTURE_PX ? 2 : 1;
+
+  /** The night ground: speckle, cold patches, moss and gravel, as one tile. */
   const paintGround = (world) => {
-    world.ground.removeChildren().forEach((child) => child.destroy(true));
     const g = new PIXI.Graphics();
-    const H = world.fieldH;
+    const H = GROUND_TILE;
+    const W = GROUND_TILE;
     const random = makeRandom(0x7ea15b3);
-    g.rect(0, 0, FIELD_W, H).fill({ color: COLOR.night });
+    g.rect(0, 0, W, H).fill({ color: COLOR.night });
 
     // Patches of damp and dry, wide and soft. They carry most of the ground's
     // variation, which is what keeps a mid-dark field from reading as paper.
-    for (let i = 0; i < 54; i++) {
-      const x = random() * FIELD_W;
+    for (let i = 0; i < tileCount(54); i++) {
+      const x = random() * W;
       const y = random() * H;
       const rx = lerp(22, 96, random());
       const ry = rx * lerp(0.3, 0.7, random());
@@ -1676,8 +1872,8 @@
      * at true game scale and vanish under the close camera, which sees a
      * hundred and fifty units across and needs variation at its own size.
      */
-    for (let i = 0; i < 520; i++) {
-      const x = random() * FIELD_W;
+    for (let i = 0; i < tileCount(520); i++) {
+      const x = random() * W;
       const y = random() * H;
       const rx = lerp(4, 22, Math.pow(random(), 1.4));
       const pick = random();
@@ -1687,8 +1883,8 @@
       });
     }
     // Cracks in the dry earth between them.
-    for (let i = 0; i < 70; i++) {
-      let x = random() * FIELD_W;
+    for (let i = 0; i < tileCount(70); i++) {
+      let x = random() * W;
       let y = random() * H;
       for (let s = 0; s < 3; s++) {
         const nx = x + lerp(-13, 13, random());
@@ -1700,8 +1896,8 @@
     }
     // Grain. It is the detail the zoom lives on, so there is a lot of it and
     // each fleck is small enough to stay a fleck at two and a half pixels a unit.
-    for (let i = 0; i < 2600; i++) {
-      const x = random() * FIELD_W;
+    for (let i = 0; i < tileCount(2600); i++) {
+      const x = random() * W;
       const y = random() * H;
       const dark = random() < 0.42;
       g.circle(x, y, lerp(0.35, 1.2, random())).fill({
@@ -1712,8 +1908,8 @@
     // Tufts of grass, small: at the close camera a blade the length the far
     // view wanted comes out as a hand-drawn sprout a third the grave's width.
     const reach = bladeReach(camera);
-    for (let i = 0; i < 230; i++) {
-      const x = random() * FIELD_W;
+    for (let i = 0; i < tileCount(230); i++) {
+      const x = random() * W;
       const y = random() * H;
       for (let b = 0; b < 5; b++) {
         const bx = x + lerp(-4, 4, random());
@@ -1724,27 +1920,189 @@
           .stroke({ width: lerp(0.3, 0.75, random()), color: random() < 0.5 ? COLOR.moss : COLOR.mossDark, alpha: 0.7 });
       }
     }
-    for (let i = 0; i < 180; i++) {
-      g.circle(random() * FIELD_W, random() * H, lerp(0.7, 2.2, random()))
+    for (let i = 0; i < tileCount(180); i++) {
+      g.circle(random() * W, random() * H, lerp(0.7, 2.2, random()))
         .fill({ color: COLOR.gravel, alpha: lerp(0.14, 0.34, random()) });
     }
 
     /**
-     * The field is baked to one texture. Left as live Graphics it is some eight
+     * The tile is baked to one texture. Left as live Graphics it is some eight
      * hundred shapes rasterised every frame, and measured here that was the
      * difference between 8 and 34 frames a second.
      */
     const texture = world.app.renderer.generateTexture({
       target: g,
-      frame: new PIXI.Rectangle(0, 0, FIELD_W, H),
-      resolution: groundResolution(world, H),
+      frame: new PIXI.Rectangle(0, 0, W, H),
+      resolution: groundResolution(world),
       antialias: true,
     });
-    const sprite = new PIXI.Sprite(texture);
-    sprite.width = FIELD_W;
-    sprite.height = H;
-    world.ground.addChild(sprite);
+    // Mirrored where it repeats, so a join carries no edge, and mipmapped
+    // because the far end of a leaning field packs whole tiles into a pixel.
+    // The style is what the sampler is built from, so it is set and pushed
+    // rather than left for the texture to notice.
+    texture.source.style.addressMode = 'mirror-repeat';
+    texture.source.style.scaleMode = 'linear';
+    texture.source.style.update();
+    texture.source.autoGenerateMipmaps = true;
+    texture.source.updateMipmaps();
+    const old = world.groundTexture;
+    world.groundTexture = texture;
+    if (world.groundMesh) world.groundMesh.texture = texture;
+    if (old) old.destroy(true);
     g.destroy(true);
+  };
+
+  // ------------------------------------------------------------- the ground
+
+  /**
+   * How finely the ground is cut. The rows are steps down the screen rather
+   * than steps up the field, so the far end, where one screen step covers the
+   * most ground, gets as many rows as the near end does.
+   */
+  const GROUND_COLUMNS = 18;
+  const GROUND_ROWS = 40;
+
+  /** How far past the screen the ground is built, as a share of the screen. */
+  const GROUND_OVERSHOOT = 0.08;
+
+  /**
+   * The smallest share of the screen a field unit is drawn at before the ground
+   * is given up. Past it the tile is packed tighter than the screen can hold
+   * and it aliases into streaks pointing at the vanishing point, which is worse
+   * than nothing; and past the horizon there is no ground at all. Both are the
+   * far distance, and the far distance of a night field is haze.
+   */
+  const GROUND_FADE_SCALE = 0.15;
+
+  /** How far the haze bleeds down past the row the ground was given up at. */
+  const HAZE_BLEED = 0.1;
+
+  /**
+   * How much of the last sliver before the horizon the mesh gives up. That
+   * sliver holds an unbounded amount of field in no pixels at all, so a grid
+   * point inside it drags a whole row of texture out to nothing.
+   */
+  const HORIZON_KEEP = 0.02;
+
+  const groundGridIndices = (cols, rows) => {
+    const indices = new Uint32Array(cols * rows * 6);
+    let at = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const a = row * (cols + 1) + col;
+        const b = a + 1;
+        const c = a + cols + 1;
+        indices[at++] = a;
+        indices[at++] = b;
+        indices[at++] = c;
+        indices[at++] = b;
+        indices[at++] = c + 1;
+        indices[at++] = c;
+      }
+    }
+    return indices;
+  };
+
+  /**
+   * The ground, as a grid of screen points carrying the field underneath them.
+   * The grid is laid out on the screen and each point asks the camera which
+   * ground it is standing on, so the screen is covered whatever the camera is
+   * doing and the perspective rides entirely in the texture coordinates.
+   */
+  const buildGroundMesh = (world) => {
+    if (world.groundMesh) world.groundMesh.destroy();
+    const points = (GROUND_COLUMNS + 1) * (GROUND_ROWS + 1);
+    const geometry = new PIXI.MeshGeometry({
+      positions: new Float32Array(points * 2),
+      uvs: new Float32Array(points * 2),
+      indices: groundGridIndices(GROUND_COLUMNS, GROUND_ROWS),
+    });
+    const mesh = new PIXI.Mesh({ geometry, texture: world.groundTexture });
+    world.groundMesh = mesh;
+    world.ground.removeChildren();
+    world.ground.addChild(mesh);
+    updateGroundMesh(world);
+  };
+
+  /**
+   * The screen row the ground's image runs out at. Above the horizon the ground
+   * plane is not on screen at all, so every row above this one is handed the
+   * field this one stands on: the mesh still covers the screen, and by then the
+   * haze over it is solid.
+   */
+  const groundHorizonRow = (world) => {
+    const offset = horizonOffset(world.view);
+    if (!Number.isFinite(offset)) return -Infinity;
+    return world.view.y + offset * (1 - HORIZON_KEEP);
+  };
+
+  /**
+   * The screen row the ground stops being worth looking at, which is where the
+   * haze starts. It is not where the ground ends: between the two the field is
+   * real and very compressed, and the haze thickens over it.
+   */
+  const groundFadeRow = (world) => {
+    const view = world.view;
+    if (view.rise <= 1e-9) return -Infinity;
+    const reach = (view.dist * (1 - 1 / GROUND_FADE_SCALE)) / view.rise;
+    return view.y + reach * view.lean * GROUND_FADE_SCALE;
+  };
+
+  /**
+   * The haze the far distance goes out into, baked once as a strip and stretched
+   * over whatever the camera leaves beyond the ground's reach.
+   */
+  const makeHaze = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4;
+    canvas.height = 160;
+    const ctx = canvas.getContext('2d');
+    const fade = ctx.createLinearGradient(0, 0, 0, 160);
+    fade.addColorStop(0, hex(COLOR.night));
+    fade.addColorStop(0.62, `${hex(COLOR.night)}d8`);
+    fade.addColorStop(1, `${hex(COLOR.night)}00`);
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, 4, 160);
+    return new PIXI.Sprite(PIXI.Texture.from(canvas));
+  };
+
+  const updateHaze = (world) => {
+    const top = -world.fieldH * GROUND_OVERSHOOT;
+    const height = groundFadeRow(world) + world.fieldH * HAZE_BLEED - top;
+    world.haze.visible = height > 1;
+    if (!world.haze.visible) return;
+    world.haze.position.set(-FIELD_W * GROUND_OVERSHOOT, top);
+    world.haze.width = FIELD_W * (1 + 2 * GROUND_OVERSHOOT);
+    world.haze.height = height;
+  };
+
+  const updateGroundMesh = (world) => {
+    const mesh = world.groundMesh;
+    if (!mesh) return;
+    const view = world.view;
+    const positions = mesh.geometry.positions;
+    const uvs = mesh.geometry.uvs;
+    const left = -FIELD_W * GROUND_OVERSHOOT;
+    const right = FIELD_W * (1 + GROUND_OVERSHOOT);
+    const top = -world.fieldH * GROUND_OVERSHOOT;
+    const bottom = world.fieldH * (1 + GROUND_OVERSHOOT);
+    const nearest = groundHorizonRow(world);
+    let at = 0;
+    for (let row = 0; row <= GROUND_ROWS; row++) {
+      const screenY = lerp(top, bottom, row / GROUND_ROWS);
+      const readY = Math.max(screenY, nearest);
+      for (let col = 0; col <= GROUND_COLUMNS; col++) {
+        const screenX = lerp(left, right, col / GROUND_COLUMNS);
+        const on = screenToGround(view, screenX, readY);
+        positions[at] = screenX;
+        positions[at + 1] = screenY;
+        uvs[at] = (on ? on.x : screenX) / GROUND_TILE;
+        uvs[at + 1] = (on ? on.y : view.y) / GROUND_TILE;
+        at += 2;
+      }
+    }
+    mesh.geometry.getBuffer('aPosition').update();
+    mesh.geometry.getBuffer('aUV').update();
   };
 
   /** How many stones stand about the field besides the grave's own. */
@@ -1799,18 +2157,29 @@
     for (const marker of world.markerList) marker.node.destroy(true);
     world.markerList.length = 0;
     const random = makeRandom(0x5c1d3f77);
-    for (let i = 0; i < FAR_MARKERS; i++) {
-      const x = lerp(24, FIELD_W - 24, random());
-      const y = lerp(24, world.fieldH - 24, random());
+    // Build 7's nine stones were for build 7's field. Kept at the same spacing,
+    // so a field the camera has made bigger is not a sparser graveyard.
+    const f = world.field;
+    const count = Math.max(FAR_MARKERS, Math.round((FAR_MARKERS * fieldWide(f) * fieldLong(f)) / (FIELD_W * BUILD_7_FIELD_H)));
+    for (let i = 0; i < count; i++) {
+      const x = lerp(f.left + 24, f.right - 24, random());
+      const y = lerp(f.top + 24, f.bottom - 24, random());
       const node = new PIXI.Graphics();
       // The scale is up on build 7's, because a standing stone spends most of
       // its height on the camera's rise and only build 7's flat one kept it all.
       drawMarker(node, lerp(13, 21, random()), lerp(-0.18, 0.18, random()), camera);
-      node.position.set(x, y * camera.lean);
       world.uprightsBehind.addChild(node);
-      world.markerList.push({ node, y });
+      world.markerList.push({ node, x, y });
     }
   };
+
+  /**
+   * How far past the opening each baked layer reaches, as a share of the
+   * opening's width. The lip's reaches furthest, and its earth and grass are
+   * most of what a player sees of the grave at the edge of the screen.
+   */
+  const PIT_PAD_SHARE = 0.12;
+  const LIP_PAD_SHARE = 0.3;
 
   /** The hole, rebuilt whenever the grave's size has moved a visible amount. */
   const rebuildHole = (world) => {
@@ -1823,12 +2192,14 @@
 
     world.pitArt.removeChildren().forEach((child) => child.destroy(true));
     world.lipArt.removeChildren().forEach((child) => child.destroy(true));
-    world.pitArt.addChild(bakeLayer(size, graveWidth(size) * 0.12, px, (ctx) => paintPit(ctx, world.mouth, size)));
-    world.lipArt.addChild(bakeLayer(size, graveWidth(size) * 0.3, px, (ctx) => paintLip(ctx, world.mouth, size)));
+    world.pitArt.addChild(bakeLayer(size, graveWidth(size) * PIT_PAD_SHARE, px, (ctx) => paintPit(ctx, world.mouth, size)));
+    world.lipArt.addChild(bakeLayer(size, graveWidth(size) * LIP_PAD_SHARE, px, (ctx) => paintLip(ctx, world.mouth, size)));
 
     world.pitMask.clear().poly(world.mouth).fill({ color: 0xffffff });
     world.drawnSize = size;
-    world.drawnTilt = camera.degrees;
+    world.drawnCamera = camera;
+    world.drawnHoleCamera = holeCamera;
+    world.drawnNadir = holeNadir;
 
     world.headstone.removeChildren().forEach((child) => child.destroy(true));
     world.headstone.addChild(buildHeadstone(size, camera));
@@ -1837,7 +2208,7 @@
   /** The carving on the face, which has nowhere to sit on a face with no height. */
   const paintCarving = (g, w, top, face, size) => {
     if (face < onePx(8)) return;
-    const stroke = { width: Math.max(1, size * 0.024), color: 0x2f3947, alpha: 0.45 };
+    const stroke = { width: Math.max(1, size * 0.024), color: 0x2f3947, alpha: 0.45, join: 'round' };
     g.moveTo(0, top + face * 0.22).lineTo(0, top + face * 0.6).stroke(stroke);
     g.moveTo(-w * 0.17, top + face * 0.36).lineTo(w * 0.17, top + face * 0.36).stroke(stroke);
   };
@@ -1862,13 +2233,16 @@
     const top = standingToScreen(cam, standsAt, h);
     const face = foot - top;
     const r = Math.min(w * 0.5, face * 0.6);
-    const line = { width: Math.max(1, size * 0.026), color: COLOR.slate, alpha: 0.65 };
+    // Round joins, and not for the look. A mitred stroke reports its bounds
+    // padded by the whole miter limit, five units of ink that is not there, and
+    // the edge rule measures this stone by its bounds.
+    const line = { width: Math.max(1, size * 0.026), color: COLOR.slate, alpha: 0.65, join: 'round' };
 
     // A plinth, so the stone reads as standing in the ground rather than
     // pushed into it. It lies flat, so the lean is the whole of its depth.
     g.roundRect(-w * 0.62, foot - thick * 0.6 * cam.lean, w * 1.24, thick * 1.2 * cam.lean + face * 0.05, thick * 0.3)
       .fill({ color: COLOR.slate, alpha: 0.18 })
-      .stroke({ width: Math.max(1, size * 0.024), color: COLOR.slate, alpha: 0.4 });
+      .stroke({ width: Math.max(1, size * 0.024), color: COLOR.slate, alpha: 0.4, join: 'round' });
 
     g.moveTo(-w / 2, foot)
       .lineTo(-w / 2, top + r * 0.75)
@@ -1908,8 +2282,9 @@
       len,
       alive,
       lifeLeft: lerp(1.8, 5, random()),
-      x: opts.x ?? lerp(40, FIELD_W - 40, random()),
-      y: opts.y ?? -len,
+      x: opts.x ?? lerp(world.field.left + 40, world.field.right - 40, random()),
+      // Just beyond the far edge, which is just beyond the top of the screen.
+      y: opts.y ?? world.field.top - len,
       angle: opts.angle ?? random() * TAU,
       drift: lerp(-6, 6, random()),
       phase: 'rest',
@@ -1922,10 +2297,19 @@
       // setting it, so a body arrives at the rim with way on it.
       vx: 0,
       vy: 0,
+      /**
+       * A body wears two nodes. The outer one stands it on the ground and
+       * carries what the camera does to it, the distance and the lean; the
+       * drawing inside keeps its own turn and its own squash. They have to be
+       * separate, because a turn inside a lean is a body lying at an angle and
+       * a lean inside a turn is a body that has been sheared.
+       */
+      node: new PIXI.Container(),
       ground: new PIXI.Graphics(),
       pitCopy: new PIXI.Graphics(),
       fall: null,
     };
+    body.node.addChild(body.ground);
     if (alive) {
       // A walker never goes over the rim, so it has no copy inside the pit:
       // only the body it collapses into is ever drawn down there.
@@ -1936,14 +2320,14 @@
       drawBody(body.pitCopy, kind, len, body.id * 7919);
     }
     body.pitCopy.visible = false;
-    (alive ? world.uprightsBehind : world.bodies).addChild(body.ground);
+    (alive ? world.uprightsBehind : world.bodies).addChild(body.node);
     world.pit.addChild(body.pitCopy);
     world.bodyList.push(body);
     return body;
   };
 
   const removeBody = (world, body) => {
-    body.ground.destroy(true);
+    body.node.destroy({ children: true });
     body.pitCopy.destroy(true);
     const at = world.bodyList.indexOf(body);
     if (at >= 0) world.bodyList.splice(at, 1);
@@ -2060,7 +2444,7 @@
     // the field's origin is a payout nobody can photograph. The payout is
     // chrome, so it stands outside the leaning plane and only its anchor is
     // read off the ground.
-    const on = groundToScreen(camera, at.x, at.y);
+    const on = groundToScreen(world.view, at.x, at.y);
     text.position.set(on.x, on.y);
     text.scale.set(POP_CSS_PX / (POP_FONT * world.scale));
     world.pops.addChild(text);
@@ -2215,8 +2599,12 @@
    */
   const placeFalling = (world, body, place) => {
     const { localX, localY, squash, stretch, bright, alpha, groundAlpha, dir, fit = 1 } = place;
+    // A fall happens at the grave, which is where the camera is looking, so the
+    // body's outer node carries the ground the grave stands on and nothing else.
+    layOnGround(world, body.node, world.x, world.y);
+    body.pitCopy.position.set(localX, localY);
+    body.ground.position.set(localX, localY);
     for (const [g, isPit] of [[body.pitCopy, true], [body.ground, false]]) {
-      g.position.set(isPit ? localX : world.x + localX, isPit ? localY : world.y + localY);
       // Pixi scales in the body's own axes and then turns it, so stretch runs
       // along the body's length and squash across it, whatever way it is lying.
       // The fold rides on both, because a body folds into a mouth every way at
@@ -2321,7 +2709,8 @@
     const pb = belowGround(b.x, b.y, b.depth, size);
     const half = body.len * 0.45;
     const depth = Math.max(0, (a.depth + b.depth) / 2);
-    const shrink = (CAMERA_HEIGHT * size) / (CAMERA_HEIGHT * size + depth);
+    // A falling body goes down the walls, so it shrinks with them.
+    const shrink = (holeCamera.height * size) / (holeCamera.height * size + depth);
     placeFalling(world, body, {
       localX: (pa.x + pb.x) / 2,
       localY: (pa.y + pb.y) / 2,
@@ -2599,49 +2988,83 @@
    * moved enough to see. Both thresholds are there for the same reason: a
    * slider drag would otherwise bake the whole hole afresh on every pixel of it.
    */
+  /**
+   * The hole is cut for one size, at one angle, from one stance over the grave,
+   * so it is rebuilt when any of the three has moved enough to see. Every
+   * threshold is there for the same reason: without one, a drag would bake the
+   * whole hole afresh on every pixel of itself. The stance only moves at all on
+   * the shared camera, where it is the grave's distance from the middle of the
+   * screen that decides which walls show.
+   */
   const keepHoleCurrent = (world) => {
     const sizeMoved = Math.abs(world.size - world.drawnSize) > 0.4;
-    const tiltMoved = Math.abs(camera.degrees - world.drawnTilt) > 0.2;
-    if (sizeMoved || tiltMoved) rebuildHole(world);
+    const cameraMoved = world.drawnCamera !== camera || world.drawnHoleCamera !== holeCamera;
+    const was = world.drawnNadir;
+    const stanceMoved = !was || Math.hypot(holeNadir.x - was.x, holeNadir.y - was.y) > 0.5;
+    if (sizeMoved || cameraMoved || stanceMoved) rebuildHole(world);
   };
 
   /**
-   * The grave and its lip, placed on the leaning ground. A layer's own lean
-   * squashes what is inside it and not where it sits, so the grave's position
-   * is read off the ground here even though everything it holds is in plain
-   * field units.
+   * The grave and its lip, projected like everything else on the field. The
+   * hole inside them is cut in the grave's own units by the hole's own camera,
+   * and this is where that drawing is put down: at the scene camera's grave
+   * point, at the scene camera's size and lean there. Dragged to the far end
+   * the grave is smaller and higher up, at the near end larger.
    */
   const placeGrave = (world) => {
-    const at = groundToScreen(camera, world.x, world.y);
-    world.grave.position.set(at.x, at.y);
-    world.graveLip.position.set(at.x, at.y);
-    world.headstone.position.set(at.x, at.y);
+    const on = groundToScreen(world.view, world.x, world.y);
+    for (const layer of [world.grave, world.graveLip]) {
+      layer.position.set(on.x, on.y);
+      layer.scale.set(on.scale, on.scale * world.view.lean);
+    }
+    world.headstone.position.set(on.x, on.y);
+    world.headstone.scale.set(on.scale);
     world.headstone.zIndex = world.y - world.size;
   };
 
   /**
-   * Where a standing thing draws, and against what. Its feet decide both: the
-   * layer, by whether they are past the grave's near rim, and its place inside
-   * that layer, so a nearer figure draws over a further one.
+   * Where a standing thing draws, and against what. Its feet decide all of it:
+   * the layer, by whether they are past the grave's near rim; its place inside
+   * that layer, so a nearer figure draws over a further one; where on the
+   * screen it stands; and how big it is, because a figure at the far end of a
+   * leaning field is further from the camera than one at the near end.
    */
-  const standUpright = (world, node, groundY) => {
+  const standUpright = (world, node, groundX, groundY) => {
     const layer = groundY > world.y + world.size ? world.uprightsFront : world.uprightsBehind;
+    const on = groundToScreen(world.view, groundX, groundY);
+    node.position.set(on.x, on.y);
+    node.scale.set(on.scale);
     node.zIndex = groundY;
     if (node.parent !== layer) layer.addChild(node);
   };
 
+  /**
+   * Something lying flat on the ground: it takes the perspective across and
+   * along, and the lean on top of that, because it has no height to stand up.
+   */
+  const layOnGround = (world, node, groundX, groundY) => {
+    const on = groundToScreen(world.view, groundX, groundY);
+    node.position.set(on.x, on.y);
+    node.scale.set(on.scale, on.scale * world.view.lean);
+  };
+
   const sortUprights = (world) => {
-    for (const marker of world.markerList) standUpright(world, marker.node, marker.y);
+    for (const marker of world.markerList) standUpright(world, marker.node, marker.x, marker.y);
     for (const body of world.bodyList) {
-      if (body.alive) standUpright(world, body.ground, body.y);
+      if (body.alive) standUpright(world, body.node, body.x, body.y);
     }
   };
 
   const stepWorld = (world, dt, knobs) => {
     world.size = clamp(world.size, SIZE_FLOOR, SIZE_MAX);
+    // The cameras first, because the hole is cut from where they stand and
+    // every placement below reads where they put things.
+    refreshView(world);
+    aimHoleCamera(world);
     keepHoleCurrent(world);
-
     placeGrave(world);
+    updateGroundMesh(world);
+    updateHaze(world);
     world.headstone.visible = knobs.headstone;
 
     stepBodies(world, dt, knobs);
@@ -2673,7 +3096,7 @@
         // becomes takes over facing the way the fall left it.
         drawWalker(body.ground, body.len, camera, topplingPose(e, body.deathAngle + Math.PI, body.len));
         body.ground.rotation = 0;
-        body.ground.position.set(body.x, body.y * camera.lean);
+        body.ground.position.set(0, 0);
         if (u >= 1) {
           // The walker becomes what a kill leaves: a body lying down.
           body.alive = false;
@@ -2686,8 +3109,8 @@
           drawBody(body.pitCopy, body.kind === 'tall' ? 'tall' : 'zombie', body.len, body.id * 7919);
           body.ground.scale.set(1, 1);
           // It lies on the ground now, so it leaves the standing layers and
-          // goes back among the bodies, where the leaning plane carries it.
-          world.bodies.addChild(body.ground);
+          // goes back among the bodies, where the camera lays it down flat.
+          world.bodies.addChild(body.node);
         }
         continue;
       }
@@ -2711,7 +3134,7 @@
           body.t = 0;
           body.deathAngle = world.random() * TAU;
         }
-        body.ground.position.set(body.x, body.y * camera.lean);
+        body.ground.position.set(0, 0);
         body.ground.rotation = Math.sin(body.wobble) * 0.06;
         body.ground.alpha = body.fade;
         body.ground.scale.set(1, 1);
@@ -2739,17 +3162,22 @@
       const shake = body.teeter > 0.05 ? Math.sin(body.wobble * 26) * 0.02 * body.teeter : 0;
       const lean = Math.atan2(world.y - body.y, world.x - body.x);
 
-      body.ground.position.set(
+      layOnGround(
+        world, body.node,
         body.x + Math.cos(lean) * body.teeter * body.len * 0.04,
         body.y + Math.sin(lean) * body.teeter * body.len * 0.04,
       );
+      body.ground.position.set(0, 0);
       body.ground.rotation = body.angle + shake;
       body.ground.scale.set(1, lerp(1, 0.94, body.teeter));
       body.ground.alpha = body.fade;
       body.ground.tint = grey(lerp(1, 0.86, body.teeter));
       body.pitCopy.visible = false;
 
-      if (body.y > world.fieldH + body.len) removeBody(world, body);
+      // Bodies from the far corners scroll straight down the field and pass
+      // off the sides of the narrower near ground on the way. That is them
+      // leaving the screen, and nothing steers or wraps them back.
+      if (body.y > world.field.bottom + body.len) removeBody(world, body);
     }
   };
 
@@ -2812,10 +3240,10 @@
       pop.t += dt;
       const u = clamp(pop.t / pop.life, 0, 1);
       const away = 16 * ease.outCubic(u);
-      const on = groundToScreen(camera, pop.x + pop.outX * away, pop.y + pop.outY * away);
+      const on = groundToScreen(world.view, pop.x + pop.outX * away, pop.y + pop.outY * away);
       pop.text.position.set(on.x, on.y - 10 * ease.outCubic(u));
       pop.text.alpha = 1 - ease.inQuad(u);
-      pop.text.scale.set(onScreen * (1 + 0.25 * ease.outBack(clamp(u / 0.3, 0, 1))));
+      pop.text.scale.set(onScreen * on.scale * (1 + 0.25 * ease.outBack(clamp(u / 0.3, 0, 1))));
       if (u >= 1) {
         pop.text.destroy(true);
         world.popList.splice(world.popList.indexOf(pop), 1);
@@ -2855,14 +3283,45 @@
   };
 
   /**
-   * The field is kept at one body per sixty-odd units of its height, because a
-   * phone's field is half as tall again as the game's own and a fixed count
-   * over it leaves nothing to swallow between sweeps.
+   * How much ground build 7 gave each body: one per sixty-two units of its
+   * field's height across its 540 units of width. Kept per unit of ground
+   * rather than as a count, so a field the camera has made bigger holds more
+   * bodies at build 7's own spacing instead of the same ones spread thin.
    */
+  const GROUND_PER_BODY = 62 * FIELD_W;
+
+  /** Build 7's floor, so a flat and narrow field still has something to swallow. */
+  const FEWEST_BODIES = 12;
+
+  const bodiesWanted = (world) =>
+    Math.max(FEWEST_BODIES, Math.round((fieldWide(world.field) * fieldLong(world.field)) / GROUND_PER_BODY));
+
   const topUpField = (world) => {
-    const want = clamp(Math.round(world.fieldH / 62), 12, 30);
+    const want = bodiesWanted(world);
     let guard = 0;
     while (world.bodyList.length < want && guard++ < want) spawnBody(world);
+  };
+
+  /**
+   * The field as it stands with bodies already lying all over it, rather than
+   * an empty field waiting a minute for the first ones to scroll in from the
+   * top. Used at start, and whenever the camera changes how much field there
+   * is: what fell outside the new field goes, and the rest is made up across
+   * the whole of it.
+   */
+  const fillField = (world) => {
+    const f = world.field;
+    for (const body of [...world.bodyList]) {
+      const outside = body.x < f.left || body.x > f.right || body.y < f.top - body.len || body.y > f.bottom;
+      if (outside && body.phase !== 'fall') removeBody(world, body);
+    }
+    const want = bodiesWanted(world);
+    let guard = 0;
+    while (world.bodyList.length < want && guard++ < want) {
+      const body = spawnBody(world);
+      body.y = lerp(f.top, f.bottom, world.random());
+      body.fade = 1;
+    }
   };
 
   // -------------------------------------------------------------------- input
@@ -2886,20 +3345,23 @@
      * and a camera that moves because the grave moved would otherwise feed
      * straight back into the grave's target.
      */
-    const toField = (event) => {
+    /**
+     * Screen pixels as screen units. The whole drag is worked out on the glass
+     * and only the answer is put back on the ground, because what has to follow
+     * the finger one for one is where the grave is drawn, not where it stands.
+     */
+    const toScreen = (event) => {
       const rect = canvas.getBoundingClientRect();
       const px = world.scale;
-      // Undoing the lean here is what keeps the drag one to one on the glass at
-      // every angle: a finger that travels a centimetre down the screen moves
-      // the grave a centimetre down the screen, however much field that is.
-      return screenToGround(camera, (event.clientX - rect.left) / px, (event.clientY - rect.top) / px);
+      return {
+        x: (event.clientX - rect.left) / px,
+        y: (event.clientY - rect.top) / px,
+      };
     };
 
     /** How far a pointer has travelled, in the screen pixels it travelled them in. */
-    const travelSoFar = (track) => {
-      const on = groundToScreen(camera, track.current.x - track.origin.x, track.current.y - track.origin.y);
-      return Math.hypot(on.x, on.y) * world.scale;
-    };
+    const travelSoFar = (track) =>
+      Math.hypot(track.current.x - track.origin.x, track.current.y - track.origin.y) * world.scale;
 
     const clearSteering = () => {
       steeringId = null;
@@ -2911,13 +3373,13 @@
 
     canvas.addEventListener('pointerdown', (event) => {
       canvas.setPointerCapture?.(event.pointerId);
-      pointers.set(event.pointerId, { origin: toField(event), current: toField(event) });
+      pointers.set(event.pointerId, { origin: toScreen(event), current: toScreen(event) });
     });
 
     canvas.addEventListener('pointermove', (event) => {
       const track = pointers.get(event.pointerId);
       if (!track) return;
-      track.current = toField(event);
+      track.current = toScreen(event);
       if (steeringId !== null) return;
       const travelled = travelSoFar(track);
       if (travelled <= DRAG_SLOP_CSS_PX) return;
@@ -2927,7 +3389,7 @@
         x: lerp(track.origin.x, track.current.x, f),
         y: lerp(track.origin.y, track.current.y, f),
       };
-      graveAtAnchor = { x: world.x, y: world.y };
+      graveAtAnchor = graveOnScreen(world);
       previousTarget = null;
       previousPointer = null;
     });
@@ -2950,10 +3412,11 @@
       if (steeringId === null) return;
       const pointer = pointers.get(steeringId);
       if (!pointer) return clearSteering();
+      const drawn = graveOnScreen(world);
       if (previousTarget && previousPointer) {
-        const held = Math.abs(world.x - previousTarget.x) > 1e-6 || Math.abs(world.y - previousTarget.y) > 1e-6;
+        const held = Math.abs(drawn.x - previousTarget.x) > 1e-6 || Math.abs(drawn.y - previousTarget.y) > 1e-6;
         if (held) {
-          graveAtAnchor = { x: world.x, y: world.y };
+          graveAtAnchor = drawn;
           anchor = previousPointer;
         }
       }
@@ -2963,14 +3426,93 @@
       };
       previousTarget = target;
       previousPointer = { x: pointer.current.x, y: pointer.current.y };
-      moveGrave(world, target.x, target.y);
+      // The answer goes back on the ground here, and only here.
+      const onGround = screenToGround(world.view, target.x, target.y);
+      if (!onGround) return;
+      moveGrave(world, onGround.x, onGround.y);
     };
   };
 
-  const moveGrave = (world, x, y) => {
+  /** Where the grave is drawn, in screen units. */
+  const graveOnScreen = (world) => groundToScreen(world.view, world.x, world.y);
+
+  /**
+   * How far the drawn grave reaches from its own centre, in screen units, read
+   * off what was actually drawn rather than worked out. It is the lip, baked a
+   * third of the opening's width past it on every side, and the headstone when
+   * it is up; which of the two reaches further up the screen depends on the
+   * tilt, so both are measured and the larger taken.
+   */
+  const graveReach = (world, scale) => {
+    // The lip lies on the ground, so its drawing is in ground units and takes
+    // the lean down the screen. The stone stands, so its drawing is already in
+    // screen units.
+    const lip = world.lipArt.getLocalBounds();
+    const lean = world.view.lean;
+    let across = Math.max(-lip.x, lip.x + lip.width) * scale;
+    let up = -lip.y * lean * scale;
+    let down = (lip.y + lip.height) * lean * scale;
+    if (world.headstone.visible) {
+      const stone = world.headstone.getLocalBounds();
+      across = Math.max(across, Math.max(-stone.x, stone.x + stone.width) * scale);
+      up = Math.max(up, -stone.y * scale);
+      down = Math.max(down, (stone.y + stone.height) * scale);
+    }
+    return {
+      across: Math.min(across, FIELD_W / 2),
+      up: Math.min(up, world.fieldH / 2),
+      down: Math.min(down, world.fieldH / 2),
+    };
+  };
+
+  /** The grave pulled back inside the field, which is where bodies come from. */
+  const holdInField = (world, at) => {
     const half = graveWidth(world.size) / 2;
-    world.x = clamp(x, half, FIELD_W - half);
-    world.y = clamp(y, world.size, world.fieldH - world.size);
+    const f = world.field;
+    return {
+      x: clamp(at.x, f.left + half, f.right - half),
+      y: clamp(at.y, f.top + world.size, f.bottom - world.size),
+    };
+  };
+
+  /** The whole drawn grave pulled back inside the screen column. */
+  const holdOnScreen = (world, at) => {
+    const on = groundToScreen(world.view, at.x, at.y);
+    const reach = graveReach(world, on.scale);
+    // The top edge is the horizon where there is one, because above it the
+    // ground has no image and there is nowhere for a grave to be.
+    const ceiling = Math.max(reach.up, groundHorizonRow(world) + world.fieldH * 0.02);
+    const back = screenToGround(
+      world.view,
+      clamp(on.x, reach.across, FIELD_W - reach.across),
+      clamp(on.y, ceiling, world.fieldH - reach.down),
+    );
+    return back ?? at;
+  };
+
+  /**
+   * Two edges hold the grave, not one. The field's, because no body ever comes
+   * from outside it; and the screen's, because the camera does not follow the
+   * grave any more and a leaning field puts the field's own far and near ends
+   * off the glass. The field's goes first.
+   *
+   * The screen's is run until it stops moving the grave. Its reach is read at
+   * the scale where the grave is standing, and pulling the grave in puts it
+   * somewhere the scale is different, most of all at the far end, where the
+   * scale changes fastest.
+   */
+  const SCREEN_HOLD_PASSES = 6;
+
+  const moveGrave = (world, x, y) => {
+    let at = holdInField(world, { x, y });
+    for (let pass = 0; pass < SCREEN_HOLD_PASSES; pass++) {
+      const next = holdOnScreen(world, at);
+      const settled = Math.abs(next.x - at.x) < 1e-6 && Math.abs(next.y - at.y) < 1e-6;
+      at = next;
+      if (settled) break;
+    }
+    world.x = at.x;
+    world.y = at.y;
   };
 
   const attachKeys = (world, ui) => {
@@ -3010,7 +3552,18 @@
       }
       if (dx === 0 && dy === 0) return;
       const n = Math.hypot(dx, dy) || 1;
-      moveGrave(world, world.x + (dx / n) * KEY_SPEED * dt, world.y + (dy / n) * KEY_SPEED * dt);
+      // Worked on the glass, the same as the drag: up is straight up the screen
+      // at the same speed everywhere, and only the answer goes back on the
+      // ground. Stepped in ground units instead, a grave off the middle column
+      // runs toward the vanishing point as it climbs.
+      const drawn = graveOnScreen(world);
+      const onGround = screenToGround(
+        world.view,
+        drawn.x + (dx / n) * KEY_SPEED * dt,
+        drawn.y + (dy / n) * KEY_SPEED * dt,
+      );
+      if (!onGround) return;
+      moveGrave(world, onGround.x, onGround.y);
     };
   };
 
@@ -3026,6 +3579,7 @@
   /** The slider rows, one place: what each knob is called, reads and shows. */
   const KNOB_ROWS = [
     { key: 'tilt', input: 'k-tilt', out: 'v-tilt', show: (v) => `${v.toFixed(1)}°` },
+    { key: 'camera', input: 'k-camera', out: 'v-camera', show: (v) => `${v.toFixed(2)} graves up` },
     { key: 'reach', input: 'k-reach', out: 'v-reach', show: (v) => `${Math.round(v)} u` },
     { key: 'strength', input: 'k-strength', out: 'v-strength', show: (v) => `${Math.round(v)} u/s` },
     {
@@ -3053,6 +3607,7 @@
       knobs[row.key] = Number.isFinite(slider) ? fromSliderValue(row, slider) : DEFAULTS[row.key];
     }
     knobs.headstone = Boolean(knobs.headstone);
+    knobs.ownHole = Boolean(knobs.ownHole);
     return knobs;
   };
 
@@ -3089,9 +3644,11 @@
   const pressed = (id, on) => one(id).setAttribute('aria-pressed', String(on));
 
   /**
-   * How long the tilt slider has to sit still before the field is baked afresh.
-   * The ground is some eight hundred shapes and a texture, so it is the one
-   * thing the angle moves that cannot afford to follow a finger.
+   * How long the tilt slider has to sit still before the ground tile is baked
+   * afresh. The tile is some eight hundred shapes and a texture, so it is the
+   * one thing the angle moves that cannot afford to follow a finger. Only the
+   * grass in it reads the angle, so the warp is right the whole way through the
+   * drag and it is the blades that catch up at the end.
    */
   const GROUND_REPAINT_WAIT = 160;
 
@@ -3101,8 +3658,10 @@
       window.clearTimeout(waiting);
       waiting = window.setTimeout(() => paintGround(world), GROUND_REPAINT_WAIT);
     };
-    const showTilt = () => {
+    const showCamera = () => {
       one('r-tilt').textContent = knobs.tilt.toFixed(1);
+      one('r-camera').textContent = knobs.camera.toFixed(2);
+      one('r-hole').textContent = knobs.ownHole ? 'own' : 'shared';
     };
 
     const paint = () => {
@@ -3116,13 +3675,14 @@
         one(row.out).textContent = row.show(knobs[row.key]);
       }
       pressed('t-headstone', knobs.headstone);
-      showTilt();
+      pressed('t-holecam', knobs.ownHole);
+      showCamera();
     };
 
-    /** The angle in the panel, carried into the camera and everything under it. */
-    const applyTilt = (repaintNow) => {
-      retiltWorld(world, knobs.tilt);
-      showTilt();
+    /** The camera in the panel, carried into the scene and everything under it. */
+    const applyCamera = (repaintNow) => {
+      retiltWorld(world, knobs.tilt, knobs.camera, knobs.ownHole);
+      showCamera();
       if (!repaintNow) return repaintGroundSoon();
       window.clearTimeout(waiting);
       paintGround(world);
@@ -3134,7 +3694,7 @@
         // Only a move of this slider sets the grave's size, so a grave that has
         // grown by swallowing is never yanked back to the number in the panel.
         if (row.key === 'size') world.size = knobs.size;
-        if (row.key === 'tilt') applyTilt(false);
+        if (row.key === 'tilt' || row.key === 'camera') applyCamera(false);
         one(row.out).textContent = row.show(knobs[row.key]);
         saveKnobs(knobs);
       });
@@ -3144,10 +3704,16 @@
       paint();
       saveKnobs(knobs);
     });
+    one('t-holecam').addEventListener('click', () => {
+      knobs.ownHole = !knobs.ownHole;
+      applyCamera(true);
+      paint();
+      saveKnobs(knobs);
+    });
     one('k-reset').addEventListener('click', () => {
       Object.assign(knobs, DEFAULTS);
       world.size = knobs.size;
-      applyTilt(true);
+      applyCamera(true);
       paint();
       try {
         window.localStorage.removeItem(STORE_KEY);
@@ -3163,9 +3729,11 @@
        * It bakes the field there and then rather than on the settling timer,
        * because a check reads the next frame and cannot wait for one.
        */
-      setTilt: (degrees) => {
+      setCamera: (degrees, height, ownHole) => {
         knobs.tilt = clamp(Number(degrees), RANGES.tilt.min, RANGES.tilt.max);
-        applyTilt(true);
+        if (height !== undefined) knobs.camera = clamp(Number(height), RANGES.camera.min, RANGES.camera.max);
+        if (ownHole !== undefined) knobs.ownHole = Boolean(ownHole);
+        applyCamera(true);
         paint();
         saveKnobs(knobs);
       },
@@ -3288,7 +3856,7 @@
     world.size = knobs.size;
     // The camera before the first layout, so the field is measured at the angle
     // the panel is about to show rather than at the one the module opened with.
-    camera = makeCamera(knobs.tilt);
+    useCameras(knobs.tilt, knobs.camera, knobs.ownHole);
     resizeWorld(world);
     world.x = FIELD_W / 2;
     world.y = world.fieldH * 0.62;
@@ -3351,12 +3919,7 @@
       rebuildHole(world);
     });
 
-    topUpField(world);
-    // The field starts with bodies already lying on it rather than falling in.
-    for (const body of world.bodyList) {
-      body.y = lerp(30, world.fieldH - 30, world.random());
-      body.fade = 1;
-    }
+    fillField(world);
 
     if (params.hold) {
       stageHold(world, knobs, params.hold);
@@ -3375,8 +3938,12 @@
         stepWorld(world, dt, knobs);
       } else {
         dragStep();
+        refreshView(world);
+        aimHoleCamera(world);
         keepHoleCurrent(world);
         placeGrave(world);
+        updateGroundMesh(world);
+        updateHaze(world);
         sortUprights(world);
       }
       if (world.swallows !== countAt) {
@@ -3395,10 +3962,11 @@
       repaint: () => paintKnobs.paint(),
       // The camera, and the three pure functions a check needs to hold it to
       // its own arithmetic without going through a rendered frame.
-      setTilt: (degrees) => paintKnobs.setTilt(degrees),
-      camera: () => ({ ...camera }),
-      groundToScreen: (x, y) => groundToScreen(camera, x, y),
-      screenToGround: (x, y) => screenToGround(camera, x, y),
+      setTilt: (degrees, height, ownHole) => paintKnobs.setCamera(degrees, height, ownHole),
+      camera: () => ({ ...camera, dist: world.view.dist, targetX: world.view.x, targetY: world.view.y }),
+      holeCamera: () => ({ ...holeCamera, ownHole: holeCamera !== camera }),
+      groundToScreen: (x, y) => groundToScreen(world.view, x, y),
+      screenToGround: (x, y) => screenToGround(world.view, x, y),
       belowGround: (x, y, depth, size) => belowGround(x, y, depth, size),
       // Frames on demand, so a check can run a whole fall inside one call
       // instead of waiting on the ticker a frame at a time.
@@ -3412,7 +3980,7 @@
       graveOnScreen: () => {
         const px = world.scale;
         const rect = app.canvas.getBoundingClientRect();
-        const on = groundToScreen(camera, world.x, world.y);
+        const on = graveOnScreen(world);
         return {
           x: rect.left + on.x * px,
           y: rect.top + on.y * px,
@@ -3434,7 +4002,18 @@
         swallows: world.swallows,
         size: world.size,
         tilt: camera.degrees,
+        cameraHeight: camera.height,
+        hole: holeCamera === camera ? 'shared' : 'own',
         fieldH: Number(world.fieldH.toFixed(1)),
+        field: {
+          left: Math.round(world.field.left),
+          right: Math.round(world.field.right),
+          top: Math.round(world.field.top),
+          bottom: Math.round(world.field.bottom),
+          wide: Math.round(fieldWide(world.field)),
+          long: Math.round(fieldLong(world.field)),
+        },
+        wanted: bodiesWanted(world),
         openingCssPx: Number((graveWidth(world.size) * world.scale).toFixed(1)),
         bodies: world.bodyList.length,
         walkers: world.bodyList.filter((b) => b.alive).length,
