@@ -243,4 +243,4 @@ Mechanical checks are proven by tests or by a held scenario (the feature flow's 
 
 ## Outside this step
 
-The tilted or 3D view, the hands, the grave's top size (67.5 today, a question for #39), and the tell for a living mob that touches the grave (#129).
+A lit 3D scene, the hands, the grave's top size (67.5 today, a question for #39), and the tell for a living mob that touches the grave (#129). The tilted view was outside this step too; Mark has since ruled that the game goes tilted (#156), and it is built under #159.
