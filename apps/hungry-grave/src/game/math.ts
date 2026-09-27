@@ -7,8 +7,8 @@
  * tc39/ecma262 PR #3345, so Math.sqrt(x * x + y * y) is fully deterministic
  * while Math.hypot is implementation-approximated and would have to be gated
  * and rounded. Math.hypot exists to avoid intermediate overflow, and in a 540
- * by 760 field there is no overflow range to protect; normalize already returns
- * the length, which is what the sim actually wants.
+ * by up to 1260 field there is no overflow range to protect; normalize already
+ * returns the length, which is what the sim actually wants.
  *
  * Nor are Math.sqrt, abs, min, max, floor, ceil, round and sign wrapped. They
  * are exactly specified and the sim calls them directly: wrapping them would

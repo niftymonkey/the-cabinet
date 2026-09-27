@@ -1089,6 +1089,11 @@ const EXCLUDED: Readonly<Record<string, string>> = {
   'caps.mobFire':
     "what this run's mob-fire pool was built at, as caps.mobs is.",
   'caps.corpses': "what this run's corpse pool was built at, as caps.mobs is.",
+  'conditions.fieldHeight':
+    "the run's field height, a starting condition on conditions.startingScore's own terms: the shell resolves it once, createRun carries it and the tape header records it (design record A33). What it decides is folded already: the grave starts at a different place and every edge a body meets is somewhere else, so two runs on different fields diverge in the state the walk folds. That is why the row's arrival moved no witness version.",
+  'field.width':
+    "the run's field, built once by createRun from conditions.fieldHeight and never written again, so it is that row under another name.",
+  'field.height': "the run's field, as field.width is.",
   tick: "the witness's own address. A checkpoint at index N is by definition the state after executeTick has run N times, so the tick names a fold rather than being part of one.",
   'mobs[].alive':
     'gates the walk. A dead slot contributes nothing at all, so liveness already moves the fold by deciding which entities are folded.',

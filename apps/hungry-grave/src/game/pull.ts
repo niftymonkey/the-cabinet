@@ -120,7 +120,12 @@ const pullFood = (state: RunState): void => {
     // Food at rest is left alone rather than moved by nothing, because the
     // bound below would still clamp a body standing outside it.
     if (corpse.vx === 0 && corpse.vy === 0) continue;
-    moveInsideBounds(corpse, corpse.x + corpse.vx, corpse.y + corpse.vy);
+    moveInsideBounds(
+      corpse,
+      corpse.x + corpse.vx,
+      corpse.y + corpse.vy,
+      state.field,
+    );
   }
 };
 

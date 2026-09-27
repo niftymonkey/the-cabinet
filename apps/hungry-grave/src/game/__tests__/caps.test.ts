@@ -15,15 +15,15 @@ import {
   mobFireCap,
   peakLive,
   revenantFirePeak,
-  TRANSIT_SECONDS,
+  transitSeconds,
   TREASURE_ALLOWANCE,
-  WORST_BOSS_PATTERN,
+  worstBossPattern,
 } from '../caps';
 import { PHASE_FLASH_TICKS } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
 import { spawnCorpse, spawnPowerUp, spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { fieldOfHeight, SHORTEST_FIELD, SHORTEST_FIELD_HEIGHT } from '../field';
 import { createStageWatch, checkInvariants } from '../invariants';
 import { fireDirectedShot } from '../mobFire';
 import type { Mob, MobType } from '../mobs';
@@ -40,7 +40,7 @@ import {
   PROCESSION_WAVES,
   VIGIL_WAVES,
 } from '../stage/waves';
-import { FRESHNESS_SECONDS } from '../tuning';
+import { freshnessSecondsFor } from '../tuning';
 import { DEFAULT_TUNING } from '../tuningRecord';
 import type { TuningRecord } from '../tuningRecord';
 
@@ -50,9 +50,9 @@ import type { TuningRecord } from '../tuningRecord';
  * these is the number the module constant held before the caps became
  * derivations of a record (ADR 0056 as amended, ADR 0064).
  */
-const MOB_CAP = mobCap(DEFAULT_TUNING);
-const MOB_FIRE_CAP = mobFireCap(DEFAULT_TUNING);
-const CORPSE_CAP = corpseCap(DEFAULT_TUNING);
+const MOB_CAP = mobCap(DEFAULT_TUNING, SHORTEST_FIELD);
+const MOB_FIRE_CAP = mobFireCap(DEFAULT_TUNING, SHORTEST_FIELD);
+const CORPSE_CAP = corpseCap(DEFAULT_TUNING, SHORTEST_FIELD);
 
 /** The default record with one stage row moved, and every other row left alone. */
 function tuningWithQuietMinimum(seconds: number): TuningRecord {
@@ -209,16 +209,22 @@ describe('the corpse cap (ADR 0056)', () => {
     const directed =
       largestCard(null) *
       (Math.floor(
-        FRESHNESS_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+        freshnessSecondsFor(SHORTEST_FIELD) /
+          DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
       ) +
         1);
     expect(directed).toBeGreaterThan(0);
     expect(CORPSE_CAP).toBe(
-      MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE + directed,
+      MOB_CAP +
+        peakArrivals(freshnessSecondsFor(SHORTEST_FIELD)) +
+        TREASURE_ALLOWANCE +
+        directed,
     );
     // Computed rather than written down, which is what makes it move with the
     // waves: the query is a real query and not a constant wearing one.
-    expect(peakArrivals(FRESHNESS_SECONDS)).toBeGreaterThan(0);
+    expect(peakArrivals(freshnessSecondsFor(SHORTEST_FIELD))).toBeGreaterThan(
+      0,
+    );
   });
 
   it('stands above the mob cap plus the arrivals plus the allowance, so a later term can only raise it', () => {
@@ -226,7 +232,9 @@ describe('the corpse cap (ADR 0056)', () => {
     // held at least this high cannot bind for a reason the derivation already
     // priced, whatever a later term adds on top.
     expect(CORPSE_CAP).toBeGreaterThanOrEqual(
-      MOB_CAP + peakArrivals(FRESHNESS_SECONDS) + TREASURE_ALLOWANCE,
+      MOB_CAP +
+        peakArrivals(freshnessSecondsFor(SHORTEST_FIELD)) +
+        TREASURE_ALLOWANCE,
     );
     expect(TREASURE_ALLOWANCE).toBeGreaterThan(0);
   });
@@ -291,16 +299,18 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // a number in data, so the mob cap is re-derived above that". Every cap
     // below is computed from the waves and read against them here, so a cap
     // that stopped describing the content it was taken from fails.
-    expect(MOB_CAP).toBe(peakLive(DEFAULT_TUNING));
-    expect(MOB_CAP).toBeGreaterThan(peakArrivals(FRESHNESS_SECONDS));
+    expect(MOB_CAP).toBe(peakLive(DEFAULT_TUNING, SHORTEST_FIELD));
+    expect(MOB_CAP).toBeGreaterThan(
+      peakArrivals(freshnessSecondsFor(SHORTEST_FIELD)),
+    );
     expect(CORPSE_CAP).toBeGreaterThan(
-      MOB_CAP + peakArrivals(FRESHNESS_SECONDS),
+      MOB_CAP + peakArrivals(freshnessSecondsFor(SHORTEST_FIELD)),
     );
     expect(MOB_FIRE_CAP).toBeGreaterThan(
-      peakArrivalsOf('revenant', TRANSIT_SECONDS),
+      peakArrivalsOf('revenant', transitSeconds(SHORTEST_FIELD)),
     );
     // None of the three is a literal: each moves when the waves move.
-    expect(peakArrivals(TRANSIT_SECONDS)).toBeGreaterThan(0);
+    expect(peakArrivals(transitSeconds(SHORTEST_FIELD))).toBeGreaterThan(0);
   });
 
   it("takes the mob cap's standing term as the rate times a body's time on the field", () => {
@@ -318,14 +328,20 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
         0,
       );
     expect(fastest).toBeGreaterThan(0);
-    expect(MOB_CAP).toBeGreaterThanOrEqual(fastest * TRANSIT_SECONDS);
+    expect(MOB_CAP).toBeGreaterThanOrEqual(
+      fastest * transitSeconds(SHORTEST_FIELD),
+    );
     // The teeth: the rate alone is an order of magnitude short of it, so the
     // assertion is the transit window being counted rather than the window
     // being generous.
-    expect(fastest * TRANSIT_SECONDS).toBeGreaterThan(10 * fastest);
+    expect(fastest * transitSeconds(SHORTEST_FIELD)).toBeGreaterThan(
+      10 * fastest,
+    );
     // And a body does stand for longer than a freshness window, which is what
     // makes the mob cap the corpse cap's first term rather than a second one.
-    expect(TRANSIT_SECONDS).toBeGreaterThan(FRESHNESS_SECONDS);
+    expect(transitSeconds(SHORTEST_FIELD)).toBeGreaterThan(
+      freshnessSecondsFor(SHORTEST_FIELD),
+    );
   });
 
   it("prices the mob cap's director term as the cards a transit window holds, at the quiet interval's minimum", () => {
@@ -344,11 +360,12 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     const perWindow =
       largestCard(null) *
       (Math.floor(
-        TRANSIT_SECONDS / DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
+        transitSeconds(SHORTEST_FIELD) /
+          DEFAULT_TUNING.stage.quietIntervalMinimumSeconds,
       ) +
         1);
-    expect(peakLive(DEFAULT_TUNING)).toBe(
-      peakArrivals(TRANSIT_SECONDS) + perWindow,
+    expect(peakLive(DEFAULT_TUNING, SHORTEST_FIELD)).toBe(
+      peakArrivals(transitSeconds(SHORTEST_FIELD)) + perWindow,
     );
     expect(largestCard(null)).toBeGreaterThan(0);
     // The teeth on both sides: it is more than one card, because a transit
@@ -363,7 +380,8 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // a derivation over the revenants alone would size a pool for a field that
     // never happens.
     expect(MOB_FIRE_CAP).toBe(
-      revenantFirePeak(DEFAULT_TUNING) + WORST_BOSS_PATTERN,
+      revenantFirePeak(DEFAULT_TUNING, SHORTEST_FIELD) +
+        worstBossPattern(SHORTEST_FIELD),
     );
 
     // Each term stands above its own floor, read off the data rather than off
@@ -371,8 +389,11 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // its shot's flight outlasts its own interval, and a phase holds more than
     // one emit for the same reason.
     const revenants =
-      peakArrivalsOf('revenant', TRANSIT_SECONDS) + largestCard('revenant');
-    expect(revenantFirePeak(DEFAULT_TUNING)).toBeGreaterThan(revenants);
+      peakArrivalsOf('revenant', transitSeconds(SHORTEST_FIELD)) +
+      largestCard('revenant');
+    expect(revenantFirePeak(DEFAULT_TUNING, SHORTEST_FIELD)).toBeGreaterThan(
+      revenants,
+    );
     const worstEmit = Math.max(
       ...Object.values(BOSS_FIRE)
         .flat()
@@ -380,11 +401,13 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
           phase.reduce((shots, pattern) => shots + pattern.shots, 0),
         ),
     );
-    expect(WORST_BOSS_PATTERN).toBeGreaterThan(worstEmit);
+    expect(worstBossPattern(SHORTEST_FIELD)).toBeGreaterThan(worstEmit);
     // The teeth: without the boss term the cap would be the revenant half
     // alone, and the bosses put more in the air than the revenants ever do.
-    expect(WORST_BOSS_PATTERN).toBeGreaterThan(0);
-    expect(MOB_FIRE_CAP).toBeGreaterThan(revenantFirePeak(DEFAULT_TUNING));
+    expect(worstBossPattern(SHORTEST_FIELD)).toBeGreaterThan(0);
+    expect(MOB_FIRE_CAP).toBeGreaterThan(
+      revenantFirePeak(DEFAULT_TUNING, SHORTEST_FIELD),
+    );
 
     // And two phases share the pool at a break, which is why the boss term is a
     // phase beside the one that follows it rather than a phase alone: the flash
@@ -395,7 +418,9 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
         .flat(2)
         .map((pattern) => pattern.unitsASecond),
     );
-    expect(PHASE_FLASH_TICKS / TICK_HZ).toBeLessThan(FIELD_HEIGHT / slowest);
+    expect(PHASE_FLASH_TICKS / TICK_HZ).toBeLessThan(
+      SHORTEST_FIELD_HEIGHT / slowest,
+    );
   });
 
   it('raises a fault at a bound cap and removes nothing from the field', () => {
@@ -467,13 +492,15 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
     // count.
     const beats = Math.max(
       ...[PROCESSION_WAVES, CROWD_WAVES, VIGIL_WAVES].flatMap((waves) =>
-        waves.map((wave) => beatsFrom(waves, wave.t, TRANSIT_SECONDS)),
+        waves.map((wave) =>
+          beatsFrom(waves, wave.t, transitSeconds(SHORTEST_FIELD)),
+        ),
       ),
     );
     expect(beats).toBeGreaterThan(0);
-    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(beats);
+    expect(peakLive(DEFAULT_TUNING, SHORTEST_FIELD)).toBeGreaterThan(beats);
     // And it is not merely larger: the rates carry most of it.
-    expect(peakLive(DEFAULT_TUNING)).toBeGreaterThan(2 * beats);
+    expect(peakLive(DEFAULT_TUNING, SHORTEST_FIELD)).toBeGreaterThan(2 * beats);
   });
 });
 
@@ -483,7 +510,7 @@ describe('the caps as derivations of the run tuning record (ADR 0064)', () => {
     // never a move of a magnitude: the default record's rows are the constants
     // the build compiles, so the three derivations answer exactly what the
     // three module constants held.
-    expect(capsFor(DEFAULT_TUNING)).toEqual({
+    expect(capsFor(DEFAULT_TUNING, SHORTEST_FIELD)).toEqual({
       mobs: MOB_CAP,
       mobFire: MOB_FIRE_CAP,
       corpses: CORPSE_CAP,
@@ -499,17 +526,17 @@ describe('the caps as derivations of the run tuning record (ADR 0064)', () => {
     // lets more bodies stand inside one transit window and all three caps grow
     // with it. Nothing in the tree could say this while a cap was a const.
     const often = tuningWithQuietMinimum(1);
-    expect(mobCap(often)).toBeGreaterThan(MOB_CAP);
-    expect(mobFireCap(often)).toBeGreaterThan(MOB_FIRE_CAP);
-    expect(corpseCap(often)).toBeGreaterThan(CORPSE_CAP);
+    expect(mobCap(often, SHORTEST_FIELD)).toBeGreaterThan(MOB_CAP);
+    expect(mobFireCap(often, SHORTEST_FIELD)).toBeGreaterThan(MOB_FIRE_CAP);
+    expect(corpseCap(often, SHORTEST_FIELD)).toBeGreaterThan(CORPSE_CAP);
   });
 
   it('answers a smaller cap for a record whose director must wait longer', () => {
     // The other direction, so the derivation is a function of the row rather
     // than a floor that only ever rises.
     const seldom = tuningWithQuietMinimum(8);
-    expect(mobCap(seldom)).toBeLessThan(MOB_CAP);
-    expect(corpseCap(seldom)).toBeLessThan(CORPSE_CAP);
+    expect(mobCap(seldom, SHORTEST_FIELD)).toBeLessThan(MOB_CAP);
+    expect(corpseCap(seldom, SHORTEST_FIELD)).toBeLessThan(CORPSE_CAP);
   });
 
   it('keeps every cap a proof over the record it was handed', () => {
@@ -520,16 +547,44 @@ describe('the caps as derivations of the run tuning record (ADR 0064)', () => {
     // freshness window's arrivals plus the treasure allowance plus the
     // director's own adds inside that window.
     const moved = tuningWithQuietMinimum(2);
-    const perWindow = largestCard(null) * (Math.floor(TRANSIT_SECONDS / 2) + 1);
-    expect(mobCap(moved)).toBe(peakArrivals(TRANSIT_SECONDS) + perWindow);
-    expect(mobFireCap(moved)).toBe(
-      revenantFirePeak(moved) + WORST_BOSS_PATTERN,
+    const perWindow =
+      largestCard(null) * (Math.floor(transitSeconds(SHORTEST_FIELD) / 2) + 1);
+    expect(mobCap(moved, SHORTEST_FIELD)).toBe(
+      peakArrivals(transitSeconds(SHORTEST_FIELD)) + perWindow,
     );
-    expect(corpseCap(moved)).toBe(
-      mobCap(moved) +
-        peakArrivals(FRESHNESS_SECONDS) +
+    expect(mobFireCap(moved, SHORTEST_FIELD)).toBe(
+      revenantFirePeak(moved, SHORTEST_FIELD) +
+        worstBossPattern(SHORTEST_FIELD),
+    );
+    expect(corpseCap(moved, SHORTEST_FIELD)).toBe(
+      mobCap(moved, SHORTEST_FIELD) +
+        peakArrivals(freshnessSecondsFor(SHORTEST_FIELD)) +
         TREASURE_ALLOWANCE +
-        largestCard(null) * (Math.floor(FRESHNESS_SECONDS / 2) + 1),
+        largestCard(null) *
+          (Math.floor(freshnessSecondsFor(SHORTEST_FIELD) / 2) + 1),
     );
+  });
+});
+
+describe("the caps on the run's own field (design record A31, A32)", () => {
+  it("are today's on the shortest field: mobs, mob fire and corpses equal the figures at c5b1423ce5", () => {
+    // A31: a run that asks for no shape plays today's game. The figures are
+    // capsFor(DEFAULT_TUNING) read off the tree at c5b1423ce5, before the field
+    // had a height of its own.
+    expect(capsFor(DEFAULT_TUNING, SHORTEST_FIELD)).toEqual({
+      mobs: 481,
+      mobFire: 434,
+      corpses: 704,
+    });
+  });
+
+  it('are all three larger on a 1260 field than on 760', () => {
+    // A32: a body's stay and a shot's flight grow with the field, and the
+    // corpse cap adds the mob cap and a freshness window that grows with it.
+    const short = capsFor(DEFAULT_TUNING, SHORTEST_FIELD);
+    const tall = capsFor(DEFAULT_TUNING, fieldOfHeight(1260));
+    expect(tall.mobs).toBeGreaterThan(short.mobs);
+    expect(tall.mobFire).toBeGreaterThan(short.mobFire);
+    expect(tall.corpses).toBeGreaterThan(short.corpses);
   });
 });

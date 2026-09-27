@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../game/events';
-import { FIELD_HEIGHT } from '../../game/field';
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { ageGrave, hitGrave, moveGrave } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -31,7 +31,7 @@ const SEED = 20260917;
 const DIVE_TO_THE_EDGE = { x: 0, y: 1000 };
 
 /** The grave's own starting mark, which is where a run that never moved stands. */
-const START_Y = FIELD_HEIGHT * 0.8;
+const START_Y = SHORTEST_FIELD_HEIGHT * 0.8;
 
 /** A boss on the field, and the two events that take it off again. */
 const BOSS_ARRIVED: SimEvent = {
@@ -63,7 +63,7 @@ const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 const land = (run: RunState): readonly SimEvent[] => {
   const events = hitGrave(run, 'contact');
   for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
   return events;
 };
 
@@ -77,7 +77,7 @@ describe('strips landed', () => {
     // off the run's state at the end of the tick the strip fired on, which is
     // tuning.gravePath's own read point. The gap is measured under the rim and
     // never under the centre, because containment holds the centre at
-    // FIELD_HEIGHT minus the size and a centre test would shrink as the grave
+    // the field height minus the size and a centre test would shrink as the grave
     // grows.
     const run = ladderRun();
     const accumulator = createStripsLanded();
@@ -87,7 +87,7 @@ describe('strips landed', () => {
 
     expect(stripsLandedOf(accumulator)).toEqual({
       graveY: [START_Y],
-      gapUnderGrave: [FIELD_HEIGHT - START_Y - SIZE_FLOOR],
+      gapUnderGrave: [SHORTEST_FIELD_HEIGHT - START_Y - SIZE_FLOOR],
       atClamp: 0,
       inBoss: 0,
     });
@@ -100,12 +100,12 @@ describe('strips landed', () => {
     const run = ladderRun();
     const accumulator = createStripsLanded();
 
-    moveGrave(run.grave, DIVE_TO_THE_EDGE);
+    moveGrave(run.grave, DIVE_TO_THE_EDGE, run.field);
     spendTheScoreRung(accumulator, run);
     observeStripsLanded(accumulator, land(run), run);
 
     expect(stripsLandedOf(accumulator)).toEqual({
-      graveY: [FIELD_HEIGHT - SIZE_FLOOR],
+      graveY: [SHORTEST_FIELD_HEIGHT - SIZE_FLOOR],
       gapUnderGrave: [0],
       atClamp: 1,
       inBoss: 0,

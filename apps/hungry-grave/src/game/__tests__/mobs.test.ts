@@ -17,7 +17,7 @@ import { TICK_HZ } from '../clock';
 import { fireBelch } from '../belch';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
 import { BIRTHRIGHT_LEVEL, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -460,7 +460,7 @@ describe('the ghoul (ADR 0016)', () => {
     for (let tick = 0; tick < 1000 && mob.alive; tick++) {
       const before = mob.y;
       step(STILL);
-      state.grave.y = Math.min(mob.y, FIELD_HEIGHT - state.grave.size);
+      state.grave.y = Math.min(mob.y, SHORTEST_FIELD_HEIGHT - state.grave.size);
       if (!mob.alive) break;
       expect(mob.y - before).toBeGreaterThanOrEqual(1.35 * SCROLL_SPEED - 1e-9);
     }
@@ -1391,7 +1391,7 @@ describe('a shove outliving the body that carried it (design record R10)', () =>
     // honest answer is the partial report rather than a distance the reading
     // never sees.
     const state = quietRun();
-    const mob = putMob(state, 'shambler', 200, FIELD_HEIGHT + 8);
+    const mob = putMob(state, 'shambler', 200, SHORTEST_FIELD_HEIGHT + 8);
     startShove(mob.impulse, 'bell', mob.id, 0, 1, THROW, 1, 0);
     advanceMobs(state);
     advanceMobs(state);
@@ -1410,5 +1410,19 @@ describe('a shove outliving the body that carried it (design record R10)', () =>
       },
     ]);
     expect(flown).toBeLessThan(THROW);
+  });
+});
+
+describe("the run's own bottom edge", () => {
+  it('culls a mob only once it is past a 1168 field and its own half-height, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    const state = createRun(4, { fieldHeight: 1168 });
+    const mob = putMob(state, 'shambler', 200, 900);
+    cullMobs(state);
+    expect(mob.alive).toBe(true);
+
+    mob.y = 1168 + MOB_TYPES.shambler.halfHeight + 1;
+    cullMobs(state);
+    expect(mob.alive).toBe(false);
   });
 });

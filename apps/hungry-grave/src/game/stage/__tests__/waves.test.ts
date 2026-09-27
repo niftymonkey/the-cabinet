@@ -17,6 +17,7 @@
  * authors is what is under test.
  */
 
+import { SHORTEST_FIELD } from '../../field';
 import { describe, expect, it } from 'vitest';
 
 import wavesSource from '../waves.ts?raw';
@@ -44,7 +45,7 @@ import type { Mob } from '../../mobs';
 import { damageMob, hasEntered, MOB_TYPES } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun } from '../../run';
-import { FRESHNESS_SECONDS, SIZE_START } from '../../tuning';
+import { freshnessSecondsFor, SIZE_START } from '../../tuning';
 import type { ShotPattern, StageWave } from '../waves';
 import {
   BODY_COST,
@@ -532,7 +533,7 @@ describe("the corpse cap's two boss-fight allowances (ADR 0007, ADR 0055)", () =
     //
     // A window that opens on a digger holds one more than the cadence divides
     // into it, which is the worst case the cap has to cover.
-    const window = FRESHNESS_SECONDS * TICK_HZ;
+    const window = freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ;
     const shedIn = (every: number): number =>
       Math.floor((window - 1) / every) + 1;
     const cadences = SPIRAL_ROWS.filter((row) => row !== null).map(

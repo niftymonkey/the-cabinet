@@ -1,8 +1,9 @@
 // The deterministic headless player (ADR 0013).
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import type { FieldPoint } from '../game/field';
+import { FIELD_WIDTH } from '../game/field';
 import type { SimEvent } from '../game/events';
-import { graveWidth } from '../game/grave';
+import { graveWidth, startingPlace } from '../game/grave';
 import { MOB_TYPES } from '../game/mobs';
 import type { MoveCommand, TickCommand } from '../game/command';
 import type { RunState } from '../game/run';
@@ -86,8 +87,8 @@ const THREAT_RADIUS = 240;
 // Clearance past this counts as safe, and drifting back toward the centre decides instead.
 const ENOUGH_CLEARANCE = 60;
 
-// Where the policy drifts when nothing is closing: the shmup's own starting mark.
-const HOME = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
+// Where the policy drifts when nothing is closing: the shmup's own starting mark, on the run's own field.
+const homeOf = (state: RunState): FieldPoint => startingPlace(state.field);
 
 interface Threat {
   readonly x: number;
@@ -153,7 +154,7 @@ const graveAfter = (
     ),
     y: Math.min(
       Math.max(state.grave.y + move.y * speed * ticks, size),
-      FIELD_HEIGHT - size,
+      state.field.height - size,
     ),
   };
 };
@@ -258,7 +259,12 @@ const dodgePolicy: Policy = (state) => {
 
 // The roomiest of the nine moves a thumb can make, which is the whole of the dodge.
 const bestDodge = (state: RunState): MoveCommand => {
-  return bestMoveToward(state, HOME, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES);
+  return bestMoveToward(
+    state,
+    homeOf(state),
+    ENOUGH_CLEARANCE,
+    LOOKAHEAD_SAMPLES,
+  );
 };
 
 /**
@@ -490,7 +496,7 @@ const divingPolicy: Policy = (state) => {
   return {
     move: bestMoveToward(
       state,
-      nearestFood(state) ?? HOME,
+      nearestFood(state) ?? homeOf(state),
       COMMITTING_CLEARANCE,
       LOOKAHEAD_SAMPLES,
     ),
@@ -509,7 +515,8 @@ const divingPolicy: Policy = (state) => {
  */
 const waitingPolicy: Policy = (state) => {
   const food = nearestFood(state);
-  const at = { x: food?.x ?? HOME.x, y: HOME.y };
+  const home = homeOf(state);
+  const at = { x: food?.x ?? home.x, y: home.y };
   return {
     move: bestMoveToward(state, at, ENOUGH_CLEARANCE, LOOKAHEAD_SAMPLES),
     belch: false,
@@ -526,7 +533,7 @@ export {
   waitingPolicy,
   bestMoveToward,
   nearestFood,
-  HOME,
+  homeOf,
   LOOKAHEAD_SAMPLES,
 };
 export type { Policy, PolicyRun };

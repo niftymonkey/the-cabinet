@@ -217,6 +217,60 @@ describe('the batch command', () => {
   );
 
   it(
+    'plays every seed on the field it names, says so in the report, plays 760 when it names none, and refuses a field it cannot play',
+    () => {
+      // A31: a batch takes field=<height> so tuning can test several phone
+      // shapes, and every report names the height its runs played on.
+      const tall = runBatch(
+        SHARP_HAND,
+        String(FIRST_SEED),
+        '1',
+        emptyRoot(),
+        'field=1168',
+      );
+      expect(tall.status).toBe(0);
+      expect(tall.stderr).toContain('1168');
+      const tallFolder = tall.stdout.trimEnd();
+      const tallTape = decodeTape(
+        new Uint8Array(readFileSync(join(tallFolder, `${FIRST_SEED}.tape`))),
+      ).tape;
+      expect(rowIn(tallTape.header, 'fieldHeight')).toBe(1168);
+      const tallReport: BatchReport = JSON.parse(
+        readFileSync(join(tallFolder, 'report.json'), 'utf8'),
+      );
+      expect(tallReport.identity.fieldHeights).toEqual([1168]);
+
+      const plain = runBatch(SHARP_HAND, String(FIRST_SEED), '1', emptyRoot());
+      expect(plain.status).toBe(0);
+      const plainTape = decodeTape(
+        new Uint8Array(
+          readFileSync(join(plain.stdout.trimEnd(), `${FIRST_SEED}.tape`)),
+        ),
+      ).tape;
+      expect(rowIn(plainTape.header, 'fieldHeight')).toBe(760);
+
+      for (const flawed of ['field=700', 'field=abc']) {
+        const root = emptyRoot();
+        const refused = runBatch(
+          SHARP_HAND,
+          String(FIRST_SEED),
+          '1',
+          root,
+          flawed,
+        );
+        expect(refused.status).toBe(1);
+        expect(refused.stdout).toBe('');
+        expect(refused.stderr).toContain(flawed.slice('field='.length));
+        expect(refused.stderr).toContain(
+          'usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts',
+        );
+        expect(readdirSync(root)).toEqual([]);
+      }
+    },
+    PLAYED_BATCH_BUDGET_MS * 2,
+  );
+
+  it(
     'refuses a tuning candidate nobody named, out loud, and plays nothing',
     () => {
       // Parse at the edge, on the rig's own terms: a command line is a person

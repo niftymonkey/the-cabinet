@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { corpseHitbox, cullCorpses, POWER_UP_HALF_EXTENT } from '../corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH, SHORTEST_FIELD } from '../field';
 import {
   ageGrave,
   createGrave,
@@ -59,7 +59,7 @@ const bleedCapOf = (run: RunState): number =>
 function settleSwell(run: ReturnType<typeof createRun>): number {
   let ticks = 0;
   while (run.grave.owed > 0) {
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
     ticks += 1;
     if (ticks > 10000) throw new Error('the swell never finished');
   }
@@ -69,7 +69,7 @@ function settleSwell(run: ReturnType<typeof createRun>): number {
 /** Waits out the invulnerability window, so the next hit lands. */
 function ageOut(run: ReturnType<typeof createRun>): void {
   for (let i = 0; i < INVULNERABLE_TICKS; i++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
 }
 
 function kinds(events: { type: string }[]): string[] {
@@ -92,7 +92,9 @@ describe('a starting size the sim will not honour', () => {
     // written with, so both arrive here unchecked.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    expect(createGrave(SIZE_CEILING + 100).size).toBe(SIZE_CEILING);
+    expect(createGrave(SHORTEST_FIELD, SIZE_CEILING + 100).size).toBe(
+      SIZE_CEILING,
+    );
 
     const said = warn.mock.calls.map((call) => call.join(' '));
     expect(said).toHaveLength(1);
@@ -105,9 +107,9 @@ describe('a starting size the sim will not honour', () => {
   it('a size inside the bounds says nothing, and so does the default', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    createGrave();
-    createGrave(SIZE_CEILING);
-    createGrave(SIZE_FLOOR);
+    createGrave(SHORTEST_FIELD);
+    createGrave(SHORTEST_FIELD, SIZE_CEILING);
+    createGrave(SHORTEST_FIELD, SIZE_FLOOR);
 
     expect(warn).not.toHaveBeenCalled();
   });
@@ -122,9 +124,9 @@ describe('the grave', () => {
     }
   });
   it('the hitbox shrinks with size, so a smaller grave is a harder target (ADR 0003)', () => {
-    const grave = createGrave();
+    const grave = createGrave(SHORTEST_FIELD);
     grave.x = FIELD_WIDTH / 2;
-    grave.y = FIELD_HEIGHT / 2;
+    grave.y = SHORTEST_FIELD_HEIGHT / 2;
 
     grave.size = SIZE_CEILING;
     const big = graveHitbox(grave);
@@ -140,24 +142,24 @@ describe('the grave', () => {
     }
   });
   it('a full move command moves exactly BASE_SPEED in one tick, and a diagonal is applied as given without normalizing (ADR 0011)', () => {
-    const grave = createGrave();
+    const grave = createGrave(SHORTEST_FIELD);
     const from = { x: grave.x, y: grave.y };
-    moveGrave(grave, { x: 1, y: 0 });
+    moveGrave(grave, { x: 1, y: 0 }, SHORTEST_FIELD);
     expect(grave.x).toBe(from.x + BASE_SPEED);
     expect(grave.y).toBe(from.y);
 
     // ADR 0011 puts normalization and the diagonal cap in each input model, and
     // deliberately leaves touch uncapped: capping touch to keyboard feel WAS
     // the input lag felt on device. A cap here would silently undo that.
-    const diagonal = createGrave();
+    const diagonal = createGrave(SHORTEST_FIELD);
     const start = { x: diagonal.x, y: diagonal.y };
-    moveGrave(diagonal, { x: 1, y: -1 });
+    moveGrave(diagonal, { x: 1, y: -1 }, SHORTEST_FIELD);
     expect(diagonal.x).toBe(start.x + BASE_SPEED);
     expect(diagonal.y).toBe(start.y - BASE_SPEED);
 
-    const half = createGrave();
+    const half = createGrave(SHORTEST_FIELD);
     const origin = { x: half.x, y: half.y };
-    moveGrave(half, { x: 0.5, y: 0 });
+    moveGrave(half, { x: 0.5, y: 0 }, SHORTEST_FIELD);
     expect(half.x).toBe(origin.x + BASE_SPEED / 2);
   });
   it('the grave is held inside the field at every edge, accounting for its own width and height (ADR 0003)', () => {
@@ -168,17 +170,24 @@ describe('the grave', () => {
         { x: 0, y: -1 },
         { x: 0, y: 1 },
       ]) {
-        const grave = createGrave();
+        const grave = createGrave(SHORTEST_FIELD);
         grave.size = size;
         // Far more shoving than the field is wide or tall.
-        for (let i = 0; i < 400; i++) moveGrave(grave, push);
+        for (let i = 0; i < 400; i++) moveGrave(grave, push, SHORTEST_FIELD);
         const box = graveHitbox(grave);
         expect(box.x).toBeGreaterThanOrEqual(0);
         expect(box.y).toBeGreaterThanOrEqual(0);
         expect(box.x + box.width).toBeLessThanOrEqual(FIELD_WIDTH);
-        expect(box.y + box.height).toBeLessThanOrEqual(FIELD_HEIGHT);
+        expect(box.y + box.height).toBeLessThanOrEqual(SHORTEST_FIELD_HEIGHT);
       }
     }
+  });
+  it("is held inside the run's own field: pushed down on a 1168 field it stops at 1168 less its size", () => {
+    // A32: the grave's hold is an edge, so it reads the run's own height.
+    const run = createRun(1, { fieldHeight: 1168 });
+    for (let i = 0; i < 400; i++)
+      moveGrave(run.grave, { x: 0, y: 1 }, run.field);
+    expect(run.grave.y).toBe(1168 - run.grave.size);
   });
   it('growGrave grows by the amount given, below the ceiling (ADR 0003)', () => {
     // The amount arrives over the ticks after it rather than on the tick it was
@@ -238,10 +247,14 @@ describe('the grave', () => {
     for (let i = INVULNERABLE_TICKS; i > 0; i--) {
       expect(run.grave.invulnerable).toBe(i);
       expect(hitGrave(run, 'contact')).toEqual([]);
-      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      ageGrave(
+        run.grave,
+        run.conditions.tuning.growth.swellPerSecond,
+        run.field,
+      );
     }
     expect(run.grave.invulnerable).toBe(0);
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
     expect(run.grave.invulnerable).toBe(0);
     expect(hitGrave(run, 'contact').length).toBeGreaterThan(0);
   });
@@ -616,7 +629,11 @@ describe('the grave', () => {
         if (amount === undefined) throw new Error(`no amount at tick ${i}`);
         growGrave(run.grave, amount);
       }
-      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      ageGrave(
+        run.grave,
+        run.conditions.tuning.growth.swellPerSecond,
+        run.field,
+      );
       expect(run.grave.size).toBeGreaterThanOrEqual(SIZE_FLOOR);
       expect(run.grave.size).toBeLessThanOrEqual(SIZE_CEILING);
     }
@@ -754,10 +771,10 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // The transferable half of Sonic's no-recollect window, as geometry rather
     // than as a clock: the loss registers before the chase can connect.
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT / 2;
+    run.grave.y = SHORTEST_FIELD_HEIGHT / 2;
 
     hitGrave(run, 'contact');
-    moveGrave(run.grave, { x: 0, y: 1 });
+    moveGrave(run.grave, { x: 0, y: 1 }, run.field);
 
     const box = graveHitbox(run.grave);
     const bodies = fallenRungs(run);
@@ -794,7 +811,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
   /** The drop the placement uses, read off an ordinary strip rather than imported. */
   function dropOffset(): number {
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT / 2;
+    run.grave.y = SHORTEST_FIELD_HEIGHT / 2;
     hitGrave(run, 'contact');
     const body = fallenRungs(run)[0];
     if (body === undefined) throw new Error('no body fell');
@@ -804,8 +821,8 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
   /** A run standing at the bottom clamp, where nothing fits below the grave. */
   function atTheBottomClamp(): ReturnType<typeof createRun> {
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT;
-    moveGrave(run.grave, { x: 0, y: 0 });
+    run.grave.y = SHORTEST_FIELD_HEIGHT;
+    moveGrave(run.grave, { x: 0, y: 0 }, run.field);
     return run;
   }
 
@@ -824,7 +841,9 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     for (const body of standing) {
       expect(body.y).toBeLessThan(run.grave.y);
       expect(body.y - body.halfExtent).toBeGreaterThanOrEqual(0);
-      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(
+        SHORTEST_FIELD_HEIGHT,
+      );
     }
     expect(cullCorpses(run)).toHaveLength(0);
   });
@@ -834,14 +853,16 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // not the grave's position, because a body dropped half off the field is a
     // rung the player cannot read as catchable either.
     const drop = dropOffset();
-    const lastWithRoom = FIELD_HEIGHT - drop - POWER_UP_HALF_EXTENT;
+    const lastWithRoom = SHORTEST_FIELD_HEIGHT - drop - POWER_UP_HALF_EXTENT;
 
     const roomy = atTheFloorWithNoScore(3);
     roomy.grave.y = lastWithRoom;
     hitGrave(roomy, 'contact');
     for (const body of fallenRungs(roomy)) {
       expect(body.y).toBeCloseTo(lastWithRoom + drop, 9);
-      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(
+        SHORTEST_FIELD_HEIGHT,
+      );
     }
 
     const tight = atTheFloorWithNoScore(3);
@@ -911,7 +932,7 @@ describe('the growth the grave is owed, and the swell that takes it in', () => {
     expect(run.grave.size).toBe(SIZE_START);
     expect(run.grave.owed).toBeCloseTo(paid, 10);
 
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
     expect(run.grave.size).toBeCloseTo(SIZE_START + perTickOf(run), 10);
   });
 
@@ -926,7 +947,11 @@ describe('the growth the grave is owed, and the swell that takes it in', () => {
     let largest = 0;
     let ticks = 0;
     while (run.grave.owed > 0) {
-      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      ageGrave(
+        run.grave,
+        run.conditions.tuning.growth.swellPerSecond,
+        run.field,
+      );
       largest = Math.max(largest, run.grave.size - previous);
       previous = run.grave.size;
       ticks += 1;
@@ -943,7 +968,11 @@ describe('the growth the grave is owed, and the swell that takes it in', () => {
     growGrave(run.grave, paid);
 
     for (let tick = 0; tick < 40; tick += 1) {
-      ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+      ageGrave(
+        run.grave,
+        run.conditions.tuning.growth.swellPerSecond,
+        run.field,
+      );
       const gained = run.grave.size - SIZE_START;
       expect(`${tick} ${(gained + run.grave.owed).toFixed(9)}`).toBe(
         `${tick} ${paid.toFixed(9)}`,
@@ -988,7 +1017,7 @@ describe('the growth the grave is owed, and the swell that takes it in', () => {
     // undone by the swell within a second.
     const run = createRun(1);
     growGrave(run.grave, 6);
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
     const trueSize = run.grave.size + run.grave.owed;
 
     hitGrave(run, 'contact');

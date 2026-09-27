@@ -8,12 +8,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Stepper } from '../../dev/stepping';
 import { stepping } from '../../dev/stepping';
 import { TICK_HZ } from '../clock';
-import { FIELD_WIDTH } from '../field';
+import { FIELD_WIDTH, SHORTEST_FIELD } from '../field';
 import { spawnBoss } from '../bosses/phases';
 import type { Corpse } from '../corpses';
 import {
   CORPSE_HALF_EXTENT,
-  FRESHNESS_PER_TICK,
+  freshnessPerTick,
   POWER_UP_HALF_EXTENT,
   spawnCorpse,
   spawnFallenRung,
@@ -832,7 +832,7 @@ describe('food goes in when most of it is over the mouth (grave-in-the-ground R1
       acrossTheLeftRim(state, 2, CORPSE_HALF_EXTENT),
       state.grave.y,
     );
-    corpse.freshness = FRESHNESS_PER_TICK / 2;
+    corpse.freshness = freshnessPerTick(SHORTEST_FIELD) / 2;
 
     const events = step(STILL);
 
@@ -999,7 +999,7 @@ describe('food goes in when most of it is over the mouth (grave-in-the-ground R1
       acrossTheLeftRim(state, 8, CORPSE_HALF_EXTENT),
       state.grave.y,
     );
-    corpse.freshness = FRESHNESS_PER_TICK / 2;
+    corpse.freshness = freshnessPerTick(SHORTEST_FIELD) / 2;
 
     const events = step(STILL);
 

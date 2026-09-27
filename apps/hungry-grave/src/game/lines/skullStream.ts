@@ -5,7 +5,7 @@
 import { createPool, SKULL_CAP, takeSlot } from '../caps';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import type { RunState } from '../run';
 import { freshnessScale } from '../tuning';
 import { MAX_LEVEL } from './roster';
@@ -253,7 +253,7 @@ const cullSkulls = (state: RunState): void => {
       skull.x + SKULL_HALF_EXTENT < 0 ||
       skull.x - SKULL_HALF_EXTENT > FIELD_WIDTH ||
       skull.y + SKULL_HALF_EXTENT < 0 ||
-      skull.y - SKULL_HALF_EXTENT > FIELD_HEIGHT;
+      skull.y - SKULL_HALF_EXTENT > state.field.height;
     if (outside) skull.alive = false;
   }
 };

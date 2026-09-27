@@ -5,7 +5,8 @@
 
 import type { PoolSlot } from './caps';
 import { SKULL_CAP, WISP_CAP } from './caps';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Field } from './field';
+import { FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
 import { graveHitbox, SCORE_RUNG_REARM_SIZE } from './grave';
@@ -384,8 +385,8 @@ const checkScoreNotNegative = (state: RunState, faults: Fault[]): void => {
 };
 
 /**
- * Rounding room, in field units. containGrave holds the grave's centre at
- * FIELD_HEIGHT minus its size, and the hitbox then computes (y - size) + 2 *
+ * Rounding room, in field units. containGrave holds the grave's centre at the
+ * run's field height minus its size, and the hitbox then computes (y - size) + 2 *
  * size, which is not the same binary64 expression: re-associating it overshoots
  * by up to 1.1e-13 at sizes the grave actually reaches. The tolerance is eleven
  * thousand times larger than that worst case and four thousand times smaller
@@ -401,7 +402,7 @@ const checkInBounds = (state: RunState, faults: Fault[]): void => {
     box.x >= -BOUNDS_TOLERANCE &&
     box.y >= -BOUNDS_TOLERANCE &&
     box.x + box.width <= FIELD_WIDTH + BOUNDS_TOLERANCE &&
-    box.y + box.height <= FIELD_HEIGHT + BOUNDS_TOLERANCE;
+    box.y + box.height <= state.field.height + BOUNDS_TOLERANCE;
   if (!inside) {
     record(
       faults,
@@ -412,12 +413,17 @@ const checkInBounds = (state: RunState, faults: Fault[]): void => {
 };
 
 // A point inside the field widened by a margin on every side.
-const within = (x: number, y: number, margin: number): boolean => {
+const within = (
+  field: Field,
+  x: number,
+  y: number,
+  margin: number,
+): boolean => {
   return (
     x >= -margin &&
     y >= -margin &&
     x <= FIELD_WIDTH + margin &&
-    y <= FIELD_HEIGHT + margin
+    y <= field.height + margin
   );
 };
 
@@ -426,7 +432,7 @@ const within = (x: number, y: number, margin: number): boolean => {
 const checkMobsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
-    if (!within(mob.x, mob.y, SPAWN_MARGIN)) {
+    if (!within(state.field, mob.x, mob.y, SPAWN_MARGIN)) {
       record(
         faults,
         'entities in bounds',
@@ -440,7 +446,7 @@ const checkMobsInBounds = (state: RunState, faults: Fault[]): void => {
 const checkCorpsesInBounds = (state: RunState, faults: Fault[]): void => {
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    if (!within(corpse.x, corpse.y, SPAWN_MARGIN)) {
+    if (!within(state.field, corpse.x, corpse.y, SPAWN_MARGIN)) {
       record(
         faults,
         'entities in bounds',
@@ -454,7 +460,7 @@ const checkCorpsesInBounds = (state: RunState, faults: Fault[]): void => {
 const checkMobFireInBounds = (state: RunState, faults: Fault[]): void => {
   for (const shot of state.mobFire) {
     if (!shot.alive) continue;
-    if (!within(shot.x, shot.y, shot.halfExtent)) {
+    if (!within(state.field, shot.x, shot.y, shot.halfExtent)) {
       record(
         faults,
         'entities in bounds',
@@ -469,7 +475,7 @@ const checkMobFireInBounds = (state: RunState, faults: Fault[]): void => {
 const checkSkullsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const skull of state.skulls) {
     if (!skull.alive) continue;
-    if (!within(skull.x, skull.y, SKULL_HALF_EXTENT)) {
+    if (!within(state.field, skull.x, skull.y, SKULL_HALF_EXTENT)) {
       record(
         faults,
         'entities in bounds',
@@ -488,7 +494,7 @@ const checkSkullsInBounds = (state: RunState, faults: Fault[]): void => {
 const checkWispsInBounds = (state: RunState, faults: Fault[]): void => {
   for (const wisp of state.wisps) {
     if (!wisp.alive) continue;
-    if (!within(wisp.x, wisp.y, SPAWN_MARGIN)) {
+    if (!within(state.field, wisp.x, wisp.y, SPAWN_MARGIN)) {
       record(
         faults,
         'entities in bounds',
@@ -519,7 +525,7 @@ const checkPatchesInBounds = (state: RunState, faults: Fault[]): void => {
     if (!patch.alive) continue;
     const offToTheSide =
       patch.x < -SPAWN_MARGIN || patch.x > FIELD_WIDTH + SPAWN_MARGIN;
-    const pastTheCloseRule = patch.y - patch.radius > FIELD_HEIGHT;
+    const pastTheCloseRule = patch.y - patch.radius > state.field.height;
     if (offToTheSide || pastTheCloseRule) {
       record(
         faults,

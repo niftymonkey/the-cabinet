@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_HALF_EXTENT, POWER_UP_HALF_EXTENT } from '../corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH, fieldOfHeight } from '../field';
 import { graveWidth } from '../grave';
 import type { Rect } from '../overlap';
 import { shareOverMouth } from '../tip';
@@ -144,7 +144,11 @@ describe('the share of food over the mouth (design record R1)', () => {
       mouth,
     );
     const offTheBottom = shareOverMouth(
-      foodAt(MID_X, FIELD_HEIGHT + CORPSE_HALF_EXTENT * 3, CORPSE_HALF_EXTENT),
+      foodAt(
+        MID_X,
+        SHORTEST_FIELD_HEIGHT + CORPSE_HALF_EXTENT * 3,
+        CORPSE_HALF_EXTENT,
+      ),
       mouth,
     );
 
@@ -152,5 +156,20 @@ describe('the share of food over the mouth (design record R1)', () => {
     expect(offTheBottom).toBe(0);
     expect(Number.isFinite(offTheLeft)).toBe(true);
     expect(Number.isFinite(offTheBottom)).toBe(true);
+  });
+});
+
+describe("food across the run's own bottom edge", () => {
+  it("counts only its part inside the run's field toward the mouth, on a 1168 and on a 760 field", () => {
+    // A32 and shareOverMouth: a corpse centred on the bottom edge has its top
+    // half inside the field, and a ceiling mouth held against that edge covers
+    // all of it. Counting the half outside too would halve the share to 0.5;
+    // counting the run's field as 760 would leave nothing inside on 1168.
+    for (const height of [1168, 760]) {
+      const field = fieldOfHeight(height);
+      const mouth = mouthAt(MID_X, height - SIZE_CEILING, SIZE_CEILING);
+      const straddling = foodAt(MID_X, height, CORPSE_HALF_EXTENT);
+      expect(shareOverMouth(straddling, mouth, field)).toBe(1);
+    }
   });
 });

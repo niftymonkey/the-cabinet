@@ -3,7 +3,8 @@
 // their own modules, and this file holds the rest.
 
 import { TICK_HZ } from './clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Field } from './field';
+import { FIELD_WIDTH } from './field';
 
 /**
  * Base speed in field units per tick. ADR 0003: crossing the field's width
@@ -27,14 +28,19 @@ const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
 const SCROLL_SPEED = 38 / TICK_HZ;
 
 /**
- * ADR 0004: about ten seconds from kill to gone, derived from scroll speed
- * rather than declared beside it. The ADR and the concept doc both state the
- * causality in this direction, so that a scroll-speed retune retunes the meter
- * with it. A mid-field kill must reach the bottom edge as a nearly empty scrap,
- * and deriving is what makes that true by construction instead of by two
- * numbers that drift apart.
+ * ADR 0004: about ten seconds from kill to gone on the 760 field, derived from
+ * scroll speed rather than declared beside it. The ADR and the concept doc both
+ * state the causality in this direction, so that a scroll-speed retune retunes
+ * the meter with it. A mid-field kill must reach the bottom edge as a nearly
+ * empty scrap, and deriving is what makes that true by construction instead of
+ * by two numbers that drift apart.
+ *
+ * Per field, so that stays true on every height a run may ask for (design
+ * record A32): held at 760's ten seconds on a 1168 field, food killed in its
+ * top 54% would rot before it reached the grave's row. Exact at 760.
  */
-const FRESHNESS_SECONDS = FIELD_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
+const freshnessSecondsFor = (field: Field): number =>
+  field.height / 2 / (SCROLL_SPEED * TICK_HZ);
 
 // ADR 0004: freshness scales every payout down to this floor, never to zero.
 const FRESHNESS_PAYOUT_FLOOR = 0.25;
@@ -142,7 +148,7 @@ export {
   freshnessScale,
   BASE_SPEED,
   SCROLL_SPEED,
-  FRESHNESS_SECONDS,
+  freshnessSecondsFor,
   FRESHNESS_PAYOUT_FLOOR,
   GRAVE_ASPECT,
   SIZE_CEILING,

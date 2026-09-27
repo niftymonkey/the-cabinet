@@ -1005,3 +1005,48 @@ describe('the tape codec parses a header without the director', () => {
     ).toEqual([OUT_OF_THE_CODEC_S_REACH]);
   });
 });
+
+/**
+ * Where the old fixed height may still be read until slice P2 deletes it: src/app
+ * alone. The rules, the tape, the dev tools and the scripts read the run's own
+ * field or a named bound (design record A32).
+ */
+const FIELD_HEIGHT_FREE = ['game', 'tape', 'dev'].map((folder) =>
+  join(SRC, folder),
+);
+const SCRIPTS = resolve(SRC, '..', 'scripts');
+const FIELD_MODULE = join(SRC, 'game', 'field');
+
+/** Whether this source imports FIELD_HEIGHT from the field module. */
+const importsFieldHeight = (file: string, source: string): boolean =>
+  [
+    ...source.matchAll(
+      /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g,
+    ),
+  ].some(
+    (match) =>
+      resolve(dirname(file), requireDefined(match[2], 'no specifier')) ===
+        FIELD_MODULE &&
+      /\bFIELD_HEIGHT\b/.test(requireDefined(match[1], 'no imported names')),
+  );
+
+describe('the old fixed height stays in src/app (design record A32)', () => {
+  it('no file under src/game, src/tape, src/dev or scripts imports FIELD_HEIGHT', () => {
+    // The detector first, on a source that does import it, so the absence
+    // below is one it could have seen.
+    const sample = join(SRC, 'dev', 'readings', 'anyReading.ts');
+    expect(
+      importsFieldHeight(
+        sample,
+        "import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';",
+      ),
+    ).toBe(true);
+
+    const files = [...FIELD_HEIGHT_FREE, SCRIPTS].flatMap(typescriptFilesUnder);
+    const importing = files.filter((file) =>
+      importsFieldHeight(file, readFileSync(file, 'utf8')),
+    );
+    expect(files.length).toBeGreaterThan(0);
+    expect(importing.map((file) => relative(SRC, file))).toEqual([]);
+  });
+});

@@ -25,7 +25,7 @@ const SEED = 20260826;
 const land = (run: RunState, source: GraveHitSource): readonly SimEvent[] => {
   const events = hitGrave(run, source);
   for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
   return events;
 };
 

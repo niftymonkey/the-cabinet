@@ -14,7 +14,7 @@ import {
   carriersScheduled,
   carriesAt,
 } from '../carriers';
-import { FIELD_HEIGHT } from '../field';
+import { SHORTEST_FIELD_HEIGHT } from '../field';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
 import type { WeaponLine } from '../lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -131,7 +131,7 @@ describe('a missed carrier is missed (ADR 0048)', () => {
     const carrier = spawnMob(
       state,
       'shambler',
-      { x: 200, y: FIELD_HEIGHT - 20, vx: 0, vy: 1, index: 0 },
+      { x: 200, y: SHORTEST_FIELD_HEIGHT - 20, vx: 0, vy: 1, index: 0 },
       true,
       'wave',
     )!;
@@ -267,7 +267,7 @@ describe('the schedule', () => {
       'shambler',
       {
         x: 200,
-        y: FIELD_HEIGHT + MOB_TYPES.shambler.halfHeight + 1,
+        y: SHORTEST_FIELD_HEIGHT + MOB_TYPES.shambler.halfHeight + 1,
         vx: 0,
         vy: 1,
         index: 0,

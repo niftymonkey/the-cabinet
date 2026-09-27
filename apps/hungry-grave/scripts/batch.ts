@@ -2,7 +2,7 @@
  * The batch entry: a seed range played headlessly under one configuration, one
  * tape per seed on disk with the batch's own report beside them, and the folder
  * path as the whole of stdout. Run as
- * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>]`.
+ * `pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>] [field=<height>]`.
  *
  * The playing lives in src/dev/harnessRun.ts and the reducing in
  * src/dev/batchReport.ts, both of which carry mayImport: [] and may not touch
@@ -30,13 +30,14 @@ import { playHarnessRun } from '../src/dev/harnessRun';
 import { measure } from '../src/dev/measure';
 import type { Measurement } from '../src/dev/measure';
 import { isRigName, RIGS, RIG_NAMES } from '../src/dev/rigs';
-import type { RigName } from '../src/dev/rigs';
+import type { Rig, RigName } from '../src/dev/rigs';
 import {
   CANDIDATES,
   CANDIDATE_NAMES,
   isCandidateName,
 } from '../src/dev/tuningCandidates';
 import type { CandidateName } from '../src/dev/tuningCandidates';
+import { SHORTEST_FIELD_HEIGHT, TALLEST_FIELD_HEIGHT } from '../src/game/field';
 import { SEED_LIMIT } from '../src/game/run';
 import { UNSTAMPED_BUILD } from '../src/tape/buildIdentity';
 import { decodeTape } from '../src/tape/decode';
@@ -64,14 +65,15 @@ const DEFAULT_RIG: RigName = 'birthright';
  */
 const DEFAULT_CANDIDATE: CandidateName = 'default';
 
-const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>]
+const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/batch.ts <configuration> <first-seed> [count] [out-root] [rig=<rig>] [tuning=<candidate>] [field=<height>]
   configurations: ${CONFIGURATION_NAMES.join(', ')}
   rigs: ${RIG_NAMES.join(', ')}
   candidates: ${CANDIDATE_NAMES.join(', ')}
   count defaults to ${BATCH_SEEDS}
   out-root defaults to ${DEFAULT_OUT_ROOT}
   rig defaults to ${DEFAULT_RIG}
-  tuning defaults to ${DEFAULT_CANDIDATE}`;
+  tuning defaults to ${DEFAULT_CANDIDATE}
+  field is a whole number from ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT} and defaults to ${SHORTEST_FIELD_HEIGHT}`;
 
 /**
  * A flawed argument is an external failure and the person holding the command
@@ -124,6 +126,27 @@ const parseCandidate = (raw: string | undefined): CandidateName | null => {
     );
   }
   return raw;
+};
+
+/**
+ * The field height the arguments name, or null once it has been refused out
+ * loud: a whole number inside the shapes a run may take (design record A30),
+ * and the shortest field when none is named, so a bare command plays the batch
+ * it played before the field had a height (A31).
+ */
+const parseFieldHeight = (raw: string | undefined): number | null => {
+  if (raw === undefined) return SHORTEST_FIELD_HEIGHT;
+  const value = wholeNumber(raw);
+  if (
+    value === null ||
+    value < SHORTEST_FIELD_HEIGHT ||
+    value > TALLEST_FIELD_HEIGHT
+  ) {
+    return refuse(
+      `${raw} is not a field height (a whole number from ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT})`,
+    );
+  }
+  return value;
 };
 
 /** The named configuration, or null once the argument has been refused out loud. */
@@ -197,6 +220,7 @@ interface BatchRequest {
   readonly configuration: ConfigurationName;
   readonly rig: RigName;
   readonly candidate: CandidateName;
+  readonly fieldHeight: number;
   readonly seeds: readonly number[];
   readonly outRoot: string;
 }
@@ -268,6 +292,19 @@ const attribution = (measurement: Measurement): string => {
 };
 
 /**
+ * The rig the batch plays from, on the field it asked for: the height is a
+ * starting condition beside the rig's own and handed in with them, so the rig
+ * keeps its name and a figure names both (design record A31).
+ */
+const rigOnTheField = (request: BatchRequest): Rig => {
+  const rig = RIGS[request.rig];
+  return {
+    ...rig,
+    conditions: { ...rig.conditions, fieldHeight: request.fieldHeight },
+  };
+};
+
+/**
  * Plays every seed in turn, leaves a tape for each and measures the bytes it
  * wrote, answering null the moment one cannot be written.
  *
@@ -289,7 +326,7 @@ const playInto = (
   for (const seed of request.seeds) {
     const run = playHarnessRun(
       CONFIGURATIONS[request.configuration],
-      RIGS[request.rig],
+      rigOnTheField(request),
       CANDIDATES[request.candidate].record,
       seed,
       commitHash,
@@ -352,7 +389,7 @@ const reportInto = (
   // says how wide the batch is, because that is the line a person reads before
   // taking any rate off the folder (#118).
   console.error(
-    `${report.verified} of ${seeds.length} verified, ${report.unverified.length} not, ${report.unfinished.length} with no ending`,
+    `${report.verified} of ${seeds.length} verified, ${report.unverified.length} not, ${report.unfinished.length} with no ending, on a field ${request.fieldHeight} tall`,
   );
   if (report.unfinished.length > 0) {
     console.error(
@@ -371,7 +408,7 @@ const reportInto = (
  * starting condition behind three optional positions would be reached by naming
  * two arguments nobody wanted to name.
  */
-const KEYS = ['rig', 'tuning'] as const;
+const KEYS = ['rig', 'tuning', 'field'] as const;
 
 /** Whether an argument names a key rather than filling a position. */
 const isKeyed = (argument: string): boolean =>
@@ -433,13 +470,15 @@ const requestedBatch = (given: readonly string[]): BatchRequest | null => {
   if (rig === null) return null;
   const candidate = parseCandidate(valueUnder(given, 'tuning'));
   if (candidate === null) return null;
+  const fieldHeight = parseFieldHeight(valueUnder(given, 'field'));
+  if (fieldHeight === null) return null;
   // The batch's own size when nobody names one, which is the row a person
   // running a batch never has to remember (ADR 0053).
   const count = countRaw === undefined ? BATCH_SEEDS : parseCount(countRaw);
   if (count === null) return null;
   const seeds = parseSeeds(seedRaw, count);
   if (seeds === null) return null;
-  return { configuration, rig, candidate, seeds, outRoot };
+  return { configuration, rig, candidate, fieldHeight, seeds, outRoot };
 };
 
 const main = (): void => {

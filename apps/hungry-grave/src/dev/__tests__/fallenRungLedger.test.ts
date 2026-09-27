@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { asSwallowable, cullCorpses } from '../../game/corpses';
 import type { Corpse } from '../../game/corpses';
 import type { SimEvent } from '../../game/events';
-import { FIELD_HEIGHT } from '../../game/field';
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { ageGrave, hitGrave } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -45,7 +45,7 @@ const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 const land = (run: RunState): readonly SimEvent[] => {
   const events = hitGrave(run, 'contact');
   for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
   return events;
 };
 
@@ -78,7 +78,7 @@ const swallowRung = (run: RunState, rung: Corpse): readonly SimEvent[] => {
 };
 
 const scrollRungOff = (run: RunState, rung: Corpse): readonly SimEvent[] => {
-  rung.y = FIELD_HEIGHT * 2;
+  rung.y = SHORTEST_FIELD_HEIGHT * 2;
   return cullCorpses(run);
 };
 

@@ -6,7 +6,12 @@
 import { describe, expect, it } from 'vitest';
 import { PHASE_HP } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import {
+  fieldOfHeight,
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+} from '../field';
 import { MOB_TYPES } from '../mobs';
 import type { BossKind } from '../stage/waves';
 import { BOSS_KINDS } from '../stage/waves';
@@ -14,7 +19,7 @@ import {
   BASE_SPEED,
   CORPSES_TO_CEILING,
   FRESHNESS_PAYOUT_FLOOR,
-  FRESHNESS_SECONDS,
+  freshnessSecondsFor,
   INVULNERABLE_TICKS,
   RESERVOIR_CAPACITY,
   RESERVOIR_IN_CORPSES,
@@ -45,19 +50,25 @@ describe('the tuning derivations', () => {
     const twoSeconds = 2 * TICK_HZ;
     expect(BASE_SPEED * twoSeconds).toBe(FIELD_WIDTH);
   });
-  it('a corpse spawned at mid-field reaches the bottom edge in exactly FRESHNESS_SECONDS, derived from scroll speed alone (ADR 0004)', () => {
+  it("a corpse spawned at mid-field reaches the bottom edge in exactly the shortest field's freshness, derived from scroll speed alone (ADR 0004)", () => {
     // ADR 0004's coupling invariant: a mid-field kill must reach the bottom
     // edge as a nearly empty scrap, so a scroll retune retunes the meter with
     // it. Scrolled tick by tick rather than by the same formula the constant
     // uses, so the test is the trip and not the arithmetic.
-    let y = FIELD_HEIGHT / 2;
+    let y = SHORTEST_FIELD_HEIGHT / 2;
     let ticks = 0;
-    while (y < FIELD_HEIGHT) {
+    while (y < SHORTEST_FIELD_HEIGHT) {
       y += SCROLL_SPEED;
       ticks += 1;
     }
-    expect(ticks / TICK_HZ).toBeCloseTo(FRESHNESS_SECONDS, 1);
-    expect(FRESHNESS_SECONDS).toBeCloseTo(10, 6);
+    expect(ticks / TICK_HZ).toBeCloseTo(freshnessSecondsFor(SHORTEST_FIELD), 1);
+    expect(freshnessSecondsFor(SHORTEST_FIELD)).toBeCloseTo(10, 6);
+  });
+  it('freshness is 10 seconds on the 760 field and 1168 / 76 seconds on the 1168 field (design record A32)', () => {
+    // A32: freshness keeps its own derivation on the run's height, the time a
+    // mid-field kill takes to reach the bottom edge at 38 units a second.
+    expect(freshnessSecondsFor(fieldOfHeight(760))).toBeCloseTo(10, 9);
+    expect(freshnessSecondsFor(fieldOfHeight(1168))).toBeCloseTo(1168 / 76, 9);
   });
   it("the grave stands about a quarter of the field's width tall at its ceiling (ADR 0003)", () => {
     // Size is the half-height, so the standing height is twice it.

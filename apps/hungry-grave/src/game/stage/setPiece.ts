@@ -3,7 +3,8 @@
 
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import type { Field } from '../field';
+import { SHORTEST_FIELD_HEIGHT } from '../field';
 import type { DamageSource } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { Rect } from '../overlap';
@@ -70,7 +71,8 @@ interface SetPiece {
 // The scroll itself: the source is a place on the ground, and the ground moves
 // at the field's own scroll, so anything slower slides out of its own rock.
 const DRIFT_PER_TICK = SCROLL_SPEED;
-const OPENS_BELOW = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
+// A distance off the shortest field, so the pour fits above the bottom edge on every field (A32).
+const OPENS_BELOW = SHORTEST_FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
 const POUR_INTERVAL_TICKS = SET_PIECE_POUR_SECONDS * TICK_HZ;
 
 // The arriving direction every poured body takes: straight down, at its own speed.
@@ -90,8 +92,8 @@ const clamp = (value: number, low: number, high: number): number => {
  * trail stays a curve a dive can follow instead of a line of corpses in the
  * gutter a body walking in at an edge leaves.
  */
-const sweptTo = (y: number): number => {
-  const across = clamp(y / FIELD_HEIGHT, 0, 1);
+const sweptTo = (y: number, field: Field): number => {
+  const across = clamp(y / field.height, 0, 1);
   return (
     SET_PIECE_SWEEP_MIN_X +
     (SET_PIECE_SWEEP_MAX_X - SET_PIECE_SWEEP_MIN_X) * across
@@ -106,7 +108,7 @@ const sweptTo = (y: number): number => {
 const placeSetPiece = (state: RunState): SetPiece => {
   const piece: SetPiece = {
     id: state.nextEntityId,
-    x: sweptTo(0),
+    x: sweptTo(0, state.field),
     y: 0,
     open: false,
     budget: SET_PIECE_BUDGET,
@@ -237,9 +239,9 @@ const advanceSetPiece = (state: RunState): SimEvent[] => {
   const piece = state.setPiece;
   if (piece === null) return [];
   piece.y += DRIFT_PER_TICK;
-  piece.x = sweptTo(piece.y);
+  piece.x = sweptTo(piece.y, state.field);
   if (!piece.open) return openIfDeepEnough(piece);
-  if (piece.y - SET_PIECE_HALF_HEIGHT > FIELD_HEIGHT) {
+  if (piece.y - SET_PIECE_HALF_HEIGHT > state.field.height) {
     return closeSetPiece(state, piece, 'scrolled');
   }
   const events = pourIfDue(state, piece);

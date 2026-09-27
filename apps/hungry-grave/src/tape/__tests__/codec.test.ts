@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import type { StartingConditions } from '../../game/run';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
@@ -38,6 +39,7 @@ const CONDITIONS: StartingConditions = {
   signalLock: SIGNAL_RAN_LIVE,
   startingScore: 0,
   tuning: DEFAULT_TUNING,
+  fieldHeight: SHORTEST_FIELD_HEIGHT,
 };
 
 /** Every field of the header's closed list, each a different value so none can stand in for another. */

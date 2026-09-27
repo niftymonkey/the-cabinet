@@ -1,6 +1,6 @@
 /**
  * Corpses and freshness (ADR 0004). The coupling to the scroll is the invariant
- * here, and it is the reason FRESHNESS_SECONDS is derived rather than declared.
+ * here, and it is the reason freshnessSecondsFor is derived rather than declared.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,7 +25,7 @@ import {
 } from '../corpses';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH, SHORTEST_FIELD } from '../field';
 import type { Mob, MobType } from '../mobs';
 import { damageMob, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
@@ -39,7 +39,7 @@ import { SECTIONS } from '../stage/stage';
 import { swallow } from '../swallow';
 import {
   FRESHNESS_PAYOUT_FLOOR,
-  FRESHNESS_SECONDS,
+  freshnessSecondsFor,
   RESERVOIR_CAPACITY,
   SCROLL_SPEED,
 } from '../tuning';
@@ -103,17 +103,23 @@ describe("a corpse's drift (ADR 0004)", () => {
   });
 
   it('the coupling: a mid-field kill reaches the bottom edge as a nearly empty scrap', () => {
-    // The reason FRESHNESS_SECONDS is derived from the scroll rather than
+    // The reason freshnessSecondsFor is derived from the scroll rather than
     // declared beside it. Nobody can give corpses a drift of their own without
     // this going red.
     const state = quietRun();
     const step = stepping(state);
-    leaveCorpse(state, killAt(state, 'shambler', 60, FIELD_HEIGHT / 2));
+    leaveCorpse(
+      state,
+      killAt(state, 'shambler', 60, SHORTEST_FIELD_HEIGHT / 2),
+    );
     const corpse = corpseOf(state);
 
     const events: SimEvent[] = [];
     let atEnd = corpse.y;
-    while (corpse.alive && state.tick < 2 * FRESHNESS_SECONDS * TICK_HZ) {
+    while (
+      corpse.alive &&
+      state.tick < 2 * freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ
+    ) {
       atEnd = corpse.y;
       events.push(...step(STILL));
     }
@@ -121,18 +127,20 @@ describe("a corpse's drift (ADR 0004)", () => {
     expect(
       events.filter((event) => event.type === 'corpseExpired'),
     ).toHaveLength(1);
-    expect(atEnd).toBeGreaterThan(FIELD_HEIGHT - 5 * SCROLL_SPEED);
+    expect(atEnd).toBeGreaterThan(SHORTEST_FIELD_HEIGHT - 5 * SCROLL_SPEED);
   });
 });
 
 describe('freshness (ADR 0004)', () => {
-  it('drains from 1 to 0 over FRESHNESS_SECONDS and never below', () => {
+  it("drains from 1 to 0 over the shortest field's freshness and never below", () => {
     const state = quietRun();
     leaveCorpse(state, killAt(state, 'shambler', 60, 40));
     const corpse = corpseOf(state);
     expect(corpse.freshness).toBe(1);
 
-    const half = Math.round((FRESHNESS_SECONDS * TICK_HZ) / 2);
+    const half = Math.round(
+      (freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ) / 2,
+    );
     for (let tick = 0; tick < half; tick++) advanceCorpses(state);
     expect(corpse.freshness).toBeCloseTo(0.5, 6);
 
@@ -166,7 +174,7 @@ describe('freshness (ADR 0004)', () => {
     expect(expiring.map((event) => event.type)).toContain('corpseExpired');
 
     const lost = quietRun();
-    leaveCorpse(lost, killAt(lost, 'shambler', 60, FIELD_HEIGHT - 2));
+    leaveCorpse(lost, killAt(lost, 'shambler', 60, SHORTEST_FIELD_HEIGHT - 2));
     const leaving = corpseOf(lost);
     const stepLost = stepping(lost);
     const events: SimEvent[] = [];
@@ -189,7 +197,11 @@ describe('freshness (ADR 0004)', () => {
     const feast = corpseOf(state);
     expect(feast.decays).toBe(false);
 
-    for (let tick = 0; tick < 2 * FRESHNESS_SECONDS * TICK_HZ; tick++) {
+    for (
+      let tick = 0;
+      tick < 2 * freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ;
+      tick++
+    ) {
       advanceCorpses(state);
     }
     expect(feast.freshness).toBe(1);
@@ -324,7 +336,11 @@ describe('a power-up on the food pool (plan 6.9)', () => {
     spawnPowerUp(state, 200, 300, 'wisps');
     const powerUp = state.corpses.find((corpse) => corpse.alive)!;
 
-    for (let tick = 0; tick < 2 * FRESHNESS_SECONDS * TICK_HZ; tick++) {
+    for (
+      let tick = 0;
+      tick < 2 * freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ;
+      tick++
+    ) {
       advanceCorpses(state);
     }
     expect(powerUp.freshness).toBe(1);
@@ -336,8 +352,8 @@ describe('a power-up on the food pool (plan 6.9)', () => {
     // different ways, so the cull is reading each record's own.
     leaveCorpse(state, killAt(state, 'shambler', 240, 300));
     const corpse = state.corpses.find((each) => each.kind === 'corpse')!;
-    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
-    corpse.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
+    powerUp.y = SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
+    corpse.y = SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
 
     const first = cullCorpses(state);
     expect(powerUp.alive).toBe(true);
@@ -347,11 +363,11 @@ describe('a power-up on the food pool (plan 6.9)', () => {
       type: 'corpseLost',
       kind: 'corpse',
       x: 240,
-      y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT,
+      y: SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT,
       freshness: 1,
     });
 
-    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
+    powerUp.y = SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
     const second = cullCorpses(state);
     expect(powerUp.alive).toBe(false);
     expect(second).toEqual([
@@ -359,7 +375,7 @@ describe('a power-up on the food pool (plan 6.9)', () => {
         type: 'corpseLost',
         kind: 'powerUp',
         x: 200,
-        y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
+        y: SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
         freshness: 1,
       },
     ]);
@@ -495,7 +511,7 @@ describe('what a lost corpse reports (plan 6.9)', () => {
     const step = stepping(state);
     // Opened as a real offer rather than as a bare body, because an option
     // body standing for no live offer is a fault the harness records.
-    openOffer(state, 200, FIELD_HEIGHT - 2);
+    openOffer(state, 200, SHORTEST_FIELD_HEIGHT - 2);
     const events: SimEvent[] = [];
     const powerUp = state.corpses.find((corpse) => corpse.alive)!;
     while (powerUp.alive && state.tick < 200) {
@@ -557,11 +573,14 @@ describe('a corpse a shove is carrying (design record R10)', () => {
 
   it('is lost off the bottom edge the way any corpse is when a shove carries it there', () => {
     // The existing rule doing its job rather than something to repair: a corpse
-    // thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before it
+    // thrown down the field meets cullCorpses' edge at the field height before it
     // meets the bound a spawn margin further down.
     const state = quietRun();
     const step = stepping(state);
-    leaveCorpse(state, killAt(state, 'shambler', 200, FIELD_HEIGHT - 20));
+    leaveCorpse(
+      state,
+      killAt(state, 'shambler', 200, SHORTEST_FIELD_HEIGHT - 20),
+    );
     const corpse = corpseOf(state);
     startShove(corpse.impulse, 'belch', 99, 0, 1, THROW, 1, 0);
 
@@ -572,7 +591,7 @@ describe('a corpse a shove is carrying (design record R10)', () => {
     expect(events.filter((event) => event.type === 'corpseLost')).toHaveLength(
       1,
     );
-    expect(corpse.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
+    expect(corpse.y).toBeLessThanOrEqual(SHORTEST_FIELD_HEIGHT + SPAWN_MARGIN);
   });
 
   it('has further left to drift to the bottom edge than a corpse nothing threw, which is what a throw up the field costs', () => {
@@ -591,7 +610,8 @@ describe('a corpse a shove is carrying (design record R10)', () => {
 
     expect(still.y - thrown.y).toBeCloseTo(THROW, 9);
     expect(thrown.freshness).toBeCloseTo(still.freshness, 9);
-    const ticksLeft = (edge: number) => (FIELD_HEIGHT - edge) / SCROLL_SPEED;
+    const ticksLeft = (edge: number) =>
+      (SHORTEST_FIELD_HEIGHT - edge) / SCROLL_SPEED;
     expect(ticksLeft(thrown.y) - ticksLeft(still.y)).toBeCloseTo(
       THROW / SCROLL_SPEED,
       6,
@@ -662,7 +682,11 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
     const rung = rungOf(state);
     rung.decays = true;
 
-    for (let tick = 0; tick < FRESHNESS_SECONDS * TICK_HZ; tick++) {
+    for (
+      let tick = 0;
+      tick < freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ;
+      tick++
+    ) {
       advanceCorpses(state);
     }
 
@@ -696,7 +720,7 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
 
     const events: SimEvent[] = [];
     const toTheEdge = Math.ceil(
-      (FIELD_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
+      (SHORTEST_FIELD_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
     );
     for (let tick = 0; tick < toTheEdge; tick++) {
       expect(rung.alive).toBe(true);
@@ -797,5 +821,44 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
     expect(state.refusals.food).toBe(refusalsBefore + 1);
     expect(state.bankedOffers).toBe(0);
     expect(state.refusals.offers).toBe(0);
+  });
+});
+
+describe("the run's own bottom edge", () => {
+  it('loses a corpse only once it is past a 1168 field and its own extent, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    const state = createRun(9, { fieldHeight: 1168 });
+    leaveCorpse(state, killAt(state, 'shambler', 200, 900));
+    const corpse = corpseOf(state);
+    cullCorpses(state);
+    expect(corpse.alive).toBe(true);
+
+    corpse.y = 1168 + corpse.halfExtent + 1;
+    cullCorpses(state);
+    expect(corpse.alive).toBe(false);
+  });
+});
+
+describe("freshness over the run's own field (design record A32)", () => {
+  it("a corpse that crosses half the run's field loses its whole freshness, on the 760 field and on the 1168 field", () => {
+    // A32 and the concept doc's core loop: a mid-field kill reaches the bottom
+    // edge as a nearly empty scrap. The crossing is counted tick by tick at the
+    // scroll, so the test is the trip and not the formula.
+    for (const height of [760, 1168]) {
+      let ticks = 0;
+      for (let y = height / 2; y < height; y += SCROLL_SPEED) ticks += 1;
+      const oneTick = 1 / ((height / 76) * 60);
+
+      const state = createRun(9, { fieldHeight: height });
+      leaveCorpse(state, killAt(state, 'shambler', 200, 300));
+      const corpse = corpseOf(state);
+      for (let tick = 0; tick < ticks - 2; tick++) advanceCorpses(state);
+      expect(corpse.alive).toBe(true);
+      expect(corpse.freshness).toBeGreaterThan(0);
+
+      advanceCorpses(state);
+      advanceCorpses(state);
+      expect(!corpse.alive || corpse.freshness < oneTick).toBe(true);
+    }
   });
 });

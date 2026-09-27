@@ -13,12 +13,13 @@
  * 0.2496 and the first tick is 0.0184.
  */
 
+import { SHORTEST_FIELD } from '../field';
 import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
 import type { Corpse } from '../corpses';
 import {
   CORPSE_HALF_EXTENT,
-  FRESHNESS_PER_TICK,
+  freshnessPerTick,
   POWER_UP_HALF_EXTENT,
   spawnCorpse,
   spawnFallenRung,
@@ -425,7 +426,7 @@ describe('the pull (grave-in-the-ground R3)', () => {
     );
     for (let tick = 0; tick < 5; tick++) step(STILL);
     const carried = corpse.vx;
-    corpse.freshness = FRESHNESS_PER_TICK / 2;
+    corpse.freshness = freshnessPerTick(SHORTEST_FIELD) / 2;
     step(STILL);
 
     spawnFeast(state, 60, 300);

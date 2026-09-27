@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { cos, sin } from '../../math';
 import type { Mob, MobType } from '../../mobs';
 import { advanceMobs, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
@@ -940,7 +940,7 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
       expect(mob.x).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
       expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH + SPAWN_MARGIN);
       expect(mob.y).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
-      expect(mob.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
+      expect(mob.y).toBeLessThanOrEqual(SHORTEST_FIELD_HEIGHT + SPAWN_MARGIN);
     }
   });
 });

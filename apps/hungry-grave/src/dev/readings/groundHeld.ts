@@ -1,7 +1,8 @@
 // How much of the field open claimed ground holds, tick by tick: Territory
 // measured as area, which a count of patches cannot say (#76's gate on #79).
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import type { Field } from '../../game/field';
+import { FIELD_WIDTH } from '../../game/field';
 import type { RunState } from '../../game/run';
 import type { NumberRecord } from '../numbersByName';
 import { greatestOf, lastOf, meanOf } from '../seriesSummary';
@@ -37,7 +38,9 @@ interface GroundHeldAcc {
 const createGroundHeld = (): GroundHeldAcc => ({ fraction: [] });
 
 const GRID_COLUMNS = Math.ceil(FIELD_WIDTH / GROUND_CELL);
-const GRID_ROWS = Math.ceil(FIELD_HEIGHT / GROUND_CELL);
+// The grid's rows over the run's own field.
+const gridRows = (field: Field): number =>
+  Math.ceil(field.height / GROUND_CELL);
 
 /**
  * Marks every grid cell whose centre this patch covers, walking only the
@@ -47,6 +50,7 @@ const GRID_ROWS = Math.ceil(FIELD_HEIGHT / GROUND_CELL);
 const markCellsUnder = (
   patch: { x: number; y: number; radius: number },
   counted: Set<number>,
+  field: Field,
 ): void => {
   const loX = Math.max(0, Math.floor((patch.x - patch.radius) / GROUND_CELL));
   const hiX = Math.min(
@@ -55,7 +59,7 @@ const markCellsUnder = (
   );
   const loY = Math.max(0, Math.floor((patch.y - patch.radius) / GROUND_CELL));
   const hiY = Math.min(
-    GRID_ROWS - 1,
+    gridRows(field) - 1,
     Math.floor((patch.y + patch.radius) / GROUND_CELL),
   );
   const reach = patch.radius * patch.radius;
@@ -75,10 +79,11 @@ const heldFraction = (state: RunState): number => {
   const counted = new Set<number>();
   for (const patch of state.patches) {
     if (!patch.alive || patch.opening > 0) continue;
-    markCellsUnder(patch, counted);
+    markCellsUnder(patch, counted, state.field);
   }
   return (
-    (counted.size * GROUND_CELL * GROUND_CELL) / (FIELD_WIDTH * FIELD_HEIGHT)
+    (counted.size * GROUND_CELL * GROUND_CELL) /
+    (FIELD_WIDTH * state.field.height)
   );
 };
 

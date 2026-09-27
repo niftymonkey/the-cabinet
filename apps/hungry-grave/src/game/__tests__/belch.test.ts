@@ -17,7 +17,7 @@ import {
 import { spawnBoss } from '../bosses/phases';
 import type { PressedBody, SimEvent } from '../events';
 import { createExecution, executeTick } from '../execution';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob } from '../mobs';
 import { advanceMobs, hasEntered, spawnMob } from '../mobs';
 import type { RunState } from '../run';
@@ -275,7 +275,7 @@ describe('the gas smothers the whole field (ADR 0008)', () => {
       shot.id = state.nextEntityId;
       state.nextEntityId += 1;
       shot.x = 20 + index * 60;
-      shot.y = (index * FIELD_HEIGHT) / 8;
+      shot.y = (index * SHORTEST_FIELD_HEIGHT) / 8;
       shot.vx = 0;
       shot.vy = 1;
       shot.halfExtent = 5;
@@ -512,7 +512,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
       // and loses the tail of its throw. That the bound refuses a throw is
       // mobs.ts's own promise; what is asserted here is that the reach and the
       // throw are the same in every direction when nothing refuses them.
-      state.grave.y = FIELD_HEIGHT / 2;
+      state.grave.y = SHORTEST_FIELD_HEIGHT / 2;
       const mob = putStillAt(state, state.grave.x + dx, state.grave.y + dy);
       fireBelch(state);
       travelFor(state, WHOLE_PUSH);
@@ -613,7 +613,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     // kill a standing body are put down so what moves these two is the press
     // and the scroll alone. skullStream is the birthright and an invariant
     // holds it above zero, so its fixtures outlive it instead.
-    state.grave.y = FIELD_HEIGHT / 2;
+    state.grave.y = SHORTEST_FIELD_HEIGHT / 2;
     state.levels.bell = 0;
     state.levels.territory = 0;
     state.levels.wisps = 0;

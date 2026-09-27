@@ -21,6 +21,7 @@ import {
   wispDamage,
   WISP_DAMAGE_BY_LEVEL,
   WISP_FLOOR_SOULS,
+  WISP_HALF_EXTENT,
   WISP_LIFETIME,
   WISP_SPEED,
   WISP_TURN_DEGREES_PER_SECOND,
@@ -511,5 +512,28 @@ describe("the wisps' damage climbs with their rungs (the weapon growth record, s
       volley(rotten, MAX_LEVEL, FRESHNESS_PAYOUT_FLOOR).length,
     ).toBeLessThan(volley(fresh, MAX_LEVEL, 1).length);
     expect(wispDamage(MAX_LEVEL)).toBe(20);
+  });
+});
+
+describe("the run's own bottom edge", () => {
+  it('culls a wisp only once it is past a 1168 field and its own extent, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    // No body is on the field, so the wisp has nothing to turn toward and
+    // stands where it is put.
+    const state = createRun(4, { fieldHeight: 1168 });
+    const wisp = state.wisps[0]!;
+    wisp.alive = true;
+    wisp.x = 200;
+    wisp.y = 900;
+    wisp.vx = 0;
+    wisp.vy = 0;
+    wisp.life = WISP_LIFETIME;
+    wisp.targetId = null;
+    advanceWisps(state);
+    expect(wisp.alive).toBe(true);
+
+    wisp.y = 1168 + WISP_HALF_EXTENT + 1;
+    advanceWisps(state);
+    expect(wisp.alive).toBe(false);
   });
 });

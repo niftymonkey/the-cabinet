@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { FIELD_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT, SHORTEST_FIELD } from '../../game/field';
 import type { Grave } from '../../game/grave';
 import { moveGrave } from '../../game/grave';
 import { BASE_SPEED, SIZE_START } from '../../game/tuning';
@@ -65,7 +65,7 @@ describe('TouchSteer', () => {
     const anchor = anchored(touch, 1, { x: 100, y: 600 }, g);
 
     touch.move(1, { x: anchor.x + 20, y: anchor.y + 12 });
-    moveGrave(g, touch.command(g));
+    moveGrave(g, touch.command(g), SHORTEST_FIELD);
 
     expect(g.x).toBeCloseTo(270 + 20 * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(500 + 12 * DRAG_RATIO, 9);
@@ -82,7 +82,7 @@ describe('TouchSteer', () => {
     const g = grave(270, 500);
     straight.down(1, { x: 100, y: 400 }, g);
     straight.move(1, { x: 200, y: 400 });
-    moveGrave(g, straight.command(g));
+    moveGrave(g, straight.command(g), SHORTEST_FIELD);
 
     expect(g.x).toBeCloseTo(270 + (100 - STEER_SLOP) * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(500, 9);
@@ -93,7 +93,7 @@ describe('TouchSteer', () => {
     const d = grave(270, 400);
     diagonal.down(1, { x: 100, y: 300 }, d);
     diagonal.move(1, { x: 160, y: 380 });
-    moveGrave(d, diagonal.command(d));
+    moveGrave(d, diagonal.command(d), SHORTEST_FIELD);
 
     expect(d.x).toBeCloseTo(270 + 0.6 * (100 - STEER_SLOP) * DRAG_RATIO, 9);
     expect(d.y).toBeCloseTo(400 + 0.8 * (100 - STEER_SLOP) * DRAG_RATIO, 9);
@@ -112,7 +112,7 @@ describe('TouchSteer', () => {
     expect(command.x).toBeCloseTo((400 * DRAG_RATIO) / BASE_SPEED, 9);
     expect(command.y).toBeCloseTo((-600 * DRAG_RATIO) / BASE_SPEED, 9);
 
-    moveGrave(g, command);
+    moveGrave(g, command, SHORTEST_FIELD);
     expect(g.x).toBeCloseTo(60 + 400 * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(700 - 600 * DRAG_RATIO, 9);
   });
@@ -125,12 +125,12 @@ describe('TouchSteer', () => {
     const anchor = anchored(midfield, 1, { x: 100, y: 400 }, g);
 
     midfield.move(1, { x: anchor.x + 10, y: anchor.y + 10 });
-    moveGrave(g, midfield.command(g));
+    moveGrave(g, midfield.command(g), SHORTEST_FIELD);
     expect(g.x).toBeCloseTo(280, 9);
     expect(g.y).toBeCloseTo(510, 9);
 
     midfield.move(1, { x: anchor.x + 20, y: anchor.y + 16 });
-    moveGrave(g, midfield.command(g));
+    moveGrave(g, midfield.command(g), SHORTEST_FIELD);
     expect(g.x).toBeCloseTo(290, 9);
     expect(g.y).toBeCloseTo(516, 9);
 
@@ -139,11 +139,11 @@ describe('TouchSteer', () => {
     const edgeAnchor = anchored(edge, 1, { x: 200, y: 400 }, pressed);
 
     edge.move(1, { x: edgeAnchor.x + 10, y: edgeAnchor.y });
-    moveGrave(pressed, edge.command(pressed));
+    moveGrave(pressed, edge.command(pressed), SHORTEST_FIELD);
     expect(pressed.x).toBeCloseTo(280, 9);
 
     edge.move(1, { x: edgeAnchor.x + 25, y: edgeAnchor.y });
-    moveGrave(pressed, edge.command(pressed));
+    moveGrave(pressed, edge.command(pressed), SHORTEST_FIELD);
     expect(pressed.x).toBeCloseTo(295, 9);
   });
 
@@ -156,11 +156,11 @@ describe('TouchSteer', () => {
     const anchor = anchored(touch, 1, { x: 200, y: 400 }, g);
 
     touch.move(1, { x: anchor.x, y: anchor.y + 400 });
-    moveGrave(g, touch.command(g));
+    moveGrave(g, touch.command(g), SHORTEST_FIELD);
     expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START, 9);
 
     touch.move(1, { x: anchor.x, y: anchor.y + 395 });
-    moveGrave(g, touch.command(g));
+    moveGrave(g, touch.command(g), SHORTEST_FIELD);
     expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START - 5 * DRAG_RATIO, 9);
   });
 
@@ -175,7 +175,7 @@ describe('TouchSteer', () => {
 
     let pointer = { x: anchor.x, y: anchor.y + 400 };
     touch.move(1, pointer);
-    moveGrave(g, touch.command(g));
+    moveGrave(g, touch.command(g), SHORTEST_FIELD);
     expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START, 9);
 
     const deltas: number[] = [];
@@ -183,7 +183,7 @@ describe('TouchSteer', () => {
       pointer = { x: pointer.x + 6, y: pointer.y + 6 };
       touch.move(1, pointer);
       const before = g.x;
-      moveGrave(g, touch.command(g));
+      moveGrave(g, touch.command(g), SHORTEST_FIELD);
       deltas.push(Number((g.x - before).toFixed(9)));
     }
     expect(deltas).toEqual([6, 6, 6, 6, 6, 6, 6, 6]);
@@ -261,7 +261,7 @@ describe('TouchSteer', () => {
     // delivered, which is the same rule as the flick case. What must never
     // arrive is a jump by the distance between the two fingers.
     const before = { x: g.x, y: g.y };
-    moveGrave(g, touch.command(g));
+    moveGrave(g, touch.command(g), SHORTEST_FIELD);
     expect(g.x).toBeCloseTo(before.x + 1 * DRAG_RATIO, 9);
     expect(g.y).toBeCloseTo(before.y, 9);
   });

@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
@@ -33,6 +34,7 @@ const HEADER: TapeHeader = {
     signalLock: SIGNAL_RAN_LIVE,
     startingScore: 0,
     tuning: DEFAULT_TUNING,
+    fieldHeight: SHORTEST_FIELD_HEIGHT,
   }),
   tickRate: 60,
   checkpointSpacing: 4,

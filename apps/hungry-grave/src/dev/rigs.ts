@@ -1,5 +1,6 @@
 // The rigs: one starting condition a run is played from, by name (#107).
 
+import { SHORTEST_FIELD_HEIGHT } from '../game/field';
 import { MAX_LEVEL, WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
 import { birthrightLevels, uniformLevels } from '../game/run';
@@ -95,6 +96,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
       tuning: DEFAULT_TUNING,
+      fieldHeight: SHORTEST_FIELD_HEIGHT,
     },
   },
   maxed: {
@@ -106,6 +108,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
       tuning: DEFAULT_TUNING,
+      fieldHeight: SHORTEST_FIELD_HEIGHT,
     },
   },
   ladder: {
@@ -117,6 +120,7 @@ const RIGS: Readonly<Record<RigName, Rig>> = {
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: LADDER_RIG_BLEEDS * LADDER_RIG_BLEED_CAP,
       tuning: DEFAULT_TUNING,
+      fieldHeight: SHORTEST_FIELD_HEIGHT,
     },
   },
 };
@@ -154,6 +158,12 @@ const sameLevels = (
  * cannot hold would answer null forever. The header holds it now, so the reason
  * is spent: the ladder row is the first whose condition has a third half, and
  * banding without it would name the row by two thirds of what it states.
+ *
+ * The field's height is not one of the three either (design record A31). It is
+ * banded beside the rig, as the tuning candidate already is (`measure.ts`'s
+ * Provenance, `batchReport.ts`'s batch identity), so `field=1168` on the maxed
+ * rig is the maxed rig on a 1168 field and never a nameless condition. A figure
+ * names both.
  */
 const rigOf = (
   startingSize: number,

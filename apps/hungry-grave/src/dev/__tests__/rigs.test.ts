@@ -153,3 +153,25 @@ describe('the rigs a harness run is played out of', () => {
     expect(isRigName('ceiling')).toBe(false);
   });
 });
+
+describe("a rig and the run's field (design record A31)", () => {
+  it('starts every row on the shortest field, and names the maxed rig for a maxed condition on a 1168 field as on a 760 one', () => {
+    // A31: a rig is a named starting condition, so each row states the field
+    // it starts on. The height is banded beside the rig, as the tuning
+    // candidate is, so the maxed rig on a tall field is still the maxed rig
+    // and a figure names both.
+    for (const name of RIG_NAMES) {
+      expect(RIGS[name].conditions.fieldHeight).toBe(760);
+    }
+    for (const fieldHeight of [760, 1168]) {
+      const run = createRun(1, { ...RIGS.maxed.conditions, fieldHeight });
+      expect(
+        rigOf(
+          run.conditions.startingSize,
+          run.conditions.startingLevels,
+          run.conditions.startingScore,
+        ),
+      ).toBe('maxed');
+    }
+  });
+});

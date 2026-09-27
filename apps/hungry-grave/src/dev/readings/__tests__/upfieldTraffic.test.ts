@@ -11,7 +11,11 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../../game/clock';
 import type { SimEvent } from '../../../game/events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+} from '../../../game/field';
 import { moveGrave } from '../../../game/grave';
 import { advanceTerritory } from '../../../game/lines/territory';
 import type { Mob, MobType } from '../../../game/mobs';
@@ -21,7 +25,7 @@ import { createRun } from '../../../game/run';
 import { BASE_SPEED, SCROLL_SPEED, SIZE_FLOOR } from '../../../game/tuning';
 import type { UpfieldTraffic } from '../upfieldTraffic';
 import {
-  BAND_COUNT,
+  bandCount,
   BAND_UNITS,
   createUpfieldTraffic,
   LATERAL_REACH,
@@ -87,7 +91,7 @@ const noLay = (run: RunState): SimEvent[] => advanceTerritory(run);
 
 /** Puts the grave's centre where the case wants it, through the sim's own mover. */
 const placeGraveAt = (run: RunState, y: number): void => {
-  moveGrave(run.grave, { x: 0, y: (y - run.grave.y) / BASE_SPEED });
+  moveGrave(run.grave, { x: 0, y: (y - run.grave.y) / BASE_SPEED }, run.field);
 };
 
 // The key a band's near edge is reported under.
@@ -106,7 +110,7 @@ describe('up-field traffic', () => {
     // bands up-field belongs to the third band and never the fourth.
     const run = parkedRun();
     putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 3.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
@@ -123,7 +127,7 @@ describe('up-field traffic', () => {
     // an average one.
     const run = parkedRun();
     putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 2.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
     observeUpfieldTraffic(acc, layOnce(run), run);
 
     putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 2.5);
@@ -140,7 +144,7 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     putMob(run, GRAVE_X, GRAVE_Y);
     putMob(run, GRAVE_X, GRAVE_Y + BAND_UNITS);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
@@ -156,7 +160,7 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     putMob(run, GRAVE_X + LATERAL_REACH, GRAVE_Y - BAND_UNITS * 4.5);
     putMob(run, GRAVE_X + LATERAL_REACH + 1, GRAVE_Y - BAND_UNITS * 4.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
@@ -171,7 +175,7 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     const distances = [1, BAND_UNITS, BAND_UNITS * 2.5, BAND_UNITS * 9.99];
     for (const distance of distances) putMob(run, GRAVE_X, GRAVE_Y - distance);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
@@ -189,7 +193,7 @@ describe('up-field traffic', () => {
     // runs could not be read against each other at all.
     const run = parkedRun();
     const first = putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 5.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
     observeUpfieldTraffic(acc, layOnce(run), run);
 
     first.alive = false;
@@ -206,7 +210,7 @@ describe('up-field traffic', () => {
     // the histogram would be the instrument inventing a reading it never took.
     const run = parkedRun();
     putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 3.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, noLay(run), run);
 
@@ -221,14 +225,14 @@ describe('up-field traffic', () => {
     // it is where a patch would meet no traffic at all.
     const run = parkedRun();
     putMob(run, GRAVE_X, GRAVE_Y - BAND_UNITS * 3.5);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
     const traffic = upfieldTrafficOf(acc);
-    expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
+    expect(Object.keys(traffic.perLay)).toHaveLength(bandCount(SHORTEST_FIELD));
     expect(traffic.perLay[bandKey(0)]).toBe(0);
-    expect(traffic.perLay[bandKey(BAND_COUNT - 1)]).toBe(0);
+    expect(traffic.perLay[bandKey(bandCount(SHORTEST_FIELD) - 1)]).toBe(0);
   });
 
   it('reports the band width and the lateral reach it counted with', () => {
@@ -236,7 +240,7 @@ describe('up-field traffic', () => {
     // and the column is the instrument's own boundary rather than the scan's,
     // so both travel on the report where a reader can see them.
     const run = parkedRun();
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 
@@ -252,7 +256,7 @@ describe('up-field traffic', () => {
     // the histogram reads in field units and seconds at once.
     expect(BAND_UNITS).toBe(SCROLL_SPEED * TICK_HZ);
 
-    for (const band of [1, 4, BAND_COUNT - 1]) {
+    for (const band of [1, 4, bandCount(SHORTEST_FIELD) - 1]) {
       const nearEdge = band * BAND_UNITS;
       const ticksToTheGrave = nearEdge / SCROLL_SPEED;
       expect(ticksToTheGrave / TICK_HZ).toBe(band);
@@ -267,17 +271,17 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     const events = layOnce(run);
     run.grave.size = SIZE_FLOOR;
-    placeGraveAt(run, FIELD_HEIGHT);
-    expect(run.grave.y).toBe(FIELD_HEIGHT - SIZE_FLOOR);
+    placeGraveAt(run, SHORTEST_FIELD_HEIGHT);
+    expect(run.grave.y).toBe(SHORTEST_FIELD_HEIGHT - SIZE_FLOOR);
     putMob(run, run.grave.x, -SPAWN_MARGIN);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, events, run);
 
     const traffic = upfieldTrafficOf(acc);
     expect(acrossTheBands(traffic)).toBe(1);
-    expect(BAND_COUNT * BAND_UNITS).toBeGreaterThanOrEqual(
-      FIELD_HEIGHT - SIZE_FLOOR + SPAWN_MARGIN,
+    expect(bandCount(SHORTEST_FIELD) * BAND_UNITS).toBeGreaterThanOrEqual(
+      SHORTEST_FIELD_HEIGHT - SIZE_FLOOR + SPAWN_MARGIN,
     );
   });
 
@@ -288,7 +292,7 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     const far = GRAVE_Y - BAND_UNITS * 15.5;
     putMob(run, GRAVE_X, far);
-    const acc = createUpfieldTraffic();
+    const acc = createUpfieldTraffic(SHORTEST_FIELD);
 
     observeUpfieldTraffic(acc, layOnce(run), run);
 

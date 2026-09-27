@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { Patch } from '../../../game/lines/territory';
 import { RADIUS_BY_LEVEL } from '../../../game/lines/territory';
 import type { RunState } from '../../../game/run';
@@ -24,7 +24,7 @@ import {
 
 const SEED = 20260830;
 
-const FIELD_AREA = FIELD_WIDTH * FIELD_HEIGHT;
+const FIELD_AREA = FIELD_WIDTH * SHORTEST_FIELD_HEIGHT;
 
 /** Open ground of one birth rung, placed by hand in a chosen slot. */
 function placePatch(

@@ -21,7 +21,7 @@ import { createRun } from '../../run';
 import { SHOVE_TICKS } from '../../shove';
 import { SECTIONS } from '../../stage/stage';
 import { resolveStorm } from '../../storm';
-import { FIELD_HEIGHT } from '../../field';
+import { SHORTEST_FIELD_HEIGHT } from '../../field';
 import { RESERVOIR_CAPACITY } from '../../tuning';
 import type { TuningRecord } from '../../tuningRecord';
 import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
@@ -195,7 +195,7 @@ describe('a boss arrives with phased health (ADR 0007)', () => {
     expect(boss.y).toBeLessThan(state.grave.y);
     expect(bossHitbox(boss).y).toBeGreaterThanOrEqual(0);
     expect(bossHitbox(boss).y + bossHitbox(boss).height).toBeLessThan(
-      FIELD_HEIGHT,
+      SHORTEST_FIELD_HEIGHT,
     );
   });
 });
@@ -580,7 +580,7 @@ describe("a boss's adds (CONTEXT.md, ADR 0016)", () => {
     expect(add.type).toBe('shambler');
     expect(add.hp).toBe(MOB_TYPES.shambler.hp);
 
-    add.y = FIELD_HEIGHT + MOB_TYPES.shambler.halfHeight + 1;
+    add.y = SHORTEST_FIELD_HEIGHT + MOB_TYPES.shambler.halfHeight + 1;
     const culled = only(cullMobs(state), 'carrierLost');
 
     expect(add.alive).toBe(false);

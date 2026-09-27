@@ -39,8 +39,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GOLDEN, runScenario } from '../../dev/digest';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { GOLDEN, GOLDEN_1168, runScenario } from '../../dev/digest';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { SIZE_START } from '../tuning';
 import { foldWitness } from '../witness';
 
@@ -64,6 +64,20 @@ describe('the golden digest', () => {
       );
     }
     expect(digest).toEqual(GOLDEN);
+  });
+
+  it('the digest scenario on the 1168 field matches GOLDEN_1168 (T12)', () => {
+    // T12: the tall field's own pin, so a path only a tall field takes (the
+    // grave's start, its hold, every bottom-edge cull) is guarded as the 760
+    // field is.
+    const { digest, faults } = runScenario(1168);
+    expect(faults.map((fault) => fault.identity)).toEqual([]);
+    if (JSON.stringify(digest) !== JSON.stringify(GOLDEN_1168)) {
+      console.log(
+        `The 1168 digest moved. If that was deliberate, paste this over GOLDEN_1168 in src/dev/digest.ts and say why in the commit message:\n\nconst GOLDEN_1168: Digest = ${JSON.stringify(digest, null, 2)};\n`,
+      );
+    }
+    expect(digest).toEqual(GOLDEN_1168);
   });
 
   it("folds every live entity's own state, so a divergence in one moves the digest (ADR 0015)", () => {
@@ -170,6 +184,6 @@ describe('the golden digest', () => {
     expect(boundary.minX).toBeGreaterThan(0);
     expect(boundary.minY).toBeGreaterThan(0);
     expect(boundary.maxX).toBeLessThan(FIELD_WIDTH);
-    expect(boundary.maxY).toBeLessThan(FIELD_HEIGHT);
+    expect(boundary.maxY).toBeLessThan(SHORTEST_FIELD_HEIGHT);
   });
 });

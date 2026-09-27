@@ -250,8 +250,9 @@ const scriptedKills = (run: RunState, tick: number): number => {
  * every live entity's own state in slot order, which is what puts math.ts on
  * the path and covers the spawn sequence and pool iteration order with it.
  */
-const runScenario = (): ScenarioResult => {
-  const run = createRun(SEED);
+const runScenario = (fieldHeight?: number): ScenarioResult => {
+  // No height is the shortest field, resolved by createRun as every run's is.
+  const run = createRun(SEED, fieldHeight === undefined ? {} : { fieldHeight });
   const execution = createExecution(run);
   let checksum = 0;
   let kills = 0;
@@ -552,5 +553,44 @@ const GOLDEN: Digest = {
   checksum: -477743852,
 };
 
-export { runScenario, GOLDEN };
+/**
+ * The same scenario on a 1168 field, the tall phone's shape (T12), measured
+ * once on slice P1's tree and pinned, so a path only a tall field takes is
+ * guarded by every later change. The same rule as GOLDEN: never updated to
+ * make a failing test pass.
+ */
+const GOLDEN_1168: Digest = {
+  tick: 600,
+  seed: 20260820,
+  graveX: 365.625,
+  graveY: 726.875,
+  size: 24.10125,
+  score: 300,
+  reservoir: 0.10125,
+  mobs: 5,
+  shots: 0,
+  corpses: 2,
+  skulls: 6,
+  wisps: 0,
+  kills: 2,
+  drawn: {
+    spawns: 1,
+    powerUps: 0,
+    mobFire: 0,
+    shed: 0,
+    territory: 0,
+    director: 0,
+    bossFire: 0,
+    pour: 0,
+  },
+  levels: {
+    skullStream: 1,
+    territory: 0,
+    wisps: 0,
+    bell: 0,
+  },
+  checksum: -1088571029,
+};
+
+export { runScenario, GOLDEN, GOLDEN_1168 };
 export type { Digest, BoundaryExtremes, ScenarioResult };

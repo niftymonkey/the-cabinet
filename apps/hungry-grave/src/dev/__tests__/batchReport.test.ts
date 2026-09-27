@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
 import { createExecution, executeTick } from '../../game/execution';
+import { SHORTEST_FIELD } from '../../game/field';
 import { WEAPON_LINES } from '../../game/lines/roster';
 import { MOB_TYPES, MOB_TYPE_NAMES } from '../../game/mobs';
 import { createRun } from '../../game/run';
@@ -394,7 +395,7 @@ describe('the batch report', () => {
     // A ceiling stop is the subset of unfinished that also spent the harness's
     // whole budget, and it names the section the run was standing in, which is
     // what says where the run got stuck rather than only that it did.
-    const budget = runTickBudget();
+    const budget = runTickBudget(SHORTEST_FIELD);
     const stopped = (
       seed: number,
       ending: 'sealed' | null,
@@ -824,6 +825,25 @@ describe('the batch report', () => {
 
     expect(one.identity.rigs).toEqual(['birthright']);
     expect([...two.identity.rigs].sort()).toEqual(['birthright', 'maxed']);
+  });
+
+  it('lists the field heights its runs played on, and refuses to aggregate runs of two heights, naming both', () => {
+    // A31 and #107: figures from two starting conditions are never banded, and
+    // two fields are two conditions, so the report refuses rather than pools.
+    const on = (seed: number, fieldHeight: number): MeasuredRun => ({
+      seed,
+      measurement: {
+        ...BASE,
+        provenance: { ...BASE.provenance, fieldHeight },
+      },
+    });
+
+    const one = batchReportOf(origin(2), [on(900, 1168), on(901, 1168)]);
+
+    expect(one.identity.fieldHeights).toEqual([1168]);
+    expect(() =>
+      batchReportOf(origin(2), [on(900, 760), on(901, 1168)]),
+    ).toThrow(/760.*1168/);
   });
 
   it('names every candidate its runs were played under, off the tapes themselves', () => {

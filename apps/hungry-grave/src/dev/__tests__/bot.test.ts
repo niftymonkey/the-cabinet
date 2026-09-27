@@ -19,7 +19,11 @@ import { describe, expect, it } from 'vitest';
 import { damageBoss, spawnBoss } from '../../game/bosses/phases';
 import { waveCarriers, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import {
+  fieldOfHeight,
+  FIELD_WIDTH,
+  SHORTEST_FIELD_HEIGHT,
+} from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import {
@@ -47,6 +51,8 @@ import {
   SIZE_CEILING,
 } from '../../game/tuning';
 import { createExecution, executeTick } from '../../game/execution';
+import { runTickBudget } from '../harnessRun';
+import { RIGS } from '../rigs';
 import type { Policy, PolicyRun } from '../bot';
 import {
   belchingPolicy,
@@ -436,7 +442,7 @@ const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
  * field, so the bound follows them.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (SHORTEST_FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -1430,7 +1436,7 @@ describe('the six policies steer on this module’s own look-ahead', () => {
    * none of the six moved when the look-ahead became a parameter, so a row
    * changed in bot.ts and not here is exactly what should go red.
    */
-  const DRIFTING_MARK = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
+  const DRIFTING_MARK = { x: FIELD_WIDTH / 2, y: SHORTEST_FIELD_HEIGHT * 0.8 };
   const DRIFTING_CLEARANCE = 60;
   const COMMITTING_CLEARANCE = 12;
 
@@ -1576,5 +1582,31 @@ describe('the six policies steer on this module’s own look-ahead', () => {
       expect(differing).toBeGreaterThan(0);
     },
     SIX_POLICY_WALKS_MS,
+  );
+});
+
+describe('a whole run on a tall field (T12)', () => {
+  it(
+    'plays a whole run on a 1168 field to an ending with no invariant fire, for seed 101, under the maxed and the birthright rigs',
+    () => {
+      // The feature flow: a sim-bearing change runs the loop end to end, and
+      // T12's accepted cost is that tuning tests several phone shapes. The budget
+      // is the harness's own on the tall field, so a run the harness could play
+      // is the run this reads.
+      const field = fieldOfHeight(1168);
+      for (const rig of ['maxed', 'birthright'] as const) {
+        const state = createRun(101, {
+          ...RIGS[rig].conditions,
+          fieldHeight: 1168,
+        });
+        const execution = createExecution(state);
+        runPolicy(execution, dodgePolicy, runTickBudget(field));
+
+        expect(state.field.height).toBe(1168);
+        expect(state.ending).not.toBeNull();
+        expect(execution.faults.map((fault) => fault.identity)).toEqual([]);
+      }
+    },
+    ONE_WHOLE_STAGE_MS * 2,
   );
 });

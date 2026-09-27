@@ -3,7 +3,7 @@
 
 import { TICK_HZ } from '../game/clock';
 import { createExecution } from '../game/execution';
-import { FIELD_HEIGHT } from '../game/field';
+import type { Field } from '../game/field';
 import {
   GHOUL_DESCENT_FLOOR,
   MOB_TYPES,
@@ -45,12 +45,12 @@ import type { Rig, RigName } from './rigs';
 const RUN_TICK_SLACK = 3;
 
 /**
- * The longest a body can take to leave the field, in ticks: the whole distance
+ * The longest a body can take to leave this field, in ticks: the whole distance
  * one can cross at the slowest total descent any type holds, which is the
  * scroll plus its own speed.
  */
-const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+const slowestDescentTicks = (field: Field): number =>
+  (field.height +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -61,10 +61,14 @@ const SLOWEST_DESCENT_TICKS =
     ));
 
 /** How long one section can hold a run: its own waves, then whatever they left falling. */
-const sectionBudget = (section: (typeof SECTIONS)[number]): number => {
+const sectionBudget = (
+  section: (typeof SECTIONS)[number],
+  field: Field,
+): number => {
   const lastWave = section.waves[section.waves.length - 1];
   return (
-    (lastWave === undefined ? 0 : lastWave.t) * TICK_HZ + SLOWEST_DESCENT_TICKS
+    (lastWave === undefined ? 0 : lastWave.t) * TICK_HZ +
+    slowestDescentTicks(field)
   );
 };
 
@@ -76,9 +80,10 @@ const sectionBudget = (section: (typeof SECTIONS)[number]): number => {
  * (ADR 0051), so a hand that clears the stragglers meets the boss sooner and
  * no two runs are the same length; what can be written down is the ceiling.
  */
-const runTickBudget = (): number =>
-  Math.ceil(SECTIONS.reduce((total, each) => total + sectionBudget(each), 0)) *
-  RUN_TICK_SLACK;
+const runTickBudget = (field: Field): number =>
+  Math.ceil(
+    SECTIONS.reduce((total, each) => total + sectionBudget(each, field), 0),
+  ) * RUN_TICK_SLACK;
 
 // One harness run, played and sealed, as the bytes a tape file holds.
 interface HarnessRun {
@@ -173,7 +178,7 @@ const playHarnessRun = (
   const { ticks } = runPolicy(
     execution,
     harnessPolicy(configuration, run.seed),
-    runTickBudget(),
+    runTickBudget(run.field),
   );
   sealTrailer(recorder, execution, 0);
   return {

@@ -9,7 +9,7 @@ import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import type { Corpse } from '../../game/corpses';
 import { spawnPowerUp } from '../../game/corpses';
-import { FIELD_HEIGHT } from '../../game/field';
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { createExecution } from '../../game/execution';
 import { BIRTHRIGHT, WEAPON_LINES } from '../../game/lines/roster';
@@ -28,7 +28,7 @@ import { PROCESSION_WAVES } from '../../game/stage/waves';
 import { SECTIONS } from '../../game/stage/stage';
 import { RESERVOIR_CAPACITY, SCROLL_SPEED } from '../../game/tuning';
 import { foldWitness } from '../../game/witness';
-import { bestMoveToward, HOME, runPolicy } from '../bot';
+import { bestMoveToward, homeOf, runPolicy } from '../bot';
 import type { Policy } from '../bot';
 import type { Configuration } from '../configurations';
 import {
@@ -167,7 +167,7 @@ const standShot = (state: RunState, x: number, y: number): void => {
  * one the spec test needs before that module exists.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (SHORTEST_FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -358,8 +358,8 @@ describe('the hand feeds and drifts when no offer stands (ADR 0053)', () => {
     expect(state.corpses.filter((body) => body.alive)).toEqual([]);
     // Standing still would satisfy an equality against any point the grave is
     // already on, so the mark is somewhere the grave is not.
-    expect(towardPoint(state, HOME)).not.toEqual({ x: 0, y: 0 });
-    expect(command(state).move).toEqual(towardPoint(state, HOME));
+    expect(towardPoint(state, homeOf(state))).not.toEqual({ x: 0, y: 0 });
+    expect(command(state).move).toEqual(towardPoint(state, homeOf(state)));
   });
 });
 
@@ -1153,8 +1153,8 @@ const TEST_SHOT_SPEED = 5;
  */
 const restingAtHome = (): RunState => {
   const state = quietRun(11);
-  state.grave.x = HOME.x;
-  state.grave.y = HOME.y;
+  state.grave.x = homeOf(state).x;
+  state.grave.y = homeOf(state).y;
   return state;
 };
 

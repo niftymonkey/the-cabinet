@@ -1,6 +1,7 @@
 // The readings graph: one accumulator per reading, driven by the one replay pass.
 
 import type { SimEvent } from '../../game/events';
+import type { Field } from '../../game/field';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { RunState } from '../../game/run';
 import type { SignalLock } from '../../game/signalLock';
@@ -211,6 +212,7 @@ const createReadings = (
   startingSize: number,
   lines: readonly WeaponLine[],
   signalLock: SignalLock,
+  field: Field,
 ): ReadingsAcc => ({
   arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
@@ -235,7 +237,7 @@ const createReadings = (
   groundHeld: createGroundHeld(),
   repel: createRepel(),
   refusals: createRefusals(),
-  upfieldTraffic: createUpfieldTraffic(),
+  upfieldTraffic: createUpfieldTraffic(field),
   sectionTimeline: createSectionTimeline(),
 });
 

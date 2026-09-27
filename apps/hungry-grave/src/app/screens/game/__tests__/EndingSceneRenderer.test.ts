@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { BossKilled } from '../../../../game/events';
 import type { Grave } from '../../../../game/grave';
 import { createGrave } from '../../../../game/grave';
+import { SHORTEST_FIELD } from '../../../../game/field';
 import { SIZE_START } from '../../../../game/tuning';
 import { PALETTE } from '../../../palette';
 import { drawBoss } from '../bossSprite';
@@ -31,7 +32,7 @@ const KILLED: BossKilled = {
 const FALLING = ENDING_BEATS.drag + ENDING_BEATS.claw + ENDING_BEATS.tip;
 
 function parked(): Grave {
-  const grave = createGrave(SIZE_START);
+  const grave = createGrave(SHORTEST_FIELD, SIZE_START);
   grave.x = 270;
   grave.y = 600;
   return grave;

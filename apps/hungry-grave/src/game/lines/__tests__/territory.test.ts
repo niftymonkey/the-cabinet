@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT } from '../../field';
+import { SHORTEST_FIELD_HEIGHT } from '../../field';
 import type { Mob } from '../../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -576,7 +576,7 @@ describe('the control', () => {
     mob.vy = -30;
 
     advanceTerritory(run);
-    expect(mob.y).toBe(FIELD_HEIGHT + SPAWN_MARGIN);
+    expect(mob.y).toBe(SHORTEST_FIELD_HEIGHT + SPAWN_MARGIN);
   });
 });
 
@@ -1255,5 +1255,25 @@ describe('the holding ground', () => {
     const late = livePatches(run).find((patch) => patch !== early)!;
     expect(late.level).toBe(5);
     expect(early.level).toBe(1);
+  });
+});
+
+describe("the run's own bottom edge", () => {
+  it('closes a patch only once it is past a 1168 field and its own radius, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    const run = createRun(76, { fieldHeight: 1168 });
+    run.levels.territory = 1;
+    const mob = putMob(run, run.grave.x, 300);
+    layNow(run);
+    mob.alive = false;
+    const patch = livePatches(run)[0]!;
+
+    patch.y = 900;
+    advanceTerritory(run);
+    expect(patch.alive).toBe(true);
+
+    patch.y = 1168 + patch.radius + 1;
+    advanceTerritory(run);
+    expect(patch.alive).toBe(false);
   });
 });

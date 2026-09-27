@@ -19,6 +19,7 @@ import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { WeaponLine } from '../../game/lines/roster';
 import type { TickCommand } from '../../game/command';
 import type { RunEnding, RunState } from '../../game/run';
+import { SHORTEST_FIELD } from '../../game/field';
 import { createRun, uniformLevels } from '../../game/run';
 import { SECTIONS } from '../../game/stage/stage';
 import { SIZE_START } from '../../game/tuning';
@@ -39,7 +40,7 @@ import type { Measurement, Metrics } from '../measure';
 import { measure } from '../measure';
 import { divingPolicy } from '../bot';
 import {
-  BAND_COUNT,
+  bandCount,
   BAND_UNITS,
   LATERAL_REACH,
 } from '../readings/upfieldTraffic';
@@ -98,11 +99,13 @@ function recordARun(
     seal?: boolean;
     size?: number;
     levels?: Record<WeaponLine, number>;
+    fieldHeight?: number;
   } = {},
 ): Tape {
   const run = createRun(SEED, {
     startingSize: options.size,
     startingLevels: options.levels,
+    fieldHeight: options.fieldHeight,
   });
   const execution = createExecution(run);
   const recorder = recordInto(execution, header(run, overrides));
@@ -768,6 +771,7 @@ describe('measure', () => {
       rig: 'birthright',
       candidate: 'default',
       tuning: CANDIDATES.default.record,
+      fieldHeight: 760,
       conditioned: false,
       exclusions: ['bot'],
     });
@@ -790,6 +794,7 @@ describe('measure', () => {
       // starting condition and answers on its own terms.
       candidate: 'default',
       tuning: CANDIDATES.default.record,
+      fieldHeight: 760,
       conditioned: true,
       exclusions: ['conditioned'],
     });
@@ -806,9 +811,27 @@ describe('measure', () => {
       rig: 'birthright',
       candidate: 'default',
       tuning: CANDIDATES.default.record,
+      fieldHeight: 760,
       conditioned: false,
       exclusions: [],
     });
+  });
+
+  it("carries the field height its run played on, and does not count a person's run on a 1168 field as conditioned", () => {
+    // A31 and #107: the field is banded beside the rig, never folded into it,
+    // so a person on a tall phone is a different field and not a pinned
+    // condition, and stays inside the default aggregate on that account.
+    const tall = verified(
+      measure(
+        decodedOf(
+          recordARun({ inputDevice: 'keyboard' }, { fieldHeight: 1168 }),
+        ),
+      ),
+    );
+
+    expect(tall.provenance.fieldHeight).toBe(1168);
+    expect(tall.provenance.conditioned).toBe(false);
+    expect(tall.provenance.exclusions).toEqual([]);
   });
 
   it('names the rig a run started from, beside the policy that steered it', () => {
@@ -998,7 +1021,7 @@ describe('measure', () => {
 
     expect(rich.lays).toBeGreaterThan(0);
     expect(traffic.lays).toBe(rich.lays);
-    expect(Object.keys(traffic.perLay)).toHaveLength(BAND_COUNT);
+    expect(Object.keys(traffic.perLay)).toHaveLength(bandCount(SHORTEST_FIELD));
     expect(traffic.bandUnits).toBe(BAND_UNITS);
     expect(traffic.lateralReach).toBe(LATERAL_REACH);
   });

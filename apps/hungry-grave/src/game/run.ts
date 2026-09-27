@@ -6,6 +6,8 @@ import type { Corpse } from './corpses';
 import { createCorpsePool } from './corpses';
 import type { DirectorState } from './director';
 import { STARTING_DIRECTOR, startingSignal } from './director';
+import type { Field } from './field';
+import { fieldOfHeight, SHORTEST_FIELD_HEIGHT } from './field';
 import type { Grave } from './grave';
 import { createGrave } from './grave';
 import type { BellToll } from './lines/bell';
@@ -145,6 +147,13 @@ interface StartingConditions {
    * record that moves a stage row moves the size of the pools this run builds.
    */
   readonly tuning: TuningRecord;
+  /**
+   * How tall the run's field is, in whole field units (T12, A30). It is a
+   * starting condition on the terms the size is (ADR 0027): the shell reads it
+   * off the stage once, a tape's header records it, and a replay rebuilds the
+   * run on it, because a taller field is a longer game and not only a view.
+   */
+  readonly fieldHeight: number;
 }
 
 /**
@@ -180,6 +189,12 @@ interface RunState {
    * run it knows nothing about.
    */
   readonly caps: Caps;
+  /**
+   * The field this run plays on, built once at createRun from the starting
+   * condition's height (T12). Every rule that meets the field's bottom edge
+   * reads it here, so two runs of different heights share no edge.
+   */
+  readonly field: Field;
   // A run's length is counted in ticks, never wall clock.
   tick: number;
   readonly grave: Grave;
@@ -363,6 +378,7 @@ const resolveConditions = (
     roster,
     signalLock: asked.signalLock ?? SIGNAL_RAN_LIVE,
     startingScore: asked.startingScore ?? 0,
+    fieldHeight: asked.fieldHeight ?? SHORTEST_FIELD_HEIGHT,
     // Through the resolver and never a nullish default, because that is the one
     // door every record in the tree enters by and the quiet interval's own
     // bound is asserted behind it (ADR 0064). An absent record is the empty
@@ -389,10 +405,11 @@ const createRun = (
   conditions?: Partial<StartingConditions>,
 ): RunState => {
   const asked = resolveConditions(conditions);
-  const grave = createGrave(asked.startingSize);
+  const field = fieldOfHeight(asked.fieldHeight);
+  const grave = createGrave(field, asked.startingSize);
   // Once, here, from the record this run starts under: the pools below are
   // built at these numbers and every reader of a cap takes them off the run.
-  const caps = capsFor(asked.tuning);
+  const caps = capsFor(asked.tuning, field);
   return {
     seed,
     // The size the grave took and never the one asked for: the bounds are
@@ -402,6 +419,7 @@ const createRun = (
     // The run and its record share the one copy, because neither writes it.
     roster: asked.roster,
     caps,
+    field,
     tick: 0,
     grave,
     score: asked.startingScore,

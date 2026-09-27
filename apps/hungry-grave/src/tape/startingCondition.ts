@@ -1,6 +1,7 @@
 // The starting condition a tape records: the block written from a run, and the
 // block read back into the condition this build can replay (ADR 0043, ADR 0063).
 
+import { SHORTEST_FIELD_HEIGHT, TALLEST_FIELD_HEIGHT } from '../game/field';
 import type { StartingConditions } from '../game/run';
 import { holdableSignal, SIGNAL_RAN_LIVE } from '../game/signalLock';
 import type { TuningRecord } from '../game/tuningRecord';
@@ -14,6 +15,9 @@ import type { StartingConditionBlock } from './tape';
 
 // The size the run began at, which is the size the grave took.
 const SIZE_ROW = 'startingSize';
+
+// How tall the run's field was, in whole field units (design record A33).
+const FIELD_HEIGHT_ROW = 'fieldHeight';
 
 // The figure the run held its pressure signal at, or the value that means it ran live.
 const LOCK_ROW = 'signalLock';
@@ -50,6 +54,7 @@ const startingConditionBlock = (
   conditions: StartingConditions,
 ): StartingConditionBlock => [
   { name: SIZE_ROW, value: conditions.startingSize },
+  { name: FIELD_HEIGHT_ROW, value: conditions.fieldHeight },
   ...conditions.roster.map((line) => ({
     name: `${LEVEL_PREFIX}${line}`,
     value: conditions.startingLevels[line],
@@ -123,6 +128,7 @@ const levelsIn = (block: StartingConditionBlock): Record<string, number> => {
 /** Whether a name is one this build's own starting condition has a place for. */
 const known = (name: string): boolean =>
   name === SIZE_ROW ||
+  name === FIELD_HEIGHT_ROW ||
   name === LOCK_ROW ||
   name === SCORE_ROW ||
   name.startsWith(LEVEL_PREFIX) ||
@@ -135,12 +141,16 @@ const known = (name: string): boolean =>
  * Read off the names rather than listed beside them, because each of the three
  * is a naming convention the record already makes load-bearing: a level is a
  * rung, a score is points a run holds, and a purse is bodies a section gives
- * the director (`stage.ts` derives its own PurseRow off the same suffix). A
+ * the director (`stage.ts` derives its own PurseRow off the same suffix). The
+ * field height is the fourth, in whole field units (design record A30). A
  * seconds row and every row stated as a multiple of a trash kill are quantities
  * and a fraction of one is an ordinary value.
  */
 const countsWholeThings = (name: string): boolean =>
-  name === SCORE_ROW || name.startsWith(LEVEL_PREFIX) || name.endsWith('Purse');
+  name === SCORE_ROW ||
+  name === FIELD_HEIGHT_ROW ||
+  name.startsWith(LEVEL_PREFIX) ||
+  name.endsWith('Purse');
 
 /**
  * Why this build cannot take the value written under a name, or null when it
@@ -180,18 +190,43 @@ const lockRefusal = (lock: number): string | null => {
   return `${LOCK_ROW} is written as ${lock}, which the signal's own scale cannot stand at`;
 };
 
+/**
+ * Why this build cannot play the field the tape names, or null: past the row
+ * rule every value shares, a field outside the shapes a run may take (design
+ * record A30) is one this build never plays.
+ */
+const fieldHeightRefusal = (height: number): string | null => {
+  const refusal = valueRefusal(FIELD_HEIGHT_ROW, height);
+  if (refusal !== null) return refusal;
+  if (height >= SHORTEST_FIELD_HEIGHT && height <= TALLEST_FIELD_HEIGHT) {
+    return null;
+  }
+  return `${FIELD_HEIGHT_ROW} is written as ${height}, outside the ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT} this build plays`;
+};
+
 /** The first thing the block says that this build cannot take, or null. */
 const blockRefusal = (values: ReadonlyMap<string, number>): string | null => {
   for (const [name, value] of values) {
     if (!known(name)) {
       return `${name} is a starting condition this build does not have`;
     }
-    // The lock has a scale of its own and every other row shares one rule.
+    // The lock and the field have scales of their own and every other row shares one rule.
     const refusal =
-      name === LOCK_ROW ? lockRefusal(value) : valueRefusal(name, value);
+      name === LOCK_ROW
+        ? lockRefusal(value)
+        : name === FIELD_HEIGHT_ROW
+          ? fieldHeightRefusal(value)
+          : valueRefusal(name, value);
     if (refusal !== null) return refusal;
   }
-  for (const name of [SIZE_ROW, LOCK_ROW, SCORE_ROW, ...TUNING_ROW_NAMES]) {
+  for (const name of [
+    SIZE_ROW,
+    FIELD_HEIGHT_ROW,
+    FIELD_HEIGHT_ROW,
+    LOCK_ROW,
+    SCORE_ROW,
+    ...TUNING_ROW_NAMES,
+  ]) {
     if (!values.has(name)) {
       return `${name} is a starting condition this build requires and this tape does not name`;
     }
@@ -339,6 +374,7 @@ const resolveStartingCondition = (
       signalLock: valueOf(values, LOCK_ROW),
       startingScore: valueOf(values, SCORE_ROW),
       tuning,
+      fieldHeight: valueOf(values, FIELD_HEIGHT_ROW),
     },
   };
 };

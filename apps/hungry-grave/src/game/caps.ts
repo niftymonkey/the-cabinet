@@ -1,7 +1,8 @@
 // The entity cap policy (tracer plan section 3).
 
 import { TICK_HZ } from './clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Field } from './field';
+import { FIELD_WIDTH, SHORTEST_FIELD } from './field';
 import { BODY, MAX_ENTRY_DEPTH } from './stage/formations';
 import type { FirePhase, ShotPattern } from './stage/waves';
 import {
@@ -11,7 +12,7 @@ import {
   peakArrivalsOf,
   REVENANT_FIRE,
 } from './stage/waves';
-import { FRESHNESS_SECONDS, SCROLL_SPEED } from './tuning';
+import { freshnessSecondsFor, SCROLL_SPEED } from './tuning';
 import type { TuningRecord } from './tuningRecord';
 
 /**
@@ -60,7 +61,7 @@ interface Caps {
 }
 
 /**
- * The longest a body can stand on the field, in seconds: the deepest a
+ * The longest a body can stand on this field, in seconds: the deepest a
  * formation may place it above the top edge, plus the field, plus its own
  * length before the cull lets go of it below the bottom edge, at the slowest
  * descent the sim allows.
@@ -73,8 +74,8 @@ interface Caps {
  * module, so reaching back for MOB_TYPES would close a cycle. The bound is
  * loose by design, which is the direction a safety net rounds.
  */
-const TRANSIT_SECONDS =
-  (MAX_ENTRY_DEPTH + FIELD_HEIGHT + BODY) / (SCROLL_SPEED * TICK_HZ);
+const transitSeconds = (field: Field): number =>
+  (MAX_ENTRY_DEPTH + field.height + BODY) / (SCROLL_SPEED * TICK_HZ);
 
 /**
  * The most bodies the director can put on the field inside a window of this
@@ -126,19 +127,20 @@ const directedInside = (
  * sim allows, and peakArrivals maximises over window placements rather than
  * reading one.
  */
-const peakLive = (tuning: TuningRecord): number =>
-  peakArrivals(TRANSIT_SECONDS) +
+const peakLive = (tuning: TuningRecord, field: Field): number =>
+  peakArrivals(transitSeconds(field)) +
   directedInside(
-    TRANSIT_SECONDS,
+    transitSeconds(field),
     largestCard(null),
     tuning.stage.quietIntervalMinimumSeconds,
   );
 
 // The most bodies a run under this record can hold alive at once.
-const mobCap = (tuning: TuningRecord): number => peakLive(tuning);
+const mobCap = (tuning: TuningRecord, field: Field): number =>
+  peakLive(tuning, field);
 
 /**
- * The longest straight line a shot can travel and still be on the field, so it
+ * The longest straight line a shot can travel and still be on this field, so it
  * is an upper bound on any shot's flight whatever bearing it left on. Aimed
  * fire and every authored pattern alike leave a point inside the rectangle, and
  * a line from inside a rectangle exits within its diagonal.
@@ -148,18 +150,18 @@ const mobCap = (tuning: TuningRecord): number => peakLive(tuning);
  * rounded by the language's own spec, and hypot's precision and the exponent
  * operator's are both left to the engine.
  */
-const FIELD_SPAN = Math.sqrt(
-  FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
-);
+const fieldSpan = (field: Field): number =>
+  Math.sqrt(FIELD_WIDTH * FIELD_WIDTH + field.height * field.height);
 
 /**
  * The shots one pattern holds in the air at once: every emit whose shots have
  * not yet left the field, which is the flight a shot survives divided through
  * the interval between emits, plus the one just fired.
  */
-const shotsInTheAir = (pattern: ShotPattern): number =>
+const shotsInTheAir = (pattern: ShotPattern, field: Field): number =>
   pattern.shots *
-  (Math.floor(FIELD_SPAN / pattern.unitsASecond / pattern.everySeconds) + 1);
+  (Math.floor(fieldSpan(field) / pattern.unitsASecond / pattern.everySeconds) +
+    1);
 
 /**
  * The trash half of the mob-fire pool: every revenant the stage can hold alive
@@ -172,18 +174,18 @@ const shotsInTheAir = (pattern: ShotPattern): number =>
  * rule and through the same function: a pool counted per add where the one
  * beside it counts per window would be the same defect wearing a second coat.
  */
-const revenantFirePeak = (tuning: TuningRecord): number =>
-  (peakArrivalsOf('revenant', TRANSIT_SECONDS) +
+const revenantFirePeak = (tuning: TuningRecord, field: Field): number =>
+  (peakArrivalsOf('revenant', transitSeconds(field)) +
     directedInside(
-      TRANSIT_SECONDS,
+      transitSeconds(field),
       largestCard('revenant'),
       tuning.stage.quietIntervalMinimumSeconds,
     )) *
-  shotsInTheAir(REVENANT_FIRE);
+  shotsInTheAir(REVENANT_FIRE, field);
 
 // What one boss phase holds in the air at once, its emitters together.
-const shotsInThePhase = (phase: FirePhase): number =>
-  phase.reduce((shots, pattern) => shots + shotsInTheAir(pattern), 0);
+const shotsInThePhase = (phase: FirePhase, field: Field): number =>
+  phase.reduce((shots, pattern) => shots + shotsInTheAir(pattern, field), 0);
 
 /**
  * The boss half: the most one boss can hold in the air at once, which is a
@@ -198,14 +200,16 @@ const shotsInThePhase = (phase: FirePhase): number =>
  * whole section before the Undertaker arrives. A maximum and never a sum for
  * the same reason: one boss fights at a time.
  */
-const WORST_BOSS_PATTERN = Math.max(
-  ...Object.values(BOSS_FIRE).flatMap((phases) =>
-    phases.map(
-      (phase, index) =>
-        shotsInThePhase(phase) + shotsInThePhase(phases[index + 1] ?? []),
+const worstBossPattern = (field: Field): number =>
+  Math.max(
+    ...Object.values(BOSS_FIRE).flatMap((phases) =>
+      phases.map(
+        (phase, index) =>
+          shotsInThePhase(phase, field) +
+          shotsInThePhase(phases[index + 1] ?? [], field),
+      ),
     ),
-  ),
-);
+  );
 
 /**
  * Room for every shot the field can hold at once, derived from the stage's own
@@ -224,8 +228,8 @@ const WORST_BOSS_PATTERN = Math.max(
  * slot is alive, so padding is paid on every tick of every run. A bound cap
  * refuses the shot, removes nothing, and raises a recoverable fault.
  */
-const mobFireCap = (tuning: TuningRecord): number =>
-  revenantFirePeak(tuning) + WORST_BOSS_PATTERN;
+const mobFireCap = (tuning: TuningRecord, field: Field): number =>
+  revenantFirePeak(tuning, field) + worstBossPattern(field);
 
 /**
  * Treasure the field can hold at once, which never decays and so is not covered
@@ -239,8 +243,8 @@ const TREASURE_ALLOWANCE = 10;
  * Room for every corpse the stage can leave alive at once, derived from the two
  * clocks the game already has rather than written down (ADR 0056).
  *
- * A proof and not an estimate. A decaying corpse lives at most
- * FRESHNESS_SECONDS, so every one alive at any instant was made inside that
+ * A proof and not an estimate. A decaying corpse lives at most the run's
+ * freshnessSecondsFor, so every one alive at any instant was made inside that
  * window; every one came from a body that was either alive when the window
  * opened, which MOB_CAP bounds, or arrived inside it, which the stage's own
  * waves bound. Treasure does not decay and is bounded by design instead. So the
@@ -255,28 +259,36 @@ const TREASURE_ALLOWANCE = 10;
  * one more at every minimum interval after it (ADR 0056, the record's section 5
  * item 7).
  */
-const directedInsideFreshness = (tuning: TuningRecord): number =>
+const directedInsideFreshness = (tuning: TuningRecord, field: Field): number =>
   directedInside(
-    FRESHNESS_SECONDS,
+    freshnessSecondsFor(field),
     largestCard(null),
     tuning.stage.quietIntervalMinimumSeconds,
   );
 
-const corpseCap = (tuning: TuningRecord): number =>
-  mobCap(tuning) +
-  peakArrivals(FRESHNESS_SECONDS) +
+const corpseCap = (tuning: TuningRecord, field: Field): number =>
+  mobCap(tuning, field) +
+  peakArrivals(freshnessSecondsFor(field)) +
   TREASURE_ALLOWANCE +
-  directedInsideFreshness(tuning);
+  directedInsideFreshness(tuning, field);
 
 /**
  * The three caps one run is built at, derived together because createRun needs
  * all three in the same call and a reader takes them off the run afterwards
- * (ADR 0056 as amended).
+ * (ADR 0056 as amended). All three grow with the run's field (design record
+ * A32).
+ *
+ * The field defaults to the shortest only for src/app's three callers, which
+ * slice P2 hands the run's own field and which removes the default. Every
+ * caller in the rules passes the run's field.
  */
-const capsFor = (tuning: TuningRecord): Caps => ({
-  mobs: mobCap(tuning),
-  mobFire: mobFireCap(tuning),
-  corpses: corpseCap(tuning),
+const capsFor = (
+  tuning: TuningRecord,
+  field: Field = SHORTEST_FIELD,
+): Caps => ({
+  mobs: mobCap(tuning, field),
+  mobFire: mobFireCap(tuning, field),
+  corpses: corpseCap(tuning, field),
 });
 
 /**
@@ -355,10 +367,10 @@ export {
   takeSlot,
   liveCount,
   peakLive,
-  TRANSIT_SECONDS,
+  transitSeconds,
   mobCap,
   revenantFirePeak,
-  WORST_BOSS_PATTERN,
+  worstBossPattern,
   mobFireCap,
   corpseCap,
   capsFor,

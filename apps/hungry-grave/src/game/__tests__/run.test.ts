@@ -29,6 +29,22 @@ function quietMinimumOf(seconds: number): TuningRecord {
 }
 
 describe('createRun', () => {
+  it('plays a run asked for no height on the 760 field and records 760 in its starting condition', () => {
+    // A31: a run that asks for no shape plays today's field, and ADR 0027
+    // records the resolved value rather than the absence.
+    const run = createRun(1);
+    expect(run.field).toEqual({ width: 540, height: 760 });
+    expect(run.conditions.fieldHeight).toBe(760);
+  });
+
+  it('gives a run asked for 1168 a 540 by 1168 field, its grave starting 152 above the bottom edge at (270, 1016)', () => {
+    // A32: the grave's start is a distance from the bottom edge, not a fraction.
+    const run = createRun(1, { fieldHeight: 1168 });
+    expect(run.field).toEqual({ width: 540, height: 1168 });
+    expect(run.conditions.fieldHeight).toBe(1168);
+    expect({ x: run.grave.x, y: run.grave.y }).toEqual({ x: 270, y: 1016 });
+  });
+
   it('starts at SIZE_START when no starting size is asked for', () => {
     expect(createRun(1).grave.size).toBe(SIZE_START);
   });
@@ -253,6 +269,7 @@ describe("a run's starting conditions", () => {
     roster: [...run.roster],
     signalLock: run.director.signal.lock,
     startingScore: run.score,
+    fieldHeight: run.field.height,
   });
 
   /**
@@ -267,6 +284,7 @@ describe("a run's starting conditions", () => {
     roster: conditions.roster,
     signalLock: conditions.signalLock,
     startingScore: conditions.startingScore,
+    fieldHeight: conditions.fieldHeight,
   });
 
   it('rolls the birthright run when only a seed is named, and says so in its record', () => {
@@ -281,6 +299,7 @@ describe("a run's starting conditions", () => {
       signalLock: SIGNAL_RAN_LIVE,
       startingScore: 0,
       tuning: DEFAULT_TUNING,
+      fieldHeight: 760,
     });
     expect(exceptTuning(run.conditions)).toEqual(conditionsOn(run));
     expect(run.caps).toEqual(capsFor(run.conditions.tuning));
@@ -321,13 +340,14 @@ describe("a run's starting conditions", () => {
     });
   });
 
-  it('starts from every one of the five facts a whole record states', () => {
+  it('starts from every one of the six facts a whole record states', () => {
     const stated = {
       startingSize: SIZE_FLOOR,
       startingLevels: uniformLevels(MAX_LEVEL),
       roster: [...BIRTHRIGHT, 'bell'] as readonly WeaponLine[],
       signalLock: 0.5,
       startingScore: 6000,
+      fieldHeight: 1168,
     };
 
     const run = createRun(1, stated);

@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { SKULL_CAP } from '../../caps';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import type { Mob } from '../../mobs';
 import { spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -164,7 +164,7 @@ describe('the columns (plan 6.3)', () => {
     // volley flown the whole height of the field is gone by then and a check
     // over the dead reads as a pass over an empty set.
     let checked = 0;
-    for (let tick = 0; tick < FIELD_HEIGHT / SKULL_SPEED; tick++) {
+    for (let tick = 0; tick < SHORTEST_FIELD_HEIGHT / SKULL_SPEED; tick++) {
       advanceStream(state);
       for (const skull of volley) {
         if (!skull.alive) continue;
@@ -514,7 +514,11 @@ describe('a skull leaving the field (plan 6.7)', () => {
     // the assertion, which is the pooled-entity hazard this codebase documents.
     holdFire(state);
     expect(skull.alive).toBe(true);
-    for (let tick = 0; tick < FIELD_HEIGHT / SKULL_SPEED + 10; tick++) {
+    for (
+      let tick = 0;
+      tick < SHORTEST_FIELD_HEIGHT / SKULL_SPEED + 10;
+      tick++
+    ) {
       advanceStream(state);
     }
     expect(skull.alive).toBe(false);
@@ -601,5 +605,25 @@ describe("the stream's damage climbs with its rungs (the weapon growth record, s
     // refuses or clamps rather than answering for a rung nobody authored.
     expect(skullDamage(MAX_LEVEL + 1)).toBe(skullDamage(MAX_LEVEL));
     expect(() => skullDamage(-1)).toThrow();
+  });
+});
+
+describe("the run's own bottom edge", () => {
+  it('culls a skull only once it is past a 1168 field and its own extent, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    const state = createRun(4, { fieldHeight: 1168 });
+    state.lines.streamIn = Number.MAX_SAFE_INTEGER;
+    const skull = state.skulls[0]!;
+    skull.alive = true;
+    skull.x = 200;
+    skull.y = 900;
+    skull.vx = 0;
+    skull.vy = 0;
+    advanceStream(state);
+    expect(skull.alive).toBe(true);
+
+    skull.y = 1168 + SKULL_HALF_EXTENT + 1;
+    advanceStream(state);
+    expect(skull.alive).toBe(false);
   });
 });

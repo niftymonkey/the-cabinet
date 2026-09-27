@@ -394,3 +394,36 @@ describe('the comparison command', () => {
     SUBPROCESS_BUDGET_MS,
   );
 });
+
+describe("the comparison and the run's field (design record A31)", () => {
+  it(
+    'refuses two reports of different field heights, naming both heights',
+    () => {
+      // A31: two fields are two starting conditions, and figures from two
+      // conditions are never compared as one without saying so (#107).
+      const tall: BatchReport = {
+        ...reportOf('steady-far', 1000),
+        identity: {
+          ...reportOf('steady-far', 1000).identity,
+          fieldHeights: [1168],
+        },
+      };
+      const folder = written({
+        'short.json': reportOf('steady-far', 1000),
+        'tall.json': tall,
+      });
+
+      const result = runCompare(
+        join(folder, 'short.json'),
+        join(folder, 'tall.json'),
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('760');
+      expect(result.stderr).toContain('1168');
+      expect(result.stderr).toContain('nothing was compared');
+    },
+    SUBPROCESS_BUDGET_MS,
+  );
+});

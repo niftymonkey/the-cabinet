@@ -100,6 +100,13 @@ const readStoredTape = (stored: StoredTape): TapeRead => {
     );
   }
   const measurement = measure(decoded);
+  // A condition this build cannot start is refused in the block's own words, so
+  // a tape from before a row existed names the row (design record A33).
+  if (measurement.outcome === 'conditionNotImplemented') {
+    return refused(
+      `${stored.name} names a starting condition this build cannot replay: ${measurement.reason}`,
+    );
+  }
   if (measurement.outcome !== 'verified') {
     return refused(
       `${stored.name} did not verify (${measurement.outcome}), and metrics come only from a verified replay (ADR 0019)`,

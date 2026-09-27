@@ -3,7 +3,7 @@
 
 import { createPool, takeSlot } from '../caps';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
 import type { Mob } from '../mobs';
 import { mobHitbox } from '../mobs';
@@ -587,7 +587,7 @@ const advanceTerritory = (state: RunState): SimEvent[] => {
     if (patch.opening > 0) patch.opening -= 1;
     // Gone once the whole patch is past the bottom edge. There is no timer:
     // the world scroll owns this.
-    if (patch.y - patch.radius > FIELD_HEIGHT) {
+    if (patch.y - patch.radius > state.field.height) {
       events.push(closePatch(patch, 'scrolled'));
     }
   }

@@ -22,6 +22,8 @@
 
 import type { FieldSize } from '../src/dev/syntheticField';
 import type { Caps, PoolSlot } from '../src/game/caps';
+import type { Field } from '../src/game/field';
+import { SHORTEST_FIELD } from '../src/game/field';
 import {
   corpseCap as shippedCorpseCap,
   createPool,
@@ -32,10 +34,10 @@ import {
   revenantFirePeak,
   SKULL_CAP,
   takeSlot,
-  TRANSIT_SECONDS,
+  transitSeconds,
   TREASURE_ALLOWANCE,
   WISP_CAP,
-  WORST_BOSS_PATTERN,
+  worstBossPattern,
 } from '../src/game/caps';
 import type { TuningRecord } from '../src/game/tuningRecord';
 
@@ -53,21 +55,26 @@ const sizePoolsFor = (size: FieldSize): void => {
 };
 
 // The bench's own body count once a field is named, and the shipped one before.
-const mobCap = (tuning: TuningRecord): number =>
-  benchMobs ?? shippedMobCap(tuning);
+const mobCap = (tuning: TuningRecord, field: Field): number =>
+  benchMobs ?? shippedMobCap(tuning, field);
 
 // The bench's own food count once a field is named, and the shipped one before.
-const corpseCap = (tuning: TuningRecord): number =>
-  benchCorpses ?? shippedCorpseCap(tuning);
+const corpseCap = (tuning: TuningRecord, field: Field): number =>
+  benchCorpses ?? shippedCorpseCap(tuning, field);
 
 /**
  * The three caps a run is built at under this bench: the two the field names
- * and the shipped mob-fire cap, which no field row moves.
+ * and the shipped mob-fire cap, which no field row moves. It takes the run's
+ * field with the shipped module's own default, because it stands in for that
+ * module and src/app's frame-budget screen calls it bare until slice P2.
  */
-const capsFor = (tuning: TuningRecord): Caps => ({
-  mobs: mobCap(tuning),
-  mobFire: mobFireCap(tuning),
-  corpses: corpseCap(tuning),
+const capsFor = (
+  tuning: TuningRecord,
+  field: Field = SHORTEST_FIELD,
+): Caps => ({
+  mobs: mobCap(tuning, field),
+  mobFire: mobFireCap(tuning, field),
+  corpses: corpseCap(tuning, field),
 });
 
 export {
@@ -75,10 +82,10 @@ export {
   takeSlot,
   liveCount,
   peakLive,
-  TRANSIT_SECONDS,
+  transitSeconds,
   mobCap,
   revenantFirePeak,
-  WORST_BOSS_PATTERN,
+  worstBossPattern,
   mobFireCap,
   corpseCap,
   capsFor,

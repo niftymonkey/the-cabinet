@@ -1,6 +1,7 @@
 // What a batch of harness runs says: one spread per reading (ADR 0053, #98).
 
 import { BELCH_SHOVES } from '../game/belch';
+import { fieldOfHeight } from '../game/field';
 import { WEAPON_LINES } from '../game/lines/roster';
 import type { WeaponLine } from '../game/lines/roster';
 import { MOB_TYPES } from '../game/mobs';
@@ -98,6 +99,12 @@ interface BatchIdentity {
    * tuning, and null is a run whose record no row holds.
    */
   readonly candidates: readonly (CandidateName | null)[];
+  /**
+   * The field height the batch's runs played on, read off the runs the way the
+   * rigs are (design record A31). One height and never more: a report refuses
+   * runs of two fields rather than pooling them (#107).
+   */
+  readonly fieldHeights: readonly number[];
   /**
    * The one record every run in the batch was played under, row by row under
    * the dotted names it has everywhere else, or null when they were not all
@@ -1041,6 +1048,7 @@ interface Collected {
   readonly commitHashes: Set<string>;
   readonly rigs: Set<RigName | null>;
   readonly candidates: Set<CandidateName | null>;
+  readonly fieldHeights: Set<number>;
   // The records the runs played under, one entry per distinct set of rows.
   readonly tunings: Map<string, readonly TuningRow[]>;
 }
@@ -1053,6 +1061,7 @@ const collected = (): Collected => ({
   commitHashes: new Set(),
   rigs: new Set(),
   candidates: new Set(),
+  fieldHeights: new Set(),
   tunings: new Map(),
 });
 
@@ -1175,6 +1184,7 @@ const collectRun = (acc: Collected, seed: number, report: Metrics): void => {
   acc.commitHashes.add(report.identity.commitHash);
   acc.rigs.add(report.provenance.rig);
   acc.candidates.add(report.provenance.candidate);
+  acc.fieldHeights.add(report.provenance.fieldHeight);
   const rows = tuningRows(report.provenance.tuning);
   acc.tunings.set(rowsKey(rows), rows);
   for (const declared of BATCH_READINGS) {
@@ -1285,8 +1295,27 @@ const sectionStoppedIn = (report: Metrics): SectionName | null => {
  * a budget that never applied to it.
  */
 const ceilingStopOf = (seed: number, report: Metrics): CeilingStop | null => {
-  if (report.run.ticks !== runTickBudget()) return null;
+  const field = fieldOfHeight(report.provenance.fieldHeight);
+  if (report.run.ticks !== runTickBudget(field)) return null;
   return { seed, section: sectionStoppedIn(report) };
+};
+
+/**
+ * The one field height a batch's runs played on.
+ *
+ * Two heights are two starting conditions, and figures from two conditions are
+ * never banded as one (#107, design record A31), so the report refuses them the
+ * way ADR 0019 refuses rather than degrades. It throws because no caller can
+ * hand it two: the batch command plays one height, and a stored folder of two
+ * batches is refused by its recording stamps before it is folded.
+ */
+const refuseTwoFields = (fieldHeights: ReadonlySet<number>): void => {
+  const heights = [...fieldHeights].sort((a, b) => a - b);
+  const [, second] = heights;
+  if (second === undefined) return;
+  throw new Error(
+    `a batch report was asked to pool runs on fields ${heights.join(' and ')} tall; figures from two fields are never banded as one`,
+  );
 };
 
 /**
@@ -1331,6 +1360,7 @@ const batchReportOf = (
     }
     collectRun(acc, seed, measurement);
   }
+  refuseTwoFields(acc.fieldHeights);
   return {
     identity: {
       configuration: origin.configuration,
@@ -1340,6 +1370,7 @@ const batchReportOf = (
       commitHashes: [...acc.commitHashes],
       rigs: [...acc.rigs],
       candidates: [...acc.candidates],
+      fieldHeights: [...acc.fieldHeights],
       tuning: sharedTuning(acc.tunings),
       mobWidths: MOB_WIDTHS,
     },

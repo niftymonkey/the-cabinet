@@ -6,7 +6,7 @@ import type { Stream } from '../game/rng';
 import { stream } from '../game/rng';
 import type { RunState } from '../game/run';
 import { RESERVOIR_CAPACITY } from '../game/tuning';
-import { bestMoveToward, HOME, nearestFood } from './bot';
+import { bestMoveToward, homeOf, nearestFood } from './bot';
 import type { Policy } from './bot';
 import type { Configuration } from './configurations';
 
@@ -56,7 +56,7 @@ const squaredGap = (state: RunState, body: Corpse): number => {
 const pointWanted = (state: RunState): { x: number; y: number } => {
   const body = offerBodyWanted(state);
   if (body !== null) return { x: body.x, y: body.y };
-  return nearestFood(state) ?? HOME;
+  return nearestFood(state) ?? homeOf(state);
 };
 
 // Live shots on the field, which is the half of the belch rule the row prices.

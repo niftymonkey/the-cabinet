@@ -79,6 +79,7 @@ const isBatchReport = (value: unknown): value is BatchReport =>
   isPlainObject(value) &&
   isPlainObject(value.identity) &&
   Array.isArray(value.identity.rigs) &&
+  Array.isArray(value.identity.fieldHeights) &&
   Array.isArray(value.identity.candidates) &&
   (Array.isArray(value.identity.tuning) || value.identity.tuning === null) &&
   Array.isArray(value.identity.commitHashes) &&
@@ -106,7 +107,7 @@ const reportAt = (path: string): BatchReport | null => {
     const parsed: unknown = JSON.parse(raw);
     if (!isBatchReport(parsed)) {
       return refuse(
-        `${path} is not a batch report this build can compare (this build requires the candidates and the tuning record on its identity, so one written before them reads as one)`,
+        `${path} is not a batch report this build can compare (this build requires the candidates, the tuning record and the field heights on its identity, so one written before them reads as one)`,
       );
     }
     return parsed;
@@ -124,6 +125,29 @@ const reportsAt = (paths: readonly string[]): BatchReport[] | null => {
     reports.push(report);
   }
   return reports;
+};
+
+// The field heights one side played on, as a person reads them.
+const fieldsIn = (identity: BatchIdentity): string =>
+  identity.fieldHeights.join(' and ');
+
+/**
+ * The first pair of reports whose two sides played different fields, refused
+ * out loud, or true when every pair played one. Two fields are two starting
+ * conditions and never compared as one (design record A31, #107).
+ */
+const sameFieldsOrRefuse = (reports: readonly BatchReport[]): boolean => {
+  for (let pair = 0; pair < reports.length; pair += 2) {
+    const left = reports[pair]?.identity;
+    const right = reports[pair + 1]?.identity;
+    if (left === undefined || right === undefined) continue;
+    if (fieldsIn(left) === fieldsIn(right)) continue;
+    refuse(
+      `the two reports played fields ${fieldsIn(left)} and ${fieldsIn(right)} tall, and figures from two fields are never compared as one`,
+    );
+    return false;
+  }
+  return true;
 };
 
 // What the command says: one comparison per corner, and the two read together.
@@ -221,7 +245,7 @@ const main = (): void => {
     return;
   }
   const reports = reportsAt(paths);
-  if (reports === null) {
+  if (reports === null || !sameFieldsOrRefuse(reports)) {
     process.exitCode = 1;
     return;
   }

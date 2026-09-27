@@ -19,7 +19,7 @@ import { waveCarriers } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
 import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
@@ -81,7 +81,7 @@ const BOSS_BOUND_SECTIONS: readonly SectionName[] = ['procession', 'vigil'];
  * bound follows the mob rows and the field rather than being written down.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (SHORTEST_FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +

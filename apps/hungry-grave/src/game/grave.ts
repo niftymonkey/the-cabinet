@@ -5,7 +5,8 @@ import { TICK_HZ } from './clock';
 import type { MoveCommand } from './command';
 import { POWER_UP_HALF_EXTENT, spawnFallenRung } from './corpses';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Field, FieldPoint } from './field';
+import { FIELD_WIDTH } from './field';
 import type { MobType } from './mobs';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
@@ -23,10 +24,18 @@ import {
   SIZE_START,
 } from './tuning';
 
+/**
+ * How far above the field's bottom edge a run's grave starts: today's 0.8 of
+ * the 760 field (608), held as a distance so a taller field only adds field
+ * ahead of the grave and never dodge room behind it (design record A32).
+ */
+const START_ABOVE_BOTTOM = 152;
+
 // Where a run's grave stands: centred across the field and low in it, the
 // shmup's own starting mark, with the whole field ahead of it.
-const START_X = FIELD_WIDTH / 2;
-const START_Y = FIELD_HEIGHT * 0.8;
+const startingPlace = (field: Field): FieldPoint => {
+  return { x: FIELD_WIDTH / 2, y: field.height - START_ABOVE_BOTTOM };
+};
 
 /**
  * Who hurt the player (#48): the mob type whose shot landed, the boss whose
@@ -74,12 +83,13 @@ const reportUnhonouredSize = (asked: number, started: number): void => {
  * clamped here rather than by the caller, because ADR 0003's floor and ceiling
  * are this module's to defend and ?size= arrives from src/app unclamped.
  */
-const createGrave = (size: number = SIZE_START): Grave => {
+const createGrave = (field: Field, size: number = SIZE_START): Grave => {
   const started = clamp(size, SIZE_FLOOR, SIZE_CEILING);
   if (started !== size) reportUnhonouredSize(size, started);
+  const place = startingPlace(field);
   return {
-    x: START_X,
-    y: START_Y,
+    x: place.x,
+    y: place.y,
     size: started,
     invulnerable: 0,
     owed: 0,
@@ -115,10 +125,10 @@ const clamp = (value: number, low: number, high: number): number => {
 };
 
 // Holds the whole grave inside the field, accounting for its own width and height.
-const containGrave = (grave: Grave): void => {
+const containGrave = (grave: Grave, field: Field): void => {
   const halfWidth = graveWidth(grave.size) / 2;
   grave.x = clamp(grave.x, halfWidth, FIELD_WIDTH - halfWidth);
-  grave.y = clamp(grave.y, grave.size, FIELD_HEIGHT - grave.size);
+  grave.y = clamp(grave.y, grave.size, field.height - grave.size);
 };
 
 /**
@@ -130,10 +140,10 @@ const containGrave = (grave: Grave): void => {
  * recording that capping touch to keyboard feel was the input lag felt on
  * device. A cap here would silently undo that for touch.
  */
-const moveGrave = (grave: Grave, command: MoveCommand): void => {
+const moveGrave = (grave: Grave, command: MoveCommand, field: Field): void => {
   grave.x += command.x * BASE_SPEED;
   grave.y += command.y * BASE_SPEED;
-  containGrave(grave);
+  containGrave(grave, field);
 };
 
 /**
@@ -176,7 +186,11 @@ const growGrave = (grave: Grave, amount: number): number => {
  * straddling an edge it was pressed against, so the containment runs again here
  * rather than waiting for the next move command.
  */
-const takeInOwedGrowth = (grave: Grave, swellPerSecond: number): SimEvent[] => {
+const takeInOwedGrowth = (
+  grave: Grave,
+  swellPerSecond: number,
+  field: Field,
+): SimEvent[] => {
   const taken = Math.min(grave.owed, swellPerSecond / TICK_HZ);
   if (taken <= 0) return [];
   // The size is the true size less what is still owed, rather than a running
@@ -187,14 +201,18 @@ const takeInOwedGrowth = (grave: Grave, swellPerSecond: number): SimEvent[] => {
   grave.owed -= taken;
   grave.size = trueSize - grave.owed;
   if (grave.size >= SCORE_RUNG_REARM_SIZE) grave.scoreRungBled = false;
-  containGrave(grave);
+  containGrave(grave, field);
   return [{ type: 'grew', amount: taken, size: grave.size }];
 };
 
 // One tick of the grave: invulnerability counts down, and the grave swells into what it is owed.
-const ageGrave = (grave: Grave, swellPerSecond: number): SimEvent[] => {
+const ageGrave = (
+  grave: Grave,
+  swellPerSecond: number,
+  field: Field,
+): SimEvent[] => {
   if (grave.invulnerable > 0) grave.invulnerable -= 1;
-  return takeInOwedGrowth(grave, swellPerSecond);
+  return takeInOwedGrowth(grave, swellPerSecond, field);
 };
 
 /**
@@ -284,9 +302,9 @@ const FALLEN_RUNG_DROP = SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED;
  * room below would be, and it is lost off the bottom edge like any other body
  * if nobody takes it.
  */
-const fallenRungY = (graveY: number): number => {
+const fallenRungY = (graveY: number, field: Field): number => {
   const below = graveY + FALLEN_RUNG_DROP;
-  const roomBelow = below + POWER_UP_HALF_EXTENT <= FIELD_HEIGHT;
+  const roomBelow = below + POWER_UP_HALF_EXTENT <= field.height;
   return roomBelow ? below : graveY - FALLEN_RUNG_DROP;
 };
 
@@ -305,7 +323,7 @@ const dropFallenRungs = (
   lines: readonly WeaponLine[],
 ): SimEvent[] => {
   const events: SimEvent[] = [];
-  const y = fallenRungY(state.grave.y);
+  const y = fallenRungY(state.grave.y, state.field);
   for (const [index, line] of lines.entries()) {
     const at = spreadX(state.grave.x, lines.length, index);
     events.push(...spawnFallenRung(state, at, y, line));
@@ -424,6 +442,8 @@ const hitGrave = (state: RunState, source: GraveHitSource): SimEvent[] => {
 };
 
 export {
+  startingPlace,
+  START_ABOVE_BOTTOM,
   createGrave,
   graveWidth,
   graveHitbox,

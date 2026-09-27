@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
-import { FIELD_HEIGHT } from '../../game/field';
+import { SHORTEST_FIELD, SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import {
   BIRTHRIGHT,
   BIRTHRIGHT_LEVEL,
@@ -94,7 +94,7 @@ const sealingRun = () => {
  * follows the authored waves instead of restating the module's answer.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (SHORTEST_FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -124,10 +124,10 @@ describe('the harness run', () => {
     // Test 55, first half. The budget is the stage's own waves plus what they
     // leave falling, scaled by the slack a fight costs. A compiled tick count
     // would be the arithmetic-as-rules the standing rule forbids.
-    expect(runTickBudget()).toBe(STAGE_TICKS * RUN_TICK_SLACK);
+    expect(runTickBudget(SHORTEST_FIELD)).toBe(STAGE_TICKS * RUN_TICK_SLACK);
     // A budget above the worst case and never a prediction of any run: the
     // waves alone bound one crossing and a fight is neither.
-    expect(runTickBudget()).toBeGreaterThan(STAGE_TICKS);
+    expect(runTickBudget(SHORTEST_FIELD)).toBeGreaterThan(STAGE_TICKS);
   });
 
   it('grows by exactly what a re-authored section adds', async () => {
@@ -159,8 +159,9 @@ describe('the harness run', () => {
     });
 
     const lengthened = await import('../harnessRun');
-    expect(lengthened.runTickBudget()).toBe(
-      runTickBudget() + LENGTHENED_SECONDS * TICK_HZ * RUN_TICK_SLACK,
+    expect(lengthened.runTickBudget(SHORTEST_FIELD)).toBe(
+      runTickBudget(SHORTEST_FIELD) +
+        LENGTHENED_SECONDS * TICK_HZ * RUN_TICK_SLACK,
     );
 
     vi.doUnmock('../../game/stage/stage');
@@ -199,7 +200,7 @@ describe('the harness run', () => {
       const { trailer } = decodeTape(run.bytes).tape;
 
       expect(run.ending).not.toBeNull();
-      expect(run.ticks).toBeLessThan(runTickBudget());
+      expect(run.ticks).toBeLessThan(runTickBudget(SHORTEST_FIELD));
       expect(trailer?.ending).toBe(run.ending);
       expect(trailer?.stop).toBe('finished');
     },

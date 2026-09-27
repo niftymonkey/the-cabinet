@@ -1,6 +1,7 @@
 // Numbers off a tape: the instrument that turns a decoded recording into
 // metrics (#58 slice 4).
 
+import { fieldOfHeight } from '../game/field';
 import type { WeaponLine } from '../game/lines/roster';
 import type { DamageSource } from '../game/mobs';
 import type { RunEnding, StartingConditions } from '../game/run';
@@ -110,6 +111,14 @@ interface Provenance {
    * states.
    */
   readonly tuning: TuningRecord;
+  /**
+   * How tall the run's field was, off the condition the header carries (T12).
+   * It is banded beside the rig and the candidate rather than folded into
+   * either, so two fields are never banded as one measurement (design record
+   * A31, #107) and a person's run on a tall phone is a different field and
+   * never a pinned condition.
+   */
+  readonly fieldHeight: number;
   /**
    * Whether the resolved starting size or levels differ from today's
    * birthright. A birthright retune mislabels old tapes toward exclusion,
@@ -283,6 +292,7 @@ const provenanceOf = (
   // read back bands the same way a run taken from the table does (ADR 0064).
   candidate: candidateOf(conditions.tuning),
   tuning: conditions.tuning,
+  fieldHeight: conditions.fieldHeight,
   conditioned: isConditioned(conditions),
   exclusions: exclusionsOf(tape, conditions, recordedFaults),
 });
@@ -345,7 +355,12 @@ const measure = (decoded: DecodedTape): Measurement => {
   // The lines this run names, known before a tick has run, so every record the
   // report promises whole is whole even when the tape carries no command.
   const lines = linesInRun(startingLevels);
-  const readings = createReadings(startingSize, lines, conditions.signalLock);
+  const readings = createReadings(
+    startingSize,
+    lines,
+    conditions.signalLock,
+    fieldOfHeight(conditions.fieldHeight),
+  );
   const tallies = createTallies(readings, lines, startingLevels);
   // A frame starting at tick 0 began on the empty field, which no listener
   // call ever sees: the observer fires only after a tick has run.

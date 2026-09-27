@@ -4,7 +4,8 @@
 import type { PoolSlot } from '../game/caps';
 import { liveCount, takeSlot } from '../game/caps';
 import { CORPSE_HALF_EXTENT } from '../game/corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import type { Field } from '../game/field';
+import { FIELD_WIDTH } from '../game/field';
 import type { MobType } from '../game/mobs';
 import { MOB_TYPES, MOB_TYPE_NAMES, spawnMob } from '../game/mobs';
 import type { RunState } from '../game/run';
@@ -28,14 +29,14 @@ interface Place {
  * simulation's overlap work is per pair: a heap at one point would measure a
  * field nobody can produce, in both directions at once.
  */
-const placeOf = (index: number, count: number): Place => {
+const placeOf = (index: number, count: number, field: Field): Place => {
   const columns = Math.max(1, Math.ceil(Math.sqrt(count)));
   const rows = Math.max(1, Math.ceil(count / columns));
   const column = index % columns;
   const row = Math.floor(index / columns);
   return {
     x: ((column + 0.5) / columns) * FIELD_WIDTH,
-    y: ((row + 0.5) / rows) * FIELD_HEIGHT,
+    y: ((row + 0.5) / rows) * field.height,
   };
 };
 
@@ -87,7 +88,7 @@ const clearSurplus = (pool: readonly PoolSlot[], count: number): void => {
 const standMobs = (run: RunState, count: number): void => {
   clearSurplus(run.mobs, count);
   for (let index = liveCount(run.mobs); index < count; index++) {
-    const place = placeOf(index, count);
+    const place = placeOf(index, count, run.field);
     const mob = spawnMob(
       run,
       typeOf(index),
@@ -113,7 +114,7 @@ const standMobs = (run: RunState, count: number): void => {
 const standCorpses = (run: RunState, count: number): void => {
   clearSurplus(run.corpses, count);
   for (let index = liveCount(run.corpses); index < count; index++) {
-    const place = placeOf(index, count);
+    const place = placeOf(index, count, run.field);
     const corpse = takeSlot(run.corpses, run.nextEntityId);
     if (corpse === null) {
       throw new Error(

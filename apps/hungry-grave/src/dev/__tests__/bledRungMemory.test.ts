@@ -37,7 +37,7 @@ const ladderRun = (): RunState => createRun(SEED, RIGS.ladder.conditions);
 /** The grave taking in every bit of growth it is owed, at the run's own rate (Mark's ruling of 2026-09-21). */
 const takeIn = (run: RunState): void => {
   while (run.grave.owed > 0) {
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
   }
 };
 
@@ -45,7 +45,7 @@ const takeIn = (run: RunState): void => {
 const land = (run: RunState): void => {
   hitGrave(run, 'contact');
   for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
 };
 
 describe('bled rung memory', () => {

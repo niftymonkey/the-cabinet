@@ -1,6 +1,6 @@
 // What the grave itself did across the run: its size, and where it sat.
 
-import { FIELD_HEIGHT } from '../../game/field';
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import type { RunState } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
 import type { NumberRecord } from '../numbersByName';
@@ -12,25 +12,26 @@ import { firstOf, greatestOf, lastOf, leastOf, meanOf } from '../seriesSummary';
  * This is a measurement boundary and nothing else. It is not a healthy band, a
  * target, or a rule the game enforces, and no project source establishes one;
  * it sits here in the instrument row rather than in the sim's tuning for
- * exactly that reason. It is a tenth of the field, which leaves the grave's own
+ * exactly that reason. It is a tenth of the shortest field, a distance on every
+ * field (design record A32), which leaves the grave's own
  * starting mark outside it, so the reading counts a player who went looking for
  * the edge rather than one who never left home.
  */
-const BOTTOM_EDGE_MARGIN = FIELD_HEIGHT / 10;
+const BOTTOM_EDGE_MARGIN = SHORTEST_FIELD_HEIGHT / 10;
 
 /**
  * How much field is left under the grave: the gap from its bottom rim to the
  * edge, never from its centre.
  *
  * The rim is what the player sees touch the edge, and it is also the only
- * size-independent reading of the two. Containment holds the centre at
- * FIELD_HEIGHT minus the size, so a centre test measures a band that shrinks as
+ * size-independent reading of the two. Containment holds the centre at the
+ * run's field height minus the size, so a centre test measures a band that shrinks as
  * the grave grows, and the count would fall exactly when the grave is largest.
  * That would invert the reading: camping would look rarer the better the run
  * went.
  */
 const gapUnderGrave = (state: RunState): number =>
-  FIELD_HEIGHT - (state.grave.y + state.grave.size);
+  state.field.height - (state.grave.y + state.grave.size);
 
 interface GravePath {
   /**

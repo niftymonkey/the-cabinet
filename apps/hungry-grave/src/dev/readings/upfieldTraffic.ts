@@ -2,7 +2,8 @@
 
 import { TICK_HZ } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import type { Field } from '../../game/field';
+import { FIELD_WIDTH } from '../../game/field';
 import { SPAWN_MARGIN } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { SCROLL_SPEED } from '../../game/tuning';
@@ -34,15 +35,17 @@ const BAND_UNITS = SCROLL_SPEED * TICK_HZ;
 const LATERAL_REACH = FIELD_WIDTH / 10;
 
 /**
- * How many bands there are, enough to reach every place a live mob may stand
- * up-field of the grave.
+ * How many bands there are on this field, enough to reach every place a live
+ * mob may stand up-field of the grave. Counted once, when the reading starts,
+ * from the run's own field (design record A32).
  *
  * The reach is the field's own height widened by the spawn margin: the grave's
  * centre is held inside the field and a mob is legal out to the margin above
  * it, so no live mob can stand further up-field than that and no band is ever
  * missing from the top of the histogram.
  */
-const BAND_COUNT = Math.ceil((FIELD_HEIGHT + SPAWN_MARGIN) / BAND_UNITS);
+const bandCount = (field: Field): number =>
+  Math.ceil((field.height + SPAWN_MARGIN) / BAND_UNITS);
 
 /**
  * The field traffic standing up-field at the moment ground was laid.
@@ -78,9 +81,9 @@ interface UpfieldTrafficAcc {
   readonly perBand: number[];
 }
 
-const createUpfieldTraffic = (): UpfieldTrafficAcc => ({
+const createUpfieldTraffic = (field: Field): UpfieldTrafficAcc => ({
   lays: 0,
-  perBand: new Array<number>(BAND_COUNT).fill(0),
+  perBand: new Array<number>(bandCount(field)).fill(0),
 });
 
 /**
@@ -89,14 +92,14 @@ const createUpfieldTraffic = (): UpfieldTrafficAcc => ({
  * Two distances fall in no band, for unlike reasons. At or below the grave is
  * an exclusion by design: no patch laid up-field can ever meet a mob there,
  * because a patch drifts at the scroll and a mob only ever closes on it from
- * above. Past the top band cannot happen today: BAND_COUNT spans the field's
+ * above. Past the top band cannot happen today: the bands span the field's
  * height widened by the spawn margin, which is further than a live mob may
  * legally stand, and the reading's own reach test pins that bound.
  */
-const bandOf = (distance: number): number | null => {
+const bandOf = (distance: number, bands: number): number | null => {
   if (distance <= 0) return null;
   const band = Math.floor(distance / BAND_UNITS);
-  return band < BAND_COUNT ? band : null;
+  return band < bands ? band : null;
 };
 
 // Whether this mob's column sits over the grave's own x.
@@ -112,7 +115,7 @@ const countTheField = (
   for (const mob of state.mobs) {
     if (!mob.alive) continue;
     if (!inTheColumn(state.grave.x, mob.x)) continue;
-    const band = bandOf(state.grave.y - mob.y);
+    const band = bandOf(state.grave.y - mob.y, acc.perBand.length);
     if (band === null) continue;
     const current = acc.perBand[band];
     if (current === undefined) throw new Error(`no band at index ${band}`);
@@ -169,6 +172,6 @@ export {
   upfieldTrafficOf,
   BAND_UNITS,
   LATERAL_REACH,
-  BAND_COUNT,
+  bandCount,
 };
 export type { UpfieldTraffic, UpfieldTrafficAcc };

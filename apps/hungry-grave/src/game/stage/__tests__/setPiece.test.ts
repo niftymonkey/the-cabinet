@@ -23,7 +23,11 @@ import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import { asSwallowable, spawnFeast } from '../../corpses';
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
+import {
+  SHORTEST_FIELD_HEIGHT,
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+} from '../../field';
 import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
 import { advanceTerritory } from '../../lines/territory';
@@ -36,7 +40,7 @@ import { MOB_TYPES, MOB_TYPE_NAMES, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
 import { createRun, uniformLevels } from '../../run';
 import { swallow } from '../../swallow';
-import { FRESHNESS_SECONDS, SCROLL_SPEED, SIZE_CEILING } from '../../tuning';
+import { freshnessSecondsFor, SCROLL_SPEED, SIZE_CEILING } from '../../tuning';
 import type { TuningRecord } from '../../tuningRecord';
 import { DEFAULT_TUNING, resolveTuning } from '../../tuningRecord';
 import {
@@ -191,7 +195,7 @@ function atTheWaking(seed: number = SEED): Waking {
   });
   state.stage.sectionIndex = WAKING;
   const piece = placeSetPiece(state);
-  piece.y = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
+  piece.y = SHORTEST_FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
   const step = stepping(state);
   return { state, tick: (command) => step(command) };
 }
@@ -231,7 +235,11 @@ function playTheWaking(
       break;
     }
     if (waking.state.setPiece === null && gone < 0) gone = tick;
-    if (gone >= 0 && tick - gone > FRESHNESS_SECONDS * TICK_HZ) break;
+    if (
+      gone >= 0 &&
+      tick - gone > freshnessSecondsFor(SHORTEST_FIELD) * TICK_HZ
+    )
+      break;
   }
   return {
     swallowed: only(events, 'swallowed').length,
@@ -296,7 +304,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
 
   it('opens at its authored depth and not one tick before', () => {
     const source = atTheSource();
-    const opensAt = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
+    const opensAt = SHORTEST_FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
     let last = { ...source.state.setPiece! };
     for (let tick = 0; tick < SOURCE_TICKS; tick++) {
       const events = source.tick();
@@ -341,7 +349,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // event and it ends no pour (#104).
     const scrolled = atTheSource();
     tickUntilItOpens(scrolled);
-    scrolled.state.setPiece!.y = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
+    scrolled.state.setPiece!.y = SHORTEST_FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
     const off = tickUntilItCloses(scrolled);
 
     expect(only(off, 'setPieceClosed')).toHaveLength(1);
@@ -561,7 +569,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       poured[poured.length - 1],
       'no poured event',
     ).y;
-    const leavesAt = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
+    const leavesAt = SHORTEST_FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
 
     expect(closed).toHaveLength(1);
     expect(firstOf(closed).reason).toBe('spent');
@@ -980,5 +988,54 @@ describe('the set piece names a property and never a cast (ADR 0042)', () => {
       damageSetPiece(source.state, 1, A_BIRTHRIGHT_LINE).length,
     ).toBeGreaterThan(0);
     expect(source.state.setPiece!.hp).toBe(SET_PIECE_HP - 1);
+  });
+});
+
+describe("the run's own field", () => {
+  /** A run of the given height holding a source that has already opened, at a depth. */
+  function openSourceAt(fieldHeight: number, y: number): RunState {
+    const state = createRun(SEED, { fieldHeight });
+    state.stage.sectionIndex = WAKING;
+    const piece = placeSetPiece(state);
+    piece.open = true;
+    // One drift short, so the tick under test lands it on the depth named.
+    piece.y = y - SCROLL_SPEED;
+    return state;
+  }
+
+  it('scrolls the source off only once it is past a 1168 field and its own half-height, not at 760', () => {
+    // A32: a cull at the bottom is an edge, so it reads the run's own height.
+    const held = openSourceAt(1168, 900);
+    advanceSetPiece(held);
+    expect(held.setPiece).not.toBeNull();
+
+    const gone = openSourceAt(1168, 1168 + SET_PIECE_HALF_HEIGHT + 1);
+    advanceSetPiece(gone);
+    expect(gone.setPiece).toBeNull();
+  });
+
+  it("opens 190 below the top on a 760 and on a 1260 field, and its sweep reaches its far bound as it reaches the run's own bottom edge", () => {
+    // A32: the opening depth is a distance, today's 190, so the pour fits above
+    // the bottom edge on every field; the sweep is one traversal of the whole
+    // fall (ADR 0042), so on a longer fall it is still one traversal.
+    for (const fieldHeight of [760, 1260]) {
+      const state = createRun(SEED, { fieldHeight });
+      state.stage.sectionIndex = WAKING;
+      const piece = placeSetPiece(state);
+      while (!piece.open) {
+        advanceSetPiece(state);
+        if (piece.y > fieldHeight) throw new Error('the source never opened');
+      }
+      expect(piece.y).toBeGreaterThanOrEqual(190);
+      expect(piece.y - SCROLL_SPEED).toBeLessThan(190);
+    }
+
+    const partWay = openSourceAt(1260, 1000);
+    advanceSetPiece(partWay);
+    expect(partWay.setPiece!.x).toBeLessThan(SET_PIECE_SWEEP_MAX_X - 1);
+
+    const atTheEdge = openSourceAt(1260, 1260);
+    advanceSetPiece(atTheEdge);
+    expect(atTheEdge.setPiece!.x).toBeCloseTo(SET_PIECE_SWEEP_MAX_X, 9);
   });
 });

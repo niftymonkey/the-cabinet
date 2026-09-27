@@ -132,7 +132,7 @@ const coveredFood = (state: RunState): CoveredFood[] => {
     .filter(
       (corpse) =>
         corpse.alive &&
-        shareOverMouth(corpseHitbox(corpse), mouth) >= threshold,
+        shareOverMouth(corpseHitbox(corpse), mouth, state.field) >= threshold,
     )
     .map((body) => ({ body, id: body.id }));
 };
@@ -320,7 +320,7 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   // reads it at the end of the tick (ADR 0056).
   clearRefusals(state);
   scrollField(state);
-  moveGrave(state.grave, command.move);
+  moveGrave(state.grave, command.move, state.field);
   // The press's own clock, immediately before the press itself, so a shove of a
   // press that landed sixty ticks ago goes out at exactly the point in the tick
   // the press it belongs to went out at.
@@ -353,7 +353,11 @@ const step = (state: RunState, command: TickCommand): SimEvent[] => {
   // the field and the cull is what takes it (ADR 0034).
   events.push(...loseOffer(state));
   events.push(
-    ...ageGrave(state.grave, state.conditions.tuning.growth.swellPerSecond),
+    ...ageGrave(
+      state.grave,
+      state.conditions.tuning.growth.swellPerSecond,
+      state.field,
+    ),
   );
   advanceDirectorSignal(state, events);
   state.tick += 1;

@@ -316,9 +316,9 @@ const damageStormTarget = (
  */
 const moveStormTarget = (
   // The run is in the signature because moving a target is the run's own state
-  // changing; nothing here needs to read it, and the set piece's source is
-  // moved by its own drift rather than by a line.
-  _state: RunState,
+  // changing, and the bound it is moved inside is the run's own field; the set
+  // piece's source is moved by its own drift rather than by a line.
+  state: RunState,
   target: StormTarget,
   x: number,
   y: number,
@@ -328,7 +328,7 @@ const moveStormTarget = (
   // They agree today, and only the first of them is a decision: a target the
   // seam has no way to move is a target nothing can push either way.
   if (slot === null || !slot.pushable || slot.mob === null) return;
-  moveInsideBounds(slot.mob, x, y);
+  moveInsideBounds(slot.mob, x, y, state.field);
   // The reading follows the move, the body with it, so a pass that moves a
   // target and then tests it again reads where it now is rather than where it
   // stood when the list was filled.

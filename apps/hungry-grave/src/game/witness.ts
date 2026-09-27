@@ -241,8 +241,8 @@ const WITNESS_VERSION = 13;
  * Nine and not six. One f32 ulp at the ghoul's turn cosine is about 1.19e-7,
  * which is below a six-place quantum: a single-tick divergence of exactly the
  * size ADR 0015 exists to catch was invisible, and only showed once it had
- * accumulated into position. Math.round(760 * 1e9) stays inside ToInt32's range
- * deterministically, so the finer fold costs nothing.
+ * accumulated into position. Math.round(1260 * 1e9), the tallest field, stays
+ * inside ToInt32's range deterministically, so the finer fold costs nothing.
  */
 const fold = (checksum: number, value: number): number => {
   return (Math.imul(checksum, 31) + Math.round(value * 1e9)) | 0;

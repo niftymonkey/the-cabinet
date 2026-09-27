@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
 
 import { POWER_UP_HALF_EXTENT, spawnPowerUp } from '../corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
 import { checkInvariants, createStageWatch } from '../invariants';
 import type { WeaponLine } from '../lines/roster';
@@ -622,7 +622,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   it('reports an offer whose bodies all scrolled off as lost once, not three times', () => {
     const state = quietRun();
     const step = stepping(state);
-    openOffer(state, state.grave.x, FIELD_HEIGHT - 5);
+    openOffer(state, state.grave.x, SHORTEST_FIELD_HEIGHT - 5);
     const options = [...state.offer!.options];
 
     const seen: string[] = [];
@@ -644,7 +644,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   it('opens the banked offer when the live one scrolls off untaken', () => {
     const state = quietRun();
     const step = stepping(state);
-    openOffer(state, state.grave.x, FIELD_HEIGHT - 5);
+    openOffer(state, state.grave.x, SHORTEST_FIELD_HEIGHT - 5);
     openOffer(state, 100, 100);
 
     const seen: string[] = [];

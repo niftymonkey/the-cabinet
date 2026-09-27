@@ -27,6 +27,7 @@ import {
 } from '../tapeRetention';
 import { SIGNAL_RAN_LIVE } from '../../game/signalLock';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { startingConditionBlock } from '../../tape/startingCondition';
 import { openTapeStore } from '../tapeStore';
 import type { RunSummaryValues, TapeStore } from '../tapeStore';
@@ -40,6 +41,7 @@ const HEADER: TapeHeader = {
     signalLock: SIGNAL_RAN_LIVE,
     startingScore: 0,
     tuning: DEFAULT_TUNING,
+    fieldHeight: SHORTEST_FIELD_HEIGHT,
   }),
   tickRate: 60,
   checkpointSpacing: 4,

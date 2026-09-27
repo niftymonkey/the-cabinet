@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import type { StartingConditions } from '../../game/run';
 import { birthrightLevels, uniformLevels } from '../../game/run';
@@ -32,6 +33,7 @@ const CONDITIONS: StartingConditions = {
   signalLock: SIGNAL_RAN_LIVE,
   startingScore: 0,
   tuning: DEFAULT_TUNING,
+  fieldHeight: SHORTEST_FIELD_HEIGHT,
 };
 
 const BLOCK = startingConditionBlock(CONDITIONS);
@@ -317,5 +319,48 @@ describe('a block this build cannot start any run at all', () => {
     // positional ambiguity the whole block exists to remove.
     expect(reasonFor(withRow('startingScore', 500))).toContain('startingScore');
     expect(reasonFor(withRow('levels.bell', 3))).toContain('levels.bell');
+  });
+});
+
+describe("the run's field height in the block (design record A33)", () => {
+  it("carries the run's field height under fieldHeight, after the size", () => {
+    // A33: the height is a starting condition the sim reads, recorded as the
+    // value the run resolved to.
+    const block = startingConditionBlock({ ...CONDITIONS, fieldHeight: 1168 });
+    const names = block.map((entry) => entry.name);
+    expect(names.indexOf('fieldHeight')).toBe(
+      names.indexOf('startingSize') + 1,
+    );
+    expect(block.find((entry) => entry.name === 'fieldHeight')?.value).toBe(
+      1168,
+    );
+  });
+
+  it('resolves a block naming a field height to a condition on that field', () => {
+    const resolved = resolveStartingCondition(rowWritten('fieldHeight', 1168));
+    if (resolved.outcome !== 'implemented') throw new Error(resolved.reason);
+    expect(resolved.conditions.fieldHeight).toBe(1168);
+  });
+
+  it('refuses a block that names no field height, as a condition this build requires', () => {
+    // A33 and T12: a tape recorded before the field had a height stops
+    // replaying, refused by name rather than by a format bump.
+    expect(reasonFor(withoutRow('fieldHeight'))).toBe(
+      'fieldHeight is a starting condition this build requires and this tape does not name',
+    );
+  });
+
+  it('refuses a field height of 700, 1300 or 900.5, naming the row', () => {
+    // A30: whole units from 760 to 1260, and a tape is a document, so a value
+    // outside them is rejected and never repaired.
+    expect(reasonFor(rowWritten('fieldHeight', 700))).toBe(
+      'fieldHeight is written as 700, outside the 760 to 1260 this build plays',
+    );
+    expect(reasonFor(rowWritten('fieldHeight', 1300))).toBe(
+      'fieldHeight is written as 1300, outside the 760 to 1260 this build plays',
+    );
+    expect(reasonFor(rowWritten('fieldHeight', 900.5))).toContain(
+      'fieldHeight',
+    );
   });
 });

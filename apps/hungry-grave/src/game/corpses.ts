@@ -5,7 +5,7 @@
 import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT } from './field';
+import type { Field } from './field';
 import type { WeaponLine } from './lines/roster';
 import type { CorpseTier, Mob } from './mobs';
 import type { Rect } from './overlap';
@@ -13,7 +13,7 @@ import type { RunState } from './run';
 import type { Impulse } from './shove';
 import { blankImpulse, clearImpulse, handOverImpulse } from './shove';
 import type { FoodKind, Swallowable } from './swallow';
-import { FRESHNESS_SECONDS, TRASH_CORPSE_PAYOUT } from './tuning';
+import { freshnessSecondsFor, TRASH_CORPSE_PAYOUT } from './tuning';
 
 /**
  * Corpse size is constant across mob types, even though a revenant's payout is
@@ -54,14 +54,15 @@ const CORPSE_HALF_EXTENT = 7;
  */
 const POWER_UP_HALF_EXTENT = 14;
 
-// How much freshness one tick drains. Derived from the seconds, which are themselves derived from the scroll.
-const FRESHNESS_PER_TICK = 1 / (FRESHNESS_SECONDS * TICK_HZ);
+// How much freshness one tick drains on this field. Derived from the seconds, which are themselves derived from the scroll.
+const freshnessPerTick = (field: Field): number =>
+  1 / (freshnessSecondsFor(field) * TICK_HZ);
 
 /**
  * A corpse has no motion of its own, and the scroll-speed coupling is the whole
  * point of that. A corpse nothing threw drifts at exactly SCROLL_SPEED, and
- * FRESHNESS_SECONDS is derived as the time a mid-field corpse takes to reach
- * the bottom edge at that speed, so a mid-field kill arrives at the bottom edge
+ * freshnessSecondsFor is derived as the time a mid-field corpse takes to reach
+ * the run's own bottom edge at that speed, so a mid-field kill arrives at the bottom edge
  * as a nearly empty scrap by construction rather than by two numbers agreeing.
  *
  * Two things compose with that drift. A shove handed over by the body this
@@ -382,9 +383,10 @@ const spawnFallenRung = (
 // Freshness drains linearly, and at empty the dirt takes the corpse under.
 const advanceCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
+  const drain = freshnessPerTick(state.field);
   for (const corpse of state.corpses) {
     if (!corpse.alive || !corpse.decays) continue;
-    corpse.freshness = Math.max(0, corpse.freshness - FRESHNESS_PER_TICK);
+    corpse.freshness = Math.max(0, corpse.freshness - drain);
     if (corpse.freshness > 0) continue;
     corpse.alive = false;
     events.push({
@@ -406,7 +408,7 @@ const cullCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    if (corpse.y - corpse.halfExtent <= FIELD_HEIGHT) continue;
+    if (corpse.y - corpse.halfExtent <= state.field.height) continue;
     corpse.alive = false;
     events.push({
       type: 'corpseLost',
@@ -431,6 +433,6 @@ export {
   cullCorpses,
   CORPSE_HALF_EXTENT,
   POWER_UP_HALF_EXTENT,
-  FRESHNESS_PER_TICK,
+  freshnessPerTick,
 };
 export type { Corpse };

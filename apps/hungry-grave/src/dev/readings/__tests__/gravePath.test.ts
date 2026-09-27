@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT } from '../../../game/field';
+import { SHORTEST_FIELD_HEIGHT } from '../../../game/field';
 import { ageGrave, growGrave, hitGrave, moveGrave } from '../../../game/grave';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
@@ -35,7 +35,7 @@ const GROWN_SIZE = SIZE_START * 2.5;
 /** The grave taking in every bit of growth it is owed, at the run's own rate (Mark's ruling of 2026-09-21). */
 const takeIn = (run: RunState): void => {
   while (run.grave.owed > 0) {
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
   }
 };
 
@@ -43,17 +43,17 @@ const takeIn = (run: RunState): void => {
 const land = (run: RunState): void => {
   hitGrave(run, 'shambler');
   for (let tick = 0; tick < INVULNERABLE_TICKS; tick++)
-    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond);
+    ageGrave(run.grave, run.conditions.tuning.growth.swellPerSecond, run.field);
 };
 
 /** Puts the grave's centre where the case wants it, through the sim's own mover. */
 const placeGraveAt = (run: RunState, y: number): void => {
-  moveGrave(run.grave, { x: 0, y: (y - run.grave.y) / BASE_SPEED });
+  moveGrave(run.grave, { x: 0, y: (y - run.grave.y) / BASE_SPEED }, run.field);
 };
 
 // How much field is left under the grave, which is what the reading measures.
 const gapUnder = (run: RunState): number =>
-  FIELD_HEIGHT - (run.grave.y + run.grave.size);
+  SHORTEST_FIELD_HEIGHT - (run.grave.y + run.grave.size);
 
 describe('grave path', () => {
   it("samples the grave's size every tick, index 0 the header's resolved starting size", () => {
@@ -85,7 +85,7 @@ describe('grave path', () => {
     // the player went looking for the edge.
     const run = createRun(SEED);
     const accumulator = createGravePath(run.grave.size);
-    const centreLine = FIELD_HEIGHT - BOTTOM_EDGE_MARGIN;
+    const centreLine = SHORTEST_FIELD_HEIGHT - BOTTOM_EDGE_MARGIN;
 
     expect(gapUnder(run)).toBeGreaterThan(BOTTOM_EDGE_MARGIN);
     observeGravePath(accumulator, run);
@@ -104,7 +104,7 @@ describe('grave path', () => {
     observeGravePath(accumulator, run);
 
     // Hard against the edge, where containment stops the grave.
-    placeGraveAt(run, FIELD_HEIGHT);
+    placeGraveAt(run, SHORTEST_FIELD_HEIGHT);
     expect(gapUnder(run)).toBe(0);
     observeGravePath(accumulator, run);
 
@@ -150,7 +150,7 @@ describe('grave path', () => {
   });
 
   it('counts the same band of travel however large the grave has grown', () => {
-    // Containment holds the centre at FIELD_HEIGHT minus the size, so the band
+    // Containment holds the centre at the field height minus the size, so the band
     // a centre test could ever count shrinks as the grave grows: 49 units of
     // travel at the starting size and 8.5 at two and a half times it. The rim's
     // gap is the margin wide at every size, so the reading cannot fall for the
@@ -162,15 +162,15 @@ describe('grave path', () => {
       run.grave.size = size;
       const accumulator = createGravePath(size);
 
-      placeGraveAt(run, FIELD_HEIGHT);
+      placeGraveAt(run, SHORTEST_FIELD_HEIGHT);
       expect(gapUnder(run)).toBe(0);
       observeGravePath(accumulator, run);
 
-      placeGraveAt(run, FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN);
+      placeGraveAt(run, SHORTEST_FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN);
       expect(gapUnder(run)).toBe(BOTTOM_EDGE_MARGIN);
       observeGravePath(accumulator, run);
 
-      placeGraveAt(run, FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN - 1);
+      placeGraveAt(run, SHORTEST_FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN - 1);
       expect(gapUnder(run)).toBe(BOTTOM_EDGE_MARGIN + 1);
       observeGravePath(accumulator, run);
 

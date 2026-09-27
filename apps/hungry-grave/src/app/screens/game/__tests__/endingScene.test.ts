@@ -12,6 +12,7 @@ import {
 import type { BossKilled } from '../../../../game/events';
 import type { Grave } from '../../../../game/grave';
 import { createGrave, graveWidth } from '../../../../game/grave';
+import { SHORTEST_FIELD } from '../../../../game/field';
 import { SIZE_START } from '../../../../game/tuning';
 import { endingSceneAt, sceneFrom } from '../endingScene';
 import { DROP_TICKS, fallAt, TIP_TICKS } from '../fall';
@@ -41,7 +42,7 @@ const KILLED: BossKilled = {
 
 /** The grave he is dragged into, parked at its starting mark and its starting size. */
 function parked(): Grave {
-  const grave = createGrave(SIZE_START);
+  const grave = createGrave(SHORTEST_FIELD, SIZE_START);
   grave.x = 270;
   grave.y = 600;
   return grave;

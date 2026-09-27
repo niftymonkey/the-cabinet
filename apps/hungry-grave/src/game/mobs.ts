@@ -5,7 +5,8 @@ import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import { spawnCorpse } from './corpses';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import type { Field } from './field';
+import { FIELD_WIDTH } from './field';
 import type { Grave } from './grave';
 import type { WeaponLine } from './lines/roster';
 import { cos, normalize, rotateToward, sin } from './math';
@@ -500,17 +501,18 @@ const clamp = (value: number, low: number, high: number): number => {
  * takes something out of the world, so the harness never fires on a legal move
  * by the player's own weapon.
  *
- * A corpse thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before
- * it meets this bound, so it is lost as food the way any corpse is rather than
+ * A corpse thrown down the field meets cullCorpses' edge at the run's own
+ * field height before it meets this bound, so it is lost as food the way any corpse is rather than
  * being parked at the margin.
  */
 const moveInsideBounds = (
   carrier: ShoveCarrier,
   x: number,
   y: number,
+  field: Field,
 ): void => {
   carrier.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
-  carrier.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
+  carrier.y = clamp(y, -SPAWN_MARGIN, field.height + SPAWN_MARGIN);
 };
 
 /**
@@ -553,14 +555,14 @@ const reportShoveTravel = (carrier: ShoveCarrier): SimEvent[] => {
  * impulse asked for, because the bound above can refuse part of a step and a
  * repel reading may only sum what actually happened.
  */
-const travelShove = (carrier: ShoveCarrier): SimEvent[] => {
+const travelShove = (carrier: ShoveCarrier, field: Field): SimEvent[] => {
   const impulse = carrier.impulse;
   if (impulseSpent(impulse)) return [];
   const step = advanceShove(impulse);
   if (step !== null) {
     const fromX = carrier.x;
     const fromY = carrier.y;
-    moveInsideBounds(carrier, carrier.x + step.x, carrier.y + step.y);
+    moveInsideBounds(carrier, carrier.x + step.x, carrier.y + step.y, field);
     const movedX = carrier.x - fromX;
     const movedY = carrier.y - fromY;
     impulse.travelled += Math.sqrt(movedX * movedX + movedY * movedY);
@@ -632,7 +634,7 @@ const advanceMobs = (state: RunState): SimEvent[] => {
     // tick of walking. No line owns either of them by here: a shove that has
     // landed is the body's own motion.
     moveMob(mob, state.grave);
-    events.push(...travelShove(mob));
+    events.push(...travelShove(mob, state.field));
   }
   // The second carrier, advanced from this same pass rather than from one of
   // its own, because one module owns the travel and the bound is written once
@@ -645,7 +647,7 @@ const advanceMobs = (state: RunState): SimEvent[] => {
   // because nothing inside this function kills a body.
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    events.push(...travelShove(corpse));
+    events.push(...travelShove(corpse, state.field));
   }
   advanceShots(state);
   for (const mob of state.mobs) {
@@ -739,7 +741,7 @@ const cullMobs = (state: RunState): SimEvent[] => {
     if (!mob.alive) continue;
     const row = MOB_TYPES[mob.type];
     const gone =
-      mob.y - row.halfHeight > FIELD_HEIGHT ||
+      mob.y - row.halfHeight > state.field.height ||
       mob.x < -SPAWN_MARGIN ||
       mob.x > FIELD_WIDTH + SPAWN_MARGIN;
     if (!gone) continue;

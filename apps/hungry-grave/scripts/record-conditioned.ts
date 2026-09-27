@@ -20,6 +20,7 @@ import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
 import { TICK_HZ } from '../src/game/clock';
+import { SHORTEST_FIELD_HEIGHT, TALLEST_FIELD_HEIGHT } from '../src/game/field';
 import type { TickCommand } from '../src/game/command';
 import { createExecution, executeTick } from '../src/game/execution';
 import type { WeaponLine } from '../src/game/lines/roster';
@@ -43,7 +44,9 @@ import { SCRIPT_POLICY } from '../src/tape/tape';
 
 const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> [${WEAPON_LINES.map(
   (line) => `${line}=N`,
-).join(' ')}] [rig=${RIG_NAMES.join('|')}] [score=N]`;
+).join(
+  ' ',
+)}] [rig=${RIG_NAMES.join('|')}] [score=N] [field=${SHORTEST_FIELD_HEIGHT}..${TALLEST_FIELD_HEIGHT}]`;
 
 /**
  * A flawed argument is an external failure and the person holding the command
@@ -93,6 +96,20 @@ const parseScore = (raw: string): number | null => {
 };
 
 /** The rig row named, or null once the name has been refused out loud. */
+const parseFieldHeight = (raw: string): number | null => {
+  const value = wholeNumber(raw);
+  if (
+    value === null ||
+    value < SHORTEST_FIELD_HEIGHT ||
+    value > TALLEST_FIELD_HEIGHT
+  ) {
+    return refuse(
+      `${raw} is not a field height (a whole number from ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT})`,
+    );
+  }
+  return value;
+};
+
 const parseRigName = (raw: string): RigName | null => {
   if (!isRigName(raw)) {
     return refuse(`${raw} names no rig (the rigs are ${RIG_NAMES.join(', ')})`);
@@ -292,9 +309,10 @@ const writeOrRefuse = (path: string, bytes: Uint8Array): boolean => {
   }
 };
 
-// The two keyed arguments, in the shape batch.ts already reads its own rig in.
+// The three keyed arguments, in the shape batch.ts already reads its own rig in.
 const RIG_ARGUMENT = /^rig=(.*)$/;
 const SCORE_ARGUMENT = /^score=(.*)$/;
+const FIELD_ARGUMENT = /^field=(.*)$/;
 
 /** The one value a keyed argument names, or undefined when it names none. */
 const valueOf = (
@@ -311,6 +329,7 @@ const conditionsIn = (
 ): Partial<StartingConditions> | null => {
   const rigArgs = args.filter((argument) => RIG_ARGUMENT.test(argument));
   const scoreArgs = args.filter((argument) => SCORE_ARGUMENT.test(argument));
+  const fieldArgs = args.filter((argument) => FIELD_ARGUMENT.test(argument));
   // A key named twice is refused rather than resolved to the first, which is
   // the rule parseLevels already holds for a line named twice: a command that
   // states one thing two ways can state it two different ways.
@@ -320,15 +339,27 @@ const conditionsIn = (
   if (scoreArgs.length > 1) {
     return refuse(`${scoreArgs.join(' ')} names a score more than once`);
   }
+  if (fieldArgs.length > 1) {
+    return refuse(`${fieldArgs.join(' ')} names a field more than once`);
+  }
   const levelArgs = args.filter(
     (argument) =>
-      !RIG_ARGUMENT.test(argument) && !SCORE_ARGUMENT.test(argument),
+      !RIG_ARGUMENT.test(argument) &&
+      !SCORE_ARGUMENT.test(argument) &&
+      !FIELD_ARGUMENT.test(argument),
   );
   const rigRaw = valueOf(rigArgs, RIG_ARGUMENT);
   const scoreRaw = valueOf(scoreArgs, SCORE_ARGUMENT);
-  return rigRaw === undefined
-    ? conditionsFromArguments(levelArgs, scoreRaw)
-    : conditionsFromRig(rigRaw, levelArgs, scoreRaw);
+  const fieldRaw = valueOf(fieldArgs, FIELD_ARGUMENT);
+  // The shortest field when none is named, so a bare command records the tape it recorded before the field had a height (A31).
+  const fieldHeight =
+    fieldRaw === undefined ? SHORTEST_FIELD_HEIGHT : parseFieldHeight(fieldRaw);
+  if (fieldHeight === null) return null;
+  const conditions =
+    rigRaw === undefined
+      ? conditionsFromArguments(levelArgs, scoreRaw)
+      : conditionsFromRig(rigRaw, levelArgs, scoreRaw);
+  return conditions === null ? null : { ...conditions, fieldHeight };
 };
 
 const main = (): void => {

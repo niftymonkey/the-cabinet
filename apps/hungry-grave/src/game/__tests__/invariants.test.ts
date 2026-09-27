@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { spawnCorpse } from '../corpses';
 import { stepping } from '../../dev/stepping';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH, SHORTEST_FIELD } from '../field';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
@@ -95,7 +95,7 @@ describe('the sim invariants', () => {
     expect(brokenOn(outside)).toContain('in bounds');
 
     const below = createRun(1);
-    below.grave.y = FIELD_HEIGHT + 10;
+    below.grave.y = SHORTEST_FIELD_HEIGHT + 10;
     expect(brokenOn(below)).toContain('in bounds');
   });
 
@@ -387,7 +387,9 @@ describe('the entity invariants (ADR 0013)', () => {
         stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
       },
     });
-    expect(roomy.mobs.length).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+    expect(roomy.mobs.length).toBeGreaterThan(
+      capsFor(DEFAULT_TUNING, SHORTEST_FIELD).mobs,
+    );
     expect(brokenOn(roomy)).not.toContain('entity caps');
 
     roomy.mobs.push({ ...requireDefined(roomy.mobs[0], 'no mob pool slot 0') });
@@ -1645,6 +1647,11 @@ const EXCLUDED: Readonly<Record<string, string>> = {
     'the figure the run holds its signal at, resolved once by createRun and never mutated: what it seeds is director.signal.value, which this harness checks every tick',
   'conditions.startingScore':
     'the score the run began holding, resolved once by createRun and never mutated: what it seeds is score, which this harness checks every tick',
+  'conditions.fieldHeight':
+    "the run's field height, resolved once by createRun and never mutated: fieldOfHeight refuses anything not whole and inside the bounds, so a NaN never becomes a field (T12, A30)",
+  'field.width':
+    "the run's field, built once by fieldOfHeight and never mutated: its width is FIELD_WIDTH and a bad height throws before a run exists",
+  'field.height': "the run's field, as field.width is",
   'conditions.tuning.stage.processionPurse':
     "a row of the record the run started under, resolved once by createRun and never mutated (ADR 0064). A NaN in it could reach the run only through what reads the row, and every reader's own output is checked here every tick",
   'conditions.tuning.stage.crowdPurse':
@@ -1983,7 +1990,7 @@ describe('Territory under the harness (#76)', () => {
     slot0(run.patches).alive = true;
     slot0(run.patches).x = 270;
     slot0(run.patches).radius = radius;
-    slot0(run.patches).y = FIELD_HEIGHT + radius + 1;
+    slot0(run.patches).y = SHORTEST_FIELD_HEIGHT + radius + 1;
 
     expect(brokenOn(run)).toContain('entities in bounds');
   });
@@ -1996,7 +2003,7 @@ describe('Territory under the harness (#76)', () => {
     slot0(run.patches).alive = true;
     slot0(run.patches).x = 270;
     slot0(run.patches).radius = radius;
-    slot0(run.patches).y = FIELD_HEIGHT + radius;
+    slot0(run.patches).y = SHORTEST_FIELD_HEIGHT + radius;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });
@@ -2032,5 +2039,30 @@ describe("the growth the grave is owed (Mark's ruling of 2026-09-21)", () => {
     full.grave.size = SIZE_CEILING - 1;
     full.grave.owed = 1;
     expect(brokenOn(full)).not.toContain('growth owed in range');
+  });
+});
+
+describe("the bounds are the run's own field", () => {
+  it('holds a body at y 1000 in bounds on a 1168 field and out of bounds on a 760 field', () => {
+    // A32: a bound is an edge, so it reads the run's own height.
+    const placed = (fieldHeight: number, at: (run: RunState) => void) => {
+      const run = createRun(1, { fieldHeight });
+      at(run);
+      return brokenOn(run);
+    };
+    const graveAt1000 = (run: RunState) => {
+      run.grave.y = 1000;
+    };
+    const shotAt1000 = (run: RunState) => {
+      const shot = run.mobFire[0]!;
+      shot.alive = true;
+      shot.x = 200;
+      shot.y = 1000;
+    };
+
+    expect(placed(1168, graveAt1000)).not.toContain('in bounds');
+    expect(placed(760, graveAt1000)).toContain('in bounds');
+    expect(placed(1168, shotAt1000)).not.toContain('entities in bounds');
+    expect(placed(760, shotAt1000)).toContain('entities in bounds');
   });
 });

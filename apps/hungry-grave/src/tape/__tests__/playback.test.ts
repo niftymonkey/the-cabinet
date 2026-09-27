@@ -133,6 +133,25 @@ function recordALadderRun(): Tape {
 }
 
 describe('the playback', () => {
+  it('verifies a run on a 1168 field, recorded and replayed headlessly, at every checkpoint (T12)', () => {
+    // T12: a replay rebuilds the run on the field its header records. Every
+    // edge the run met is the tall field's, so a replay on any other field
+    // diverges at the first checkpoint a body or the grave reaches past 760.
+    const run = createRun(SEED, { fieldHeight: 1168 });
+    const execution = createExecution(run);
+    const recorder = recordInto(execution, header(run));
+    for (let tick = 0; tick < TICKS; tick++) {
+      executeTick(execution, { move: { x: 0, y: 1 }, belch: false });
+    }
+    sealTrailer(recorder, execution, 0);
+    expect(run.grave.y).toBeGreaterThan(760);
+
+    const result = playTape(tapeOf(recorder), () => {});
+
+    expect(result.outcome).toBe('verified');
+    expect(result.checkpointsUnreachable).toBe(0);
+  });
+
   it('reproduces the run a tape holds tick for tick, the observer seeing every command', () => {
     const tape = recordARun();
     const seen: { tick: number; command: TickCommand }[] = [];

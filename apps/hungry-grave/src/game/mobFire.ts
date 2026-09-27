@@ -3,7 +3,7 @@
 
 import { createPool, takeSlot } from './caps';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { FIELD_WIDTH } from './field';
 import { normalize } from './math';
 import type { Mob, MobType } from './mobs';
 import type { Rect } from './overlap';
@@ -219,7 +219,7 @@ const cullShots = (state: RunState): void => {
       shot.x + shot.halfExtent < 0 ||
       shot.x - shot.halfExtent > FIELD_WIDTH ||
       shot.y + shot.halfExtent < 0 ||
-      shot.y - shot.halfExtent > FIELD_HEIGHT;
+      shot.y - shot.halfExtent > state.field.height;
     if (outside) shot.alive = false;
   }
 };
