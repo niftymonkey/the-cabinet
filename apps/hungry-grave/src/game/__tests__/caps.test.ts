@@ -23,7 +23,7 @@ import { PHASE_FLASH_TICKS } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
 import { spawnCorpse, spawnPowerUp, spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { VIEW_HEIGHT } from '../field';
 import { createStageWatch, checkInvariants } from '../invariants';
 import { fireDirectedShot } from '../mobFire';
 import type { Mob, MobType } from '../mobs';
@@ -395,7 +395,7 @@ describe('the caps as derivations of the stage (ADR 0056)', () => {
         .flat(2)
         .map((pattern) => pattern.unitsASecond),
     );
-    expect(PHASE_FLASH_TICKS / TICK_HZ).toBeLessThan(FIELD_HEIGHT / slowest);
+    expect(PHASE_FLASH_TICKS / TICK_HZ).toBeLessThan(VIEW_HEIGHT / slowest);
   });
 
   it('raises a fault at a bound cap and removes nothing from the field', () => {

@@ -3,7 +3,7 @@
 
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT } from '../field';
+import { VIEW_HEIGHT } from '../field';
 import type { DamageSource } from '../mobs';
 import { spawnMob } from '../mobs';
 import type { Rect } from '../overlap';
@@ -70,7 +70,7 @@ interface SetPiece {
 // The scroll itself: the source is a place on the ground, and the ground moves
 // at the field's own scroll, so anything slower slides out of its own rock.
 const DRIFT_PER_TICK = SCROLL_SPEED;
-const OPENS_BELOW = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
+const OPENS_BELOW = VIEW_HEIGHT * SET_PIECE_OPEN_DEPTH;
 const POUR_INTERVAL_TICKS = SET_PIECE_POUR_SECONDS * TICK_HZ;
 
 // The arriving direction every poured body takes: straight down, at its own speed.
@@ -91,7 +91,7 @@ const clamp = (value: number, low: number, high: number): number => {
  * gutter a body walking in at an edge leaves.
  */
 const sweptTo = (y: number): number => {
-  const across = clamp(y / FIELD_HEIGHT, 0, 1);
+  const across = clamp(y / VIEW_HEIGHT, 0, 1);
   return (
     SET_PIECE_SWEEP_MIN_X +
     (SET_PIECE_SWEEP_MAX_X - SET_PIECE_SWEEP_MIN_X) * across
@@ -239,7 +239,7 @@ const advanceSetPiece = (state: RunState): SimEvent[] => {
   piece.y += DRIFT_PER_TICK;
   piece.x = sweptTo(piece.y);
   if (!piece.open) return openIfDeepEnough(piece);
-  if (piece.y - SET_PIECE_HALF_HEIGHT > FIELD_HEIGHT) {
+  if (piece.y - SET_PIECE_HALF_HEIGHT > VIEW_HEIGHT) {
     return closeSetPiece(state, piece, 'scrolled');
   }
   const events = pourIfDue(state, piece);

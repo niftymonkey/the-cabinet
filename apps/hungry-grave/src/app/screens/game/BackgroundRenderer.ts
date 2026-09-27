@@ -11,7 +11,7 @@ import {
   Texture,
 } from 'pixi.js';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../game/field';
 import type { RunState } from '../../../game/run';
 import type { SetPiece } from '../../../game/stage/setPiece';
 import { SECTIONS } from '../../../game/stage/stage';
@@ -43,7 +43,7 @@ import { lyingAt, standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /** The field the ground is painted across, which ADR 0003 fixes. */
-const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
+const FIELD: Field = { width: VIEW_WIDTH, height: VIEW_HEIGHT };
 
 /** The patch of ground the camera shows the column (A2), which the dressing is laid across. */
 const SEEN = visibleGround(SCENE_CAMERA, COLUMN);

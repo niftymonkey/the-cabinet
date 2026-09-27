@@ -3,7 +3,7 @@
 
 import { createPool, takeSlot } from '../caps';
 import type { SimEvent } from '../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
 import { cos, normalize, sin } from '../math';
 import type { Mob } from '../mobs';
 import { mobHitbox } from '../mobs';
@@ -442,7 +442,7 @@ const layPatch = (
   const level = Math.min(state.levels.territory, MAX_LEVEL);
   const patch = claimSlot(state, events);
   patch.level = level;
-  patch.x = clamp(point.x + spread.x, 0, FIELD_WIDTH);
+  patch.x = clamp(point.x + spread.x, 0, VIEW_WIDTH);
   patch.y = clamp(point.y + spread.y, 0, state.grave.y);
   patch.radius = atLevel(RADIUS_BY_LEVEL, level);
   patch.pull = atLevel(PULL_BY_LEVEL, level);
@@ -587,7 +587,7 @@ const advanceTerritory = (state: RunState): SimEvent[] => {
     if (patch.opening > 0) patch.opening -= 1;
     // Gone once the whole patch is past the bottom edge. There is no timer:
     // the world scroll owns this.
-    if (patch.y - patch.radius > FIELD_HEIGHT) {
+    if (patch.y - patch.radius > VIEW_HEIGHT) {
       events.push(closePatch(patch, 'scrolled'));
     }
   }

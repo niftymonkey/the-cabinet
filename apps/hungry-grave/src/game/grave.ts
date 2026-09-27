@@ -5,7 +5,7 @@ import { TICK_HZ } from './clock';
 import type { MoveCommand } from './command';
 import { POWER_UP_HALF_EXTENT, spawnFallenRung } from './corpses';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
 import type { MobType } from './mobs';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
@@ -25,8 +25,8 @@ import {
 
 // Where a run's grave stands: centred across the field and low in it, the
 // shmup's own starting mark, with the whole field ahead of it.
-const START_X = FIELD_WIDTH / 2;
-const START_Y = FIELD_HEIGHT * 0.8;
+const START_X = VIEW_WIDTH / 2;
+const START_Y = VIEW_HEIGHT * 0.8;
 
 /**
  * Who hurt the player (#48): the mob type whose shot landed, the boss whose
@@ -117,8 +117,8 @@ const clamp = (value: number, low: number, high: number): number => {
 // Holds the whole grave inside the field, accounting for its own width and height.
 const containGrave = (grave: Grave): void => {
   const halfWidth = graveWidth(grave.size) / 2;
-  grave.x = clamp(grave.x, halfWidth, FIELD_WIDTH - halfWidth);
-  grave.y = clamp(grave.y, grave.size, FIELD_HEIGHT - grave.size);
+  grave.x = clamp(grave.x, halfWidth, VIEW_WIDTH - halfWidth);
+  grave.y = clamp(grave.y, grave.size, VIEW_HEIGHT - grave.size);
 };
 
 /**
@@ -286,7 +286,7 @@ const FALLEN_RUNG_DROP = SIZE_FLOOR + POWER_UP_HALF_EXTENT + BASE_SPEED;
  */
 const fallenRungY = (graveY: number): number => {
   const below = graveY + FALLEN_RUNG_DROP;
-  const roomBelow = below + POWER_UP_HALF_EXTENT <= FIELD_HEIGHT;
+  const roomBelow = below + POWER_UP_HALF_EXTENT <= VIEW_HEIGHT;
   return roomBelow ? below : graveY - FALLEN_RUNG_DROP;
 };
 

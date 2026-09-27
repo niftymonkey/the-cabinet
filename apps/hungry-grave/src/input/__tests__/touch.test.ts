@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { FIELD_HEIGHT } from '../../game/field';
+import { VIEW_HEIGHT } from '../../game/field';
 import type { Grave } from '../../game/grave';
 import { moveGrave } from '../../game/grave';
 import { BASE_SPEED, SIZE_START } from '../../game/tuning';
@@ -135,7 +135,7 @@ describe('TouchSteer', () => {
     expect(g.y).toBeCloseTo(516, 9);
 
     const edge = new TouchSteer();
-    const pressed = grave(270, FIELD_HEIGHT - SIZE_START);
+    const pressed = grave(270, VIEW_HEIGHT - SIZE_START);
     const edgeAnchor = anchored(edge, 1, { x: 200, y: 400 }, pressed);
 
     edge.move(1, { x: edgeAnchor.x + 10, y: edgeAnchor.y });
@@ -157,11 +157,11 @@ describe('TouchSteer', () => {
 
     touch.move(1, { x: anchor.x, y: anchor.y + 400 });
     moveGrave(g, touch.command(g));
-    expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START, 9);
+    expect(g.y).toBeCloseTo(VIEW_HEIGHT - SIZE_START, 9);
 
     touch.move(1, { x: anchor.x, y: anchor.y + 395 });
     moveGrave(g, touch.command(g));
-    expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START - 5 * DRAG_RATIO, 9);
+    expect(g.y).toBeCloseTo(VIEW_HEIGHT - SIZE_START - 5 * DRAG_RATIO, 9);
   });
 
   it('anti-windup does not eat the delta: clamped against the bottom edge, each sideways delta arrives in full', () => {
@@ -176,7 +176,7 @@ describe('TouchSteer', () => {
     let pointer = { x: anchor.x, y: anchor.y + 400 };
     touch.move(1, pointer);
     moveGrave(g, touch.command(g));
-    expect(g.y).toBeCloseTo(FIELD_HEIGHT - SIZE_START, 9);
+    expect(g.y).toBeCloseTo(VIEW_HEIGHT - SIZE_START, 9);
 
     const deltas: number[] = [];
     for (let call = 0; call < 8; call++) {

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT } from '../../../game/field';
+import { VIEW_HEIGHT } from '../../../game/field';
 import { ageGrave, growGrave, hitGrave, moveGrave } from '../../../game/grave';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
@@ -53,7 +53,7 @@ const placeGraveAt = (run: RunState, y: number): void => {
 
 // How much field is left under the grave, which is what the reading measures.
 const gapUnder = (run: RunState): number =>
-  FIELD_HEIGHT - (run.grave.y + run.grave.size);
+  VIEW_HEIGHT - (run.grave.y + run.grave.size);
 
 describe('grave path', () => {
   it("samples the grave's size every tick, index 0 the header's resolved starting size", () => {
@@ -85,7 +85,7 @@ describe('grave path', () => {
     // the player went looking for the edge.
     const run = createRun(SEED);
     const accumulator = createGravePath(run.grave.size);
-    const centreLine = FIELD_HEIGHT - BOTTOM_EDGE_MARGIN;
+    const centreLine = VIEW_HEIGHT - BOTTOM_EDGE_MARGIN;
 
     expect(gapUnder(run)).toBeGreaterThan(BOTTOM_EDGE_MARGIN);
     observeGravePath(accumulator, run);
@@ -104,7 +104,7 @@ describe('grave path', () => {
     observeGravePath(accumulator, run);
 
     // Hard against the edge, where containment stops the grave.
-    placeGraveAt(run, FIELD_HEIGHT);
+    placeGraveAt(run, VIEW_HEIGHT);
     expect(gapUnder(run)).toBe(0);
     observeGravePath(accumulator, run);
 
@@ -150,7 +150,7 @@ describe('grave path', () => {
   });
 
   it('counts the same band of travel however large the grave has grown', () => {
-    // Containment holds the centre at FIELD_HEIGHT minus the size, so the band
+    // Containment holds the centre at VIEW_HEIGHT minus the size, so the band
     // a centre test could ever count shrinks as the grave grows: 49 units of
     // travel at the starting size and 8.5 at two and a half times it. The rim's
     // gap is the margin wide at every size, so the reading cannot fall for the
@@ -162,15 +162,15 @@ describe('grave path', () => {
       run.grave.size = size;
       const accumulator = createGravePath(size);
 
-      placeGraveAt(run, FIELD_HEIGHT);
+      placeGraveAt(run, VIEW_HEIGHT);
       expect(gapUnder(run)).toBe(0);
       observeGravePath(accumulator, run);
 
-      placeGraveAt(run, FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN);
+      placeGraveAt(run, VIEW_HEIGHT - size - BOTTOM_EDGE_MARGIN);
       expect(gapUnder(run)).toBe(BOTTOM_EDGE_MARGIN);
       observeGravePath(accumulator, run);
 
-      placeGraveAt(run, FIELD_HEIGHT - size - BOTTOM_EDGE_MARGIN - 1);
+      placeGraveAt(run, VIEW_HEIGHT - size - BOTTOM_EDGE_MARGIN - 1);
       expect(gapUnder(run)).toBe(BOTTOM_EDGE_MARGIN + 1);
       observeGravePath(accumulator, run);
 

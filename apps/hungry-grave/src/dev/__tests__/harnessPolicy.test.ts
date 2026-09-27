@@ -9,7 +9,7 @@ import { TICK_HZ } from '../../game/clock';
 import type { TickCommand } from '../../game/command';
 import type { Corpse } from '../../game/corpses';
 import { spawnPowerUp } from '../../game/corpses';
-import { FIELD_HEIGHT } from '../../game/field';
+import { VIEW_HEIGHT } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { createExecution } from '../../game/execution';
 import { BIRTHRIGHT, WEAPON_LINES } from '../../game/lines/roster';
@@ -167,7 +167,7 @@ const standShot = (state: RunState, x: number, y: number): void => {
  * one the spec test needs before that module exists.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (VIEW_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +

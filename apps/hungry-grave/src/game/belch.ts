@@ -2,7 +2,7 @@
 // the gas over the whole field and the shove around the grave.
 
 import type { PressedBody, PressRefusal, SimEvent } from './events';
-import { FIELD_WIDTH } from './field';
+import { VIEW_WIDTH } from './field';
 import { normalize } from './math';
 import type { RunState } from './run';
 import type { StormTarget } from './stormTargets';
@@ -35,7 +35,7 @@ import { RESERVOIR_CAPACITY } from './tuning';
  * 21 of 30 to 93 live ones a press and nothing at all in reach on 58 percent of
  * a still grave's ticks.
  */
-const BELCH_BURST_RADIUS = FIELD_WIDTH / 2;
+const BELCH_BURST_RADIUS = VIEW_WIDTH / 2;
 
 /**
  * The shove one press throws: how many, how far each carries a body, and how

@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../../game/clock';
 import type { SimEvent } from '../../../game/events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../game/field';
 import { moveGrave } from '../../../game/grave';
 import { advanceTerritory } from '../../../game/lines/territory';
 import type { Mob, MobType } from '../../../game/mobs';
@@ -243,7 +243,7 @@ describe('up-field traffic', () => {
     const traffic = upfieldTrafficOf(acc);
     expect(traffic.bandUnits).toBe(BAND_UNITS);
     expect(traffic.lateralReach).toBe(LATERAL_REACH);
-    expect(traffic.lateralReach).toBe(FIELD_WIDTH / 10);
+    expect(traffic.lateralReach).toBe(VIEW_WIDTH / 10);
   });
 
   it('makes a band one second of scroll, so a band’s index is the seconds a patch laid at its near edge takes to reach the grave', () => {
@@ -267,8 +267,8 @@ describe('up-field traffic', () => {
     const run = parkedRun();
     const events = layOnce(run);
     run.grave.size = SIZE_FLOOR;
-    placeGraveAt(run, FIELD_HEIGHT);
-    expect(run.grave.y).toBe(FIELD_HEIGHT - SIZE_FLOOR);
+    placeGraveAt(run, VIEW_HEIGHT);
+    expect(run.grave.y).toBe(VIEW_HEIGHT - SIZE_FLOOR);
     putMob(run, run.grave.x, -SPAWN_MARGIN);
     const acc = createUpfieldTraffic();
 
@@ -277,7 +277,7 @@ describe('up-field traffic', () => {
     const traffic = upfieldTrafficOf(acc);
     expect(acrossTheBands(traffic)).toBe(1);
     expect(BAND_COUNT * BAND_UNITS).toBeGreaterThanOrEqual(
-      FIELD_HEIGHT - SIZE_FLOOR + SPAWN_MARGIN,
+      VIEW_HEIGHT - SIZE_FLOOR + SPAWN_MARGIN,
     );
   });
 

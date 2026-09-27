@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TICK_HZ } from '../../game/clock';
-import { FIELD_HEIGHT } from '../../game/field';
+import { VIEW_HEIGHT } from '../../game/field';
 import {
   BIRTHRIGHT,
   BIRTHRIGHT_LEVEL,
@@ -94,7 +94,7 @@ const sealingRun = () => {
  * follows the authored waves instead of restating the module's answer.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (VIEW_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +

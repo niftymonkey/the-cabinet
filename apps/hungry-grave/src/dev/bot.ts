@@ -1,7 +1,7 @@
 // The deterministic headless player (ADR 0013).
 
 import { groundMoveOnColumn, SCENE_CAMERA } from '../app/screens/game/camera';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../game/field';
 import type { SimEvent } from '../game/events';
 import { graveWidth } from '../game/grave';
 import { MOB_TYPES } from '../game/mobs';
@@ -99,7 +99,7 @@ const THREAT_RADIUS = 240;
 const ENOUGH_CLEARANCE = 60;
 
 // Where the policy drifts when nothing is closing: the shmup's own starting mark.
-const HOME = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
+const HOME = { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT * 0.8 };
 
 interface Threat {
   readonly x: number;
@@ -173,11 +173,11 @@ const graveAfter = (
   return {
     x: Math.min(
       Math.max(state.grave.x + ground.x * speed, halfWidth),
-      FIELD_WIDTH - halfWidth,
+      VIEW_WIDTH - halfWidth,
     ),
     y: Math.min(
       Math.max(state.grave.y + ground.y * speed, size),
-      FIELD_HEIGHT - size,
+      VIEW_HEIGHT - size,
     ),
   };
 };

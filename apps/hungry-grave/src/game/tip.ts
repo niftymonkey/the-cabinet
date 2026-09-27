@@ -1,6 +1,6 @@
 // The tip: how much of a piece of food is over the grave's mouth.
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
 import type { Rect } from './overlap';
 
 /**
@@ -29,8 +29,8 @@ const sharedArea = (a: Rect, b: Rect): number => {
 const insideTheField = (box: Rect): Rect => {
   const left = Math.max(box.x, 0);
   const top = Math.max(box.y, 0);
-  const right = Math.min(box.x + box.width, FIELD_WIDTH);
-  const bottom = Math.min(box.y + box.height, FIELD_HEIGHT);
+  const right = Math.min(box.x + box.width, VIEW_WIDTH);
+  const bottom = Math.min(box.y + box.height, VIEW_HEIGHT);
   return {
     x: left,
     y: top,

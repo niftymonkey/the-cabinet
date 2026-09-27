@@ -17,7 +17,7 @@ import {
 import { spawnBoss } from '../bosses/phases';
 import type { PressedBody, SimEvent } from '../events';
 import { createExecution, executeTick } from '../execution';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
 import type { Mob } from '../mobs';
 import { advanceMobs, hasEntered, spawnMob } from '../mobs';
 import type { RunState } from '../run';
@@ -275,7 +275,7 @@ describe('the gas smothers the whole field (ADR 0008)', () => {
       shot.id = state.nextEntityId;
       state.nextEntityId += 1;
       shot.x = 20 + index * 60;
-      shot.y = (index * FIELD_HEIGHT) / 8;
+      shot.y = (index * VIEW_HEIGHT) / 8;
       shot.vx = 0;
       shot.vy = 1;
       shot.halfExtent = 5;
@@ -333,7 +333,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     // R11: the basis is the field's width and never its height, its diagonal or
     // its area. A reach off the height would cover about three quarters of the
     // field, which is the whole screen, and that is the option Mark declined.
-    expect(BELCH_BURST_RADIUS).toBe(FIELD_WIDTH / 2);
+    expect(BELCH_BURST_RADIUS).toBe(VIEW_WIDTH / 2);
   });
 
   it('shoves in the number of waves the row declares, and a player counting them counts that many', () => {
@@ -512,7 +512,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
       // and loses the tail of its throw. That the bound refuses a throw is
       // mobs.ts's own promise; what is asserted here is that the reach and the
       // throw are the same in every direction when nothing refuses them.
-      state.grave.y = FIELD_HEIGHT / 2;
+      state.grave.y = VIEW_HEIGHT / 2;
       const mob = putStillAt(state, state.grave.x + dx, state.grave.y + dy);
       fireBelch(state);
       travelFor(state, WHOLE_PUSH);
@@ -535,7 +535,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     const crowd = [
       putStillAt(state, state.grave.x, state.grave.y - FAR),
       putStillAt(state, 60, state.grave.y - FAR),
-      putStillAt(state, FIELD_WIDTH - 60, state.grave.y - FAR),
+      putStillAt(state, VIEW_WIDTH - 60, state.grave.y - FAR),
     ];
     const stoodAt = crowd.map((mob) => ({ x: mob.x, y: mob.y }));
 
@@ -613,7 +613,7 @@ describe('the shove clears the ground around the grave (ADR 0008 as amended)', (
     // kill a standing body are put down so what moves these two is the press
     // and the scroll alone. skullStream is the birthright and an invariant
     // holds it above zero, so its fixtures outlive it instead.
-    state.grave.y = FIELD_HEIGHT / 2;
+    state.grave.y = VIEW_HEIGHT / 2;
     state.levels.bell = 0;
     state.levels.territory = 0;
     state.levels.wisps = 0;

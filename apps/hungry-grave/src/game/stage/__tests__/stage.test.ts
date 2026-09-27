@@ -19,7 +19,7 @@ import { waveCarriers } from '../../carriers';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
 import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
@@ -81,7 +81,7 @@ const BOSS_BOUND_SECTIONS: readonly SectionName[] = ['procession', 'vigil'];
  * bound follows the mob rows and the field rather than being written down.
  */
 const SLOWEST_DESCENT_TICKS =
-  (FIELD_HEIGHT +
+  (VIEW_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -791,7 +791,7 @@ describe('the waves as data (ADR 0006)', () => {
 
     const firstEdge = requireDefined(edges[0], 'no first edge');
     const lastEdge = requireDefined(edges[edges.length - 1], 'no last edge');
-    const gaps = [firstEdge.left, FIELD_WIDTH - lastEdge.right];
+    const gaps = [firstEdge.left, VIEW_WIDTH - lastEdge.right];
     for (let index = 1; index < edges.length; index++) {
       const edge = requireDefined(edges[index], 'edge out of range');
       const priorEdge = requireDefined(edges[index - 1], 'edge out of range');

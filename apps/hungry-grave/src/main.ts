@@ -3,7 +3,7 @@ import { Assets, BlurFilter, Cache, Texture } from 'pixi.js';
 import { createFpsMeter } from './app/FpsMeter';
 import { FpsSampler } from './app/FpsSampler';
 import { setEngine } from './app/getEngine';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './game/field';
 import { PALETTE } from './app/palette';
 import { PausePopup } from './app/popups/PausePopup';
 import { SettingsPopup } from './app/popups/SettingsPopup';
@@ -77,8 +77,8 @@ const initEngine = async (): Promise<CreationEngine> => {
     // (ADR 0003). The two were the same numbers written twice, and nothing
     // noticed if one of them moved.
     resizeOptions: {
-      minWidth: FIELD_WIDTH,
-      minHeight: FIELD_HEIGHT,
+      minWidth: VIEW_WIDTH,
+      minHeight: VIEW_HEIGHT,
       letterbox: false,
     },
   });

@@ -1,7 +1,7 @@
 // How much of the field open claimed ground holds, tick by tick: Territory
 // measured as area, which a count of patches cannot say (#76's gate on #79).
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
 import type { RunState } from '../../game/run';
 import type { NumberRecord } from '../numbersByName';
 import { greatestOf, lastOf, meanOf } from '../seriesSummary';
@@ -36,8 +36,8 @@ interface GroundHeldAcc {
 
 const createGroundHeld = (): GroundHeldAcc => ({ fraction: [] });
 
-const GRID_COLUMNS = Math.ceil(FIELD_WIDTH / GROUND_CELL);
-const GRID_ROWS = Math.ceil(FIELD_HEIGHT / GROUND_CELL);
+const GRID_COLUMNS = Math.ceil(VIEW_WIDTH / GROUND_CELL);
+const GRID_ROWS = Math.ceil(VIEW_HEIGHT / GROUND_CELL);
 
 /**
  * Marks every grid cell whose centre this patch covers, walking only the
@@ -78,7 +78,7 @@ const heldFraction = (state: RunState): number => {
     markCellsUnder(patch, counted);
   }
   return (
-    (counted.size * GROUND_CELL * GROUND_CELL) / (FIELD_WIDTH * FIELD_HEIGHT)
+    (counted.size * GROUND_CELL * GROUND_CELL) / (VIEW_WIDTH * VIEW_HEIGHT)
   );
 };
 

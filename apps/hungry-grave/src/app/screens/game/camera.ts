@@ -6,11 +6,7 @@
  */
 
 import type { MoveCommand } from '../../../game/command';
-import {
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  type FieldPoint,
-} from '../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH, type FieldPoint } from '../../../game/field';
 import { SIZE_START } from '../../../game/tuning';
 
 interface Camera {
@@ -74,7 +70,7 @@ const CAMERA_VALUES = {
  * The screen column the field is drawn into (A1): one fixed shape on every
  * device, so the ground the camera sees is one shape in field units.
  */
-const COLUMN: Column = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
+const COLUMN: Column = { width: VIEW_WIDTH, height: VIEW_HEIGHT };
 
 /**
  * How near the camera's own feet a point may get before its scale is held,

@@ -5,7 +5,7 @@
 import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import type { SimEvent } from './events';
-import { FIELD_HEIGHT } from './field';
+import { VIEW_HEIGHT } from './field';
 import type { WeaponLine } from './lines/roster';
 import type { CorpseTier, Mob } from './mobs';
 import type { Rect } from './overlap';
@@ -406,7 +406,7 @@ const cullCorpses = (state: RunState): SimEvent[] => {
   const events: SimEvent[] = [];
   for (const corpse of state.corpses) {
     if (!corpse.alive) continue;
-    if (corpse.y - corpse.halfExtent <= FIELD_HEIGHT) continue;
+    if (corpse.y - corpse.halfExtent <= VIEW_HEIGHT) continue;
     corpse.alive = false;
     events.push({
       type: 'corpseLost',

@@ -4,7 +4,7 @@ import type { Caps } from '../../../game/caps';
 import { TICK_HZ } from '../../../game/clock';
 import type { Corpse } from '../../../game/corpses';
 import { corpseHitbox } from '../../../game/corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../game/field';
 import { graveHitbox } from '../../../game/grave';
 import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
@@ -330,7 +330,7 @@ class FieldRenderer {
     if (this.built) return;
     this.built = true;
     this.dim
-      .rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT)
+      .rect(0, 0, VIEW_WIDTH, VIEW_HEIGHT)
       .fill({ color: PALETTE.night.hex });
     this.dim.alpha = 0;
     for (let slot = 0; slot < SCATTER_SLOTS; slot++) {
@@ -480,9 +480,9 @@ class FieldRenderer {
   private cancelAt(run: RunState, seen: ShotMemory): void {
     const inside =
       seen.x >= 0 &&
-      seen.x <= FIELD_WIDTH &&
+      seen.x <= VIEW_WIDTH &&
       seen.y >= 0 &&
-      seen.y <= FIELD_HEIGHT;
+      seen.y <= VIEW_HEIGHT;
     if (!inside) return;
     const scatter = this.oldestScatter();
     scatter.born = run.tick;

@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../../game/field';
 import { PALETTE } from '../../../palette';
 import type { Field, GroundCanvas } from '../groundPainting';
 import {
@@ -17,7 +17,7 @@ import {
   paintGround,
 } from '../groundPainting';
 
-const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
+const FIELD: Field = { width: VIEW_WIDTH, height: VIEW_HEIGHT };
 
 /**
  * One drawing call as the recorder keeps it: what was drawn, the arguments that
@@ -462,7 +462,7 @@ describe('the ground painted from the prototype (design record R4)', () => {
     // The prototype's own choice: the view's CSS pixels per field unit times
     // the device pixel ratio, held between 1 and 3 and never asking for a
     // texture wider or taller than the smallest a phone is sure to allow.
-    const phone = 390 / FIELD_WIDTH;
+    const phone = 390 / VIEW_WIDTH;
     expect(groundResolution(phone, 1, FIELD)).toBeCloseTo(1, 6);
     expect(groundResolution(phone, 2, FIELD)).toBeCloseTo(phone * 2, 6);
     expect(groundResolution(phone, 3, FIELD)).toBeCloseTo(phone * 3, 6);
@@ -472,7 +472,7 @@ describe('the ground painted from the prototype (design record R4)', () => {
     );
 
     // A field tall enough that the cap, and not the clamp, is what answers.
-    const tall: Field = { width: FIELD_WIDTH, height: 2000 };
+    const tall: Field = { width: VIEW_WIDTH, height: 2000 };
     expect(groundResolution(phone, 8, tall)).toBeCloseTo(
       GROUND_PAINTING.maxTexturePixels / tall.height,
       6,

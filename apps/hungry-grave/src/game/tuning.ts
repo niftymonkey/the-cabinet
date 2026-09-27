@@ -3,7 +3,7 @@
 // their own modules, and this file holds the rest.
 
 import { TICK_HZ } from './clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
 
 /**
  * Base speed in field units per tick. ADR 0003: crossing the field's width
@@ -15,7 +15,7 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
  * pins "the grave crosses the field's width in about two seconds" is ADR 0003
  * and must never break.
  */
-const BASE_SPEED = FIELD_WIDTH / (2 * TICK_HZ);
+const BASE_SPEED = VIEW_WIDTH / (2 * TICK_HZ);
 
 /**
  * Scroll in field units per tick. This is the run's root pace number: it is the
@@ -34,7 +34,7 @@ const SCROLL_SPEED = 38 / TICK_HZ;
  * and deriving is what makes that true by construction instead of by two
  * numbers that drift apart.
  */
-const FRESHNESS_SECONDS = FIELD_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
+const FRESHNESS_SECONDS = VIEW_HEIGHT / 2 / (SCROLL_SPEED * TICK_HZ);
 
 // ADR 0004: freshness scales every payout down to this floor, never to zero.
 const FRESHNESS_PAYOUT_FLOOR = 0.25;
@@ -50,7 +50,7 @@ const FRESHNESS_PAYOUT_FLOOR = 0.25;
 const GRAVE_ASPECT = 2;
 
 // ADR 0003: the grave stands about a quarter of the field's width tall at its ceiling.
-const SIZE_CEILING = FIELD_WIDTH / 8;
+const SIZE_CEILING = VIEW_WIDTH / 8;
 
 /**
  * One and a half floors, so the first hit never puts a fresh run at the floor.

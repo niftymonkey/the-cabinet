@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { corpseHitbox, cullCorpses, POWER_UP_HALF_EXTENT } from '../corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
 import {
   ageGrave,
   createGrave,
@@ -123,8 +123,8 @@ describe('the grave', () => {
   });
   it('the hitbox shrinks with size, so a smaller grave is a harder target (ADR 0003)', () => {
     const grave = createGrave();
-    grave.x = FIELD_WIDTH / 2;
-    grave.y = FIELD_HEIGHT / 2;
+    grave.x = VIEW_WIDTH / 2;
+    grave.y = VIEW_HEIGHT / 2;
 
     grave.size = SIZE_CEILING;
     const big = graveHitbox(grave);
@@ -175,8 +175,8 @@ describe('the grave', () => {
         const box = graveHitbox(grave);
         expect(box.x).toBeGreaterThanOrEqual(0);
         expect(box.y).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width).toBeLessThanOrEqual(FIELD_WIDTH);
-        expect(box.y + box.height).toBeLessThanOrEqual(FIELD_HEIGHT);
+        expect(box.x + box.width).toBeLessThanOrEqual(VIEW_WIDTH);
+        expect(box.y + box.height).toBeLessThanOrEqual(VIEW_HEIGHT);
       }
     }
   });
@@ -694,7 +694,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // The loss is the mirror of the gain (design record R6): the same spacing
     // the offer lays three bodies at, so one dive cannot catch all four.
     const run = atTheFloorWithNoScore(3);
-    run.grave.x = FIELD_WIDTH / 2;
+    run.grave.x = VIEW_WIDTH / 2;
 
     hitGrave(run, 'contact');
 
@@ -724,7 +724,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     }
     for (const x of xs) {
       expect(x - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
-      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
+      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(VIEW_WIDTH);
     }
   });
 
@@ -754,7 +754,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // The transferable half of Sonic's no-recollect window, as geometry rather
     // than as a clock: the loss registers before the chase can connect.
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT / 2;
+    run.grave.y = VIEW_HEIGHT / 2;
 
     hitGrave(run, 'contact');
     moveGrave(run.grave, { x: 0, y: 1 });
@@ -794,7 +794,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
   /** The drop the placement uses, read off an ordinary strip rather than imported. */
   function dropOffset(): number {
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT / 2;
+    run.grave.y = VIEW_HEIGHT / 2;
     hitGrave(run, 'contact');
     const body = fallenRungs(run)[0];
     if (body === undefined) throw new Error('no body fell');
@@ -804,7 +804,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
   /** A run standing at the bottom clamp, where nothing fits below the grave. */
   function atTheBottomClamp(): ReturnType<typeof createRun> {
     const run = atTheFloorWithNoScore(3);
-    run.grave.y = FIELD_HEIGHT;
+    run.grave.y = VIEW_HEIGHT;
     moveGrave(run.grave, { x: 0, y: 0 });
     return run;
   }
@@ -824,7 +824,7 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     for (const body of standing) {
       expect(body.y).toBeLessThan(run.grave.y);
       expect(body.y - body.halfExtent).toBeGreaterThanOrEqual(0);
-      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(VIEW_HEIGHT);
     }
     expect(cullCorpses(run)).toHaveLength(0);
   });
@@ -834,14 +834,14 @@ describe('the rungs a floor hit drops onto the field (ADR 0055)', () => {
     // not the grave's position, because a body dropped half off the field is a
     // rung the player cannot read as catchable either.
     const drop = dropOffset();
-    const lastWithRoom = FIELD_HEIGHT - drop - POWER_UP_HALF_EXTENT;
+    const lastWithRoom = VIEW_HEIGHT - drop - POWER_UP_HALF_EXTENT;
 
     const roomy = atTheFloorWithNoScore(3);
     roomy.grave.y = lastWithRoom;
     hitGrave(roomy, 'contact');
     for (const body of fallenRungs(roomy)) {
       expect(body.y).toBeCloseTo(lastWithRoom + drop, 9);
-      expect(body.y + body.halfExtent).toBeLessThanOrEqual(FIELD_HEIGHT);
+      expect(body.y + body.halfExtent).toBeLessThanOrEqual(VIEW_HEIGHT);
     }
 
     const tight = atTheFloorWithNoScore(3);

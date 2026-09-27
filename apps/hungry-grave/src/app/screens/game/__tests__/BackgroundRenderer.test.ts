@@ -8,7 +8,7 @@ import type { Container, Renderer, Sprite } from 'pixi.js';
 import { Mesh, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -54,12 +54,12 @@ function viewing(shown: number): {
   // announced: the sampler the GPU binds is rebuilt from an announced style.
   const announced: string[] = [];
   const view = {
-    screen: { width: FIELD_WIDTH },
+    screen: { width: VIEW_WIDTH },
     canvas: { getBoundingClientRect: () => ({ width: shown }) },
     generateTexture: (options: { resolution: number }): Texture => {
       baked.push(options.resolution);
       const texture = new Texture({
-        source: new TextureSource({ width: FIELD_WIDTH, height: FIELD_HEIGHT }),
+        source: new TextureSource({ width: VIEW_WIDTH, height: VIEW_HEIGHT }),
       });
       const style = texture.source.style;
       style.on('change', () =>
@@ -102,7 +102,7 @@ function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
 function groundRowAt(layers: FieldLayers, vertex: number): number {
   const v = groundOf(layers).geometry.uvs[vertex * 2 + 1];
   if (v === undefined) throw new Error(`no ground vertex ${vertex}`);
-  return v * FIELD_HEIGHT;
+  return v * VIEW_HEIGHT;
 }
 
 /** The renderer's own pass reaching the ground, which is where it meets a renderer. */
@@ -368,18 +368,18 @@ describe('the ground painted from the prototype (design record R4)', () => {
     // The near ground is baked as sharp as it draws, at the column's nearest
     // row's scale, 1.178 (A10's rule applied to the ground).
     expect(phone.baked).toEqual([
-      groundResolution((390 / FIELD_WIDTH) * 1.177929, 1, {
-        width: FIELD_WIDTH,
-        height: FIELD_HEIGHT,
+      groundResolution((390 / VIEW_WIDTH) * 1.177929, 1, {
+        width: VIEW_WIDTH,
+        height: VIEW_HEIGHT,
       }),
     ]);
 
     const wide = viewing(1600);
     for (let each = 0; each < 3; each++) frame(layers, renderer, wide.view);
     expect(wide.baked).toEqual([
-      groundResolution((1600 / FIELD_WIDTH) * 1.177929, 1, {
-        width: FIELD_WIDTH,
-        height: FIELD_HEIGHT,
+      groundResolution((1600 / VIEW_WIDTH) * 1.177929, 1, {
+        width: VIEW_WIDTH,
+        height: VIEW_HEIGHT,
       }),
     ]);
   });
@@ -546,7 +546,7 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     const grid = groundGrid(
       SCENE_CAMERA,
       COLUMN,
-      { width: FIELD_WIDTH, height: FIELD_HEIGHT },
+      { width: VIEW_WIDTH, height: VIEW_HEIGHT },
       0,
     );
     expect([...floor.geometry.positions]).toEqual([...grid.positions]);
@@ -624,7 +624,7 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     expect(Math.min(...lefts)).toBeGreaterThanOrEqual(
       SEEN.farLeft - RECORD_CLOSE,
     );
-    expect(Math.max(...rights)).toBeGreaterThan(FIELD_WIDTH);
+    expect(Math.max(...rights)).toBeGreaterThan(VIEW_WIDTH);
     expect(Math.max(...rights)).toBeLessThanOrEqual(
       SEEN.farRight + RECORD_CLOSE,
     );

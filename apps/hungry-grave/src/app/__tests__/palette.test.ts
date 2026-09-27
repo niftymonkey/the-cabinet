@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { resize } from '../../engine/resize/resize';
 import type { Corpse } from '../../game/corpses';
 import { createCorpsePool } from '../../game/corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
 import { apcaLc, hsv, luma, observerLuma } from '../color';
 import { BOUNDARY_STROKE, fitField } from '../layout';
 import type { FireEmitter, PaletteEntry } from '../palette';
@@ -702,7 +702,7 @@ describe("the field's boundary (ADR 0014)", () => {
     // again. It is the weaker one that replaces it: a stroke still has to
     // survive the phone's own pixel grid, and a sub-pixel line is dropped or
     // dimmed by the rasteriser whatever its contrast measures.
-    const stage = resize(390, 844, FIELD_WIDTH, FIELD_HEIGHT, false);
+    const stage = resize(390, 844, VIEW_WIDTH, VIEW_HEIGHT, false);
     const scale = fitField(stage.width, stage.height).scale;
     const cssPixelsPerStageUnit = 390 / stage.width;
     expect(

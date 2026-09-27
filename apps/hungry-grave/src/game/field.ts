@@ -2,13 +2,17 @@
 // sim never knows the viewport (ADR 0003).
 
 /**
- * These live here rather than in tuning.ts because they are ADR 0003 and not
+ * The column the camera draws into, in field units, where one field unit draws
+ * as one column unit: the field's middle row. They are the scale every speed
+ * and size in the rules is measured against (ADR 0003's numbers).
+ * Until the field takes its trapezoid shape they are also still its edges.
+ * They live here rather than in tuning.ts because they are ADR 0003 and not
  * tunable, and here rather than in the app because the field is the sim's.
  * src/app/layout.ts imports them from here, so there is one declaration and
  * nothing to keep in sync.
  */
-const FIELD_WIDTH = 540;
-const FIELD_HEIGHT = 760;
+const VIEW_WIDTH = 540;
+const VIEW_HEIGHT = 760;
 
 /**
  * A point in field units. It lives here rather than in an input model because
@@ -21,5 +25,5 @@ interface FieldPoint {
   readonly y: number;
 }
 
-export { FIELD_WIDTH, FIELD_HEIGHT };
+export { VIEW_WIDTH, VIEW_HEIGHT };
 export type { FieldPoint };

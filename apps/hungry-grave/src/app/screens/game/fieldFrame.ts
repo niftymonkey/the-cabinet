@@ -2,7 +2,7 @@
 
 import { Graphics } from 'pixi.js';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../game/field';
 import { BOUNDARY_STROKE } from '../../layout';
 import { PALETTE } from '../../palette';
 
@@ -16,7 +16,7 @@ import { PALETTE } from '../../palette';
  * the field's own 540 by 760.
  */
 const boundaryReadout = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
+  return new Graphics().rect(0, 0, VIEW_WIDTH, VIEW_HEIGHT).stroke({
     width: BOUNDARY_STROKE,
     color: PALETTE.fieldFrame.hex,
     alignment: 1,
@@ -42,7 +42,7 @@ const boundaryReadout = (): Graphics => {
  * scan is there to stop. The bare call takes Pixi's opaque default.
  */
 const fieldClip = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
+  return new Graphics().rect(0, 0, VIEW_WIDTH, VIEW_HEIGHT).fill();
 };
 
 export { boundaryReadout, fieldClip };

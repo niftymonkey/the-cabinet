@@ -13,7 +13,7 @@ import {
   cullCorpses,
   spawnFallenRung,
 } from '../../../game/corpses';
-import { FIELD_HEIGHT } from '../../../game/field';
+import { VIEW_HEIGHT } from '../../../game/field';
 import type { WeaponLine } from '../../../game/lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../../../game/lines/roster';
 import { openOffer, OFFER_SIZE } from '../../../game/offer';
@@ -69,10 +69,10 @@ describe('power-up ledger', () => {
 
     observePowerUpLedger(
       accumulator,
-      openOffer(run, 260, FIELD_HEIGHT - 5),
+      openOffer(run, 260, VIEW_HEIGHT - 5),
       run,
     );
-    powerUpAt(run, 260).y = FIELD_HEIGHT * 2;
+    powerUpAt(run, 260).y = VIEW_HEIGHT * 2;
     observePowerUpLedger(accumulator, cullCorpses(run), run);
 
     const { byLine, ...totals } = powerUpLedgerOf(accumulator);
@@ -110,13 +110,12 @@ describe('power-up ledger', () => {
 
     observePowerUpLedger(
       accumulator,
-      openOffer(run, 260, FIELD_HEIGHT - 5),
+      openOffer(run, 260, VIEW_HEIGHT - 5),
       run,
     );
     const second = [...run.offer!.options];
     const scrolledId = run.offer!.bodyIds[0];
-    run.corpses.find((corpse) => corpse.id === scrolledId)!.y =
-      FIELD_HEIGHT * 2;
+    run.corpses.find((corpse) => corpse.id === scrolledId)!.y = VIEW_HEIGHT * 2;
     observePowerUpLedger(accumulator, cullCorpses(run), run);
 
     const ledger = powerUpLedgerOf(accumulator);
@@ -197,7 +196,7 @@ describe('the ledger counts offers and goes on counting only offers', () => {
     if (rung === undefined) throw new Error('no fallen rung');
     observePowerUpLedger(accumulator, swallow(run, asSwallowable(rung)), run);
     rung.alive = true;
-    rung.y = FIELD_HEIGHT + rung.halfExtent + 1;
+    rung.y = VIEW_HEIGHT + rung.halfExtent + 1;
     observePowerUpLedger(accumulator, cullCorpses(run), run);
 
     const ledger = powerUpLedgerOf(accumulator);

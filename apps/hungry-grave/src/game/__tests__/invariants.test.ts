@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { spawnCorpse } from '../corpses';
 import { stepping } from '../../dev/stepping';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import type { TickCommand } from '../command';
@@ -91,11 +91,11 @@ describe('the sim invariants', () => {
     expect(brokenOn(big)).toContain('size within floor and ceiling');
 
     const outside = createRun(1);
-    outside.grave.x = FIELD_WIDTH + 10;
+    outside.grave.x = VIEW_WIDTH + 10;
     expect(brokenOn(outside)).toContain('in bounds');
 
     const below = createRun(1);
-    below.grave.y = FIELD_HEIGHT + 10;
+    below.grave.y = VIEW_HEIGHT + 10;
     expect(brokenOn(below)).toContain('in bounds');
   });
 
@@ -417,7 +417,7 @@ describe('the entity invariants (ADR 0013)', () => {
     expect(brokenOn(gone)).toContain('entities in bounds');
 
     const wide = createRun(1);
-    liveMob(wide, FIELD_WIDTH + SPAWN_MARGIN + 1, 100);
+    liveMob(wide, VIEW_WIDTH + SPAWN_MARGIN + 1, 100);
     expect(brokenOn(wide)).toContain('entities in bounds');
 
     const shot = createRun(1);
@@ -1947,7 +1947,7 @@ describe('Territory under the harness (#76)', () => {
     // box every entity is held to, on that axis alone.
     const right = createRun(1);
     slot0(right.patches).alive = true;
-    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN + 1;
+    slot0(right.patches).x = VIEW_WIDTH + SPAWN_MARGIN + 1;
     slot0(right.patches).y = 200;
     expect(brokenOn(right)).toContain('entities in bounds');
 
@@ -1963,7 +1963,7 @@ describe('Territory under the harness (#76)', () => {
     // silently tighten onto ground a legal placement can reach.
     const right = createRun(1);
     slot0(right.patches).alive = true;
-    slot0(right.patches).x = FIELD_WIDTH + SPAWN_MARGIN;
+    slot0(right.patches).x = VIEW_WIDTH + SPAWN_MARGIN;
     slot0(right.patches).y = 200;
     expect(brokenOn(right)).not.toContain('entities in bounds');
 
@@ -1983,7 +1983,7 @@ describe('Territory under the harness (#76)', () => {
     slot0(run.patches).alive = true;
     slot0(run.patches).x = 270;
     slot0(run.patches).radius = radius;
-    slot0(run.patches).y = FIELD_HEIGHT + radius + 1;
+    slot0(run.patches).y = VIEW_HEIGHT + radius + 1;
 
     expect(brokenOn(run)).toContain('entities in bounds');
   });
@@ -1996,7 +1996,7 @@ describe('Territory under the harness (#76)', () => {
     slot0(run.patches).alive = true;
     slot0(run.patches).x = 270;
     slot0(run.patches).radius = radius;
-    slot0(run.patches).y = FIELD_HEIGHT + radius;
+    slot0(run.patches).y = VIEW_HEIGHT + radius;
 
     expect(brokenOn(run)).not.toContain('entities in bounds');
   });

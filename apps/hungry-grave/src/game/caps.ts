@@ -1,7 +1,7 @@
 // The entity cap policy (tracer plan section 3).
 
 import { TICK_HZ } from './clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
+import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
 import { BODY, MAX_ENTRY_DEPTH } from './stage/formations';
 import type { FirePhase, ShotPattern } from './stage/waves';
 import {
@@ -74,7 +74,7 @@ interface Caps {
  * loose by design, which is the direction a safety net rounds.
  */
 const TRANSIT_SECONDS =
-  (MAX_ENTRY_DEPTH + FIELD_HEIGHT + BODY) / (SCROLL_SPEED * TICK_HZ);
+  (MAX_ENTRY_DEPTH + VIEW_HEIGHT + BODY) / (SCROLL_SPEED * TICK_HZ);
 
 /**
  * The most bodies the director can put on the field inside a window of this
@@ -149,7 +149,7 @@ const mobCap = (tuning: TuningRecord): number => peakLive(tuning);
  * operator's are both left to the engine.
  */
 const FIELD_SPAN = Math.sqrt(
-  FIELD_WIDTH * FIELD_WIDTH + FIELD_HEIGHT * FIELD_HEIGHT,
+  VIEW_WIDTH * VIEW_WIDTH + VIEW_HEIGHT * VIEW_HEIGHT,
 );
 
 /**
