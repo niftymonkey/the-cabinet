@@ -4,7 +4,7 @@ Read the branch charter first: `docs/branch/charter.md`. Then this file. Every r
 
 ## Where the branch stands
 
-Planned, no slice landed. The branch `tilted-view-build` was cut from `main` at `517ee0753e`. The planning files are written and uncommitted: the design record, the charter, the decision log, this handoff, the follow-along list, the coder contract and eight slice entries under `docs/branch/records/`. The three gates ran on the plan at standard depth (markers on #159, comments 5854409064, 5854409253 and 5854447812) and every finding is folded in; none argued with Mark's rulings. The tech gate's own advice reshaped the order: the pure modules and the capture tool moved into slice 1, the rename became its own slice 6, and the "before" batch became slice 5, which a Sonnet agent can run.
+Last landed slice: **slice 1**, the camera math, the projection modules and the screenshot tool (coder note `docs/branch/records/slice-1-note.md`; CodeRabbit CLI found nothing; `pnpm verify` green, 2651 test names, 36 added, 0 removed). The plan is `d521b3555e`: design record, charter, decision log, this handoff, follow-along list, coder contract and eight slice entries under `docs/branch/records/`, with the three gates folded in (markers on #159: 5854409064, 5854409253, 5854447812). The screenshot tool lives in the gitignored `local/tilt-shots/` of this worktree (`shoot.mjs` and its README), with the 14 "before" shots. Carried into slice 2's dispatch: the off-centre spread term in `headingOnColumn` has no test yet. The two Rollup warnings in `pnpm build` are #50 and #51, older than this branch.
 
 ## What is left, in order
 

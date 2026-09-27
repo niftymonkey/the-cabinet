@@ -174,6 +174,30 @@ const BOUNDARIES: Boundary[] = [
     mayReachInTests: [],
     mayImport: [],
   },
+  /**
+   * The scene camera (tilted view T2, T3, A13): pure math, no pixi at all, not
+   * even a type import, because its tests and slice 3's fall run without a
+   * renderer. It reaches the field's width, height and point, and the starting
+   * size its height is measured in.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/camera.ts'],
+    mayReach: ['game/field', 'game/tuning'],
+    mayReachInTests: [],
+    mayImport: [],
+  },
+  /**
+   * Where things draw under the camera (tilted view A7), pure for the camera's
+   * reason: its tests run without a renderer.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/groundPlacement.ts'],
+    mayReach: ['app/screens/game/camera', 'game/field', 'game/tuning'],
+    mayReachInTests: [],
+    mayImport: [],
+  },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
