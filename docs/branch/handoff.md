@@ -1,0 +1,61 @@
+# Handoff: the tilted view (#159)
+
+Read the branch charter first: `docs/branch/charter.md`. Then this file. Every ruling this branch builds, with its evidence and how to reverse it, is in the design record `apps/hungry-grave/docs/design/tilted-view.md`: Mark's as T1 to T9, the agent's calls as A1 to A16. This file holds only what is open and what later work needs.
+
+## Where the branch stands
+
+Planned, no slice landed. The branch `tilted-view-build` was cut from `main` at `517ee0753e`. The planning files are written and uncommitted: the design record, the charter, the decision log, this handoff, the follow-along list, the coder contract and eight slice entries under `docs/branch/records/`. The three gates ran on the plan at standard depth (markers on #159, comments 5854409064, 5854409253 and 5854447812) and every finding is folded in; none argued with Mark's rulings. The tech gate's own advice reshaped the order: the pure modules and the capture tool moved into slice 1, the rename became its own slice 6, and the "before" batch became slice 5, which a Sonnet agent can run.
+
+## What is left, in order
+
+1. Re-read the eight entries against the fold before the first dispatch: a fold is where the next defect gets made (`docs/agents/lessons.md`). If the fold is judged new design, gate it again.
+2. Commit and push the planning files.
+3. Slices 1 to 4, each landed by the runbook's "Commits and reviews". Nothing in them waits on Mark.
+4. Slice 5, the "before" batch, from a detached checkout at slice 4's commit; it can run while slice 6 is coded.
+5. Slice 6, the rename.
+6. Mark's ruling on the column's shape (A1, first on the list below) and his yes to the glossary pre-authorization, both before slice 7. Slice 7 does not start without them.
+7. Slices 7 and 8.
+8. Deploy to https://hungry-grave.vercel.app, then Mark's play on his phone (slice 4's on-device glass check and the design record's "For Mark's next play"), coached line by line.
+9. The gates on the built result, then the branch close (`end-of-the-branch.md`).
+
+## For Mark's read
+
+- **Decide before slice 7: what shape is the screen's column for this step (A1)?** No ruling has set it: his phone-first ruling says the phone sets the layout, and #151 is the pass that sets it. Today the game letterboxes a 540 by 760 column, which on his 390 by 844 phone draws about 390 by 549 CSS pixels with bars above and below. He tuned his camera on the prototype, whose column was the whole phone, 540 by 1169 field units, so with his values a 760 column shows the middle of what he saw: the far edge 168 units up the field where his was 370 up, the near edge 762 down where his was 1129 down, and everything near the middle of the screen exactly as he saw it. The agent's recommendation is to keep 760 in this step, because a phone-tall field lengthens every time on screen (how long bodies are in view, how long revenants fire, how far food rides before it rots), which is a balance change that belongs with #151 and #39. His tilt and camera values are not retuned on this interim column. Whichever he picks, the field is one fixed shape on every device, which is what keeps replays true across a phone and a desktop. To answer it by play: tilt 7 of the prototype, https://claude.ai/artifact/QMoVJ35u58yrZmHX2uYBmB (private, readout `TILT 7`), opens on his values and has a **column** knob with Phone and 760; the change is uncommitted in the prototype worktree `.claude/worktrees/156-tilted-view`.
+- **The glossary pre-authorization is an addition.** The dispatch that planned this branch listed three pre-authorizations; the charter adds edits to the glossary and the design record, carried from #148's charter, because slice 7 rewrites the Field entry and adds Camera (wording in the design record). It needs his yes before slice 7.
+- **ADR 0003 is stale in three sentences, and it is not edited on this branch.** "The sim runs in one fixed 540 by 760 unit field that the renderer scales to any screen": after slice 7 the field is the trapezoid the camera sees and the renderer draws it through a camera. "base speed makes crossing the field's width take about two seconds" and "A hard size ceiling, the grave standing about a quarter of the field's width tall": both now hold on the field's middle row, still 540 wide, while its far row is 656.9 wide (A3). "no number anywhere is a device pixel" still holds (A1). Whether ADR 0003 is amended is his, at the branch close's ADR pass.
+- **The size floor's stated reason breaks at the top of the screen (A17).** Its comment says a floor grave is about 13 CSS pixels across on a 390-wide phone; at the top row it is about 10.7. The floor does not move (#39's); slice 7 restates the comment.
+- **A big grave's hole shows a little more wall than the prototype's (A6).** The prototype's shared camera rose with the live grave, which his own rule for the scene camera (T3) forbids; the build's does not. At the starting size nothing differs; at size 48, the size in his screenshot, a wall's deepest drawn point sits at 0.909 of the rim's distance from where the walls converge instead of 0.947, and at the ceiling at 0.876.
+- **The longer field moves the balance, measured and not retuned (A4).** The field is 930.6 long against 760 with speeds held: food from a top kill reaches the grave's row about 4.4 seconds later against a ten-second freshness, revenants are armed longer (about 12.6 seconds and five shots by the tech gate's arithmetic), and about a quarter of a far-row Drip, Rain or Wall walks off the sides before the grave's row. Slices 7 and 8's batches put figures on each for #39.
+- **The tape versions do not move, which departs from the planning brief (A12).** The brief asked for the format and witness versions to bump for the field change. ADR 0043 keeps the format version for the bytes and the witness version for the fold, and this step changes neither, so older tapes stop at their first diverging checkpoint as ADR 0019 intends and as #148's slice 1 did.
+- **The director's one live-body ceiling (28) binds sooner (A4).** Full-width formations lay about 22% more bodies across the wider far row, and the ceiling stays as authored.
+- **The boss draws a little lower on the screen.** It keeps its ground position (y 110), which the camera draws at about row 174 of 760 rather than 110 (slice 7's table).
+- **"Headstones" in #159's done-when are the dressing's statues.** The grave's own headstone is off by his #148 decision 5, and #148 did not port the prototype's far markers (R8). The statues stand up in slice 2 (A7).
+
+## For Mark's next play
+
+The list is at the end of the design record, `apps/hungry-grave/docs/design/tilted-view.md`. It waits for slice 8's deploy.
+
+## The harness batch
+
+The four commands of #148's before-batch, from `apps/hungry-grave/` in this worktree, with a full path for the output folder because `pnpm vite-node` keeps the directory it is called in:
+
+```
+pnpm vite-node --config vite.headless.config.ts scripts/batch.ts steady-far   1000 48 <out> rig=birthright
+pnpm vite-node --config vite.headless.config.ts scripts/batch.ts shaky-short  1000 48 <out> rig=birthright
+pnpm vite-node --config vite.headless.config.ts scripts/batch.ts steady-far   1000 48 <out> rig=maxed
+pnpm vite-node --config vite.headless.config.ts scripts/batch.ts shaky-short  1000 48 <out> rig=maxed
+```
+
+Seeds 1000 to 1047, about 31 minutes of wall clock for all four, run in the background. Compare two batches with `scripts/compare-batches.ts`. The batch is played by the harness hand (`src/dev/harnessPolicy.ts`), which walks at the nearest food, so every figure measures the policy too: a size of shift, never a verdict. The maxed rig's runs win, which is where a won tape for a replay comes from.
+
+## Facts later work needs
+
+- **The worktree has no `node_modules`.** The first coder runs `pnpm install --frozen-lockfile --prefer-offline` from the repo root. The main checkout's install has `pixi.js` 8.19.0, which has `PerspectiveMesh` (slice 2).
+- **There is no autopilot in the rendered game.** A whole run is watched by replaying a recorded tape in the replay screen (`?tape=` fetches a URL, `?at=` names a tick, `src/app/seedFromUrl.ts:159-183`). Slice 1 builds a capture tool under `local/tilt-shots/` that later slices reuse.
+- **Holding a frame in the rendered app.** The replay screen cannot be held at the tick `?at=` names: it fast-forwards and then plays on. Hold a tick from outside the app by replacing the page's `requestAnimationFrame` with a manual pump and also freezing `performance.now`, advancing it one tick's worth per pumped frame, because Pixi's ticker reads real elapsed time and a pumped frame otherwise advances up to fifteen ticks. For a state at the end of a run, record a tape of a chosen length with `scripts/record-conditioned.ts`, which freezes on its last verified checkpoint.
+- **Tapes recorded before slice 7 stop verifying at their first diverging checkpoint after it.** Record fresh tapes for slices 7 and 8.
+- **A deploy builds from a clean detached checkout**, never from this worktree while anyone has uncommitted work in it: `git worktree add --detach <scratch> <commit>`, copy `apps/hungry-grave/.vercel` from the main repo folder, `pnpm install --frozen-lockfile --prefer-offline`, then the recipe in `apps/hungry-grave/docs/deploy.md`, then `vercel ls` and a `curl` of the alias to confirm.
+- A `vite preview` on port 4173 may belong to another worktree. Use another port.
+- A prompt that writes no code opens with `Non-coding dispatch:` and one that writes code names `docs/agents/feature-flow.md`, or the dispatch hook refuses it. Give an agent a scratch folder under `local/` in this worktree, under a name no other agent uses, as a full path.
+- The prototype exposes its camera on `window.graveFall` (`setTilt`, `camera()`, `groundToScreen`, `screenToGround`, `belowGround`, `stats()`), which is how a coder measures it side by side with the game. Its column is the phone's own height, so compare the middle 760 rows (A1).
+- **The main session writes no code and no tests and hunts no bug.** A review finding or a small fix goes to a small agent briefed with the finding, the file, the test to write first with its expected red, and the checks to run.
