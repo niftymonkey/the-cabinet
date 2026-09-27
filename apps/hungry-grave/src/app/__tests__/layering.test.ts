@@ -7,7 +7,7 @@ import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { FaultRecord } from '../../game/execution';
 import type { FaultIdentity } from '../../game/faults';
 import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
@@ -321,8 +321,8 @@ function stageOf(viewport: { width: number; height: number }) {
   return resize(
     viewport.width,
     viewport.height,
-    VIEW_WIDTH,
-    VIEW_HEIGHT,
+    FIELD_WIDTH,
+    FIELD_HEIGHT,
     false,
   );
 }
@@ -452,7 +452,7 @@ describe("the frame's three regimes (record R10)", () => {
         `${regime.name} clipped ${row.top + row.height <= stage.height}`,
       ).toBe(`${regime.name} clipped true`);
       expect(`${regime.name} ${row.left} ${row.width}`).toBe(
-        `${regime.name} ${placement.offsetX} ${VIEW_WIDTH * placement.scale}`,
+        `${regime.name} ${placement.offsetX} ${FIELD_WIDTH * placement.scale}`,
       );
     }
   });

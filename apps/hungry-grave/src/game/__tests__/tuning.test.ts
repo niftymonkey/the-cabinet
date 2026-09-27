@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { PHASE_HP } from '../bosses/phases';
 import { TICK_HZ } from '../clock';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { MOB_TYPES } from '../mobs';
 import type { BossKind } from '../stage/waves';
 import { BOSS_KINDS } from '../stage/waves';
@@ -43,16 +43,16 @@ const MEAL_AT_MAXED = DEFAULT_TUNING.score.mealAtMaxedInKills * TRASH_KILL;
 describe('the tuning derivations', () => {
   it("base speed crosses the field's width in two seconds (ADR 0003)", () => {
     const twoSeconds = 2 * TICK_HZ;
-    expect(BASE_SPEED * twoSeconds).toBe(VIEW_WIDTH);
+    expect(BASE_SPEED * twoSeconds).toBe(FIELD_WIDTH);
   });
   it('a corpse spawned at mid-field reaches the bottom edge in exactly FRESHNESS_SECONDS, derived from scroll speed alone (ADR 0004)', () => {
     // ADR 0004's coupling invariant: a mid-field kill must reach the bottom
     // edge as a nearly empty scrap, so a scroll retune retunes the meter with
     // it. Scrolled tick by tick rather than by the same formula the constant
     // uses, so the test is the trip and not the arithmetic.
-    let y = VIEW_HEIGHT / 2;
+    let y = FIELD_HEIGHT / 2;
     let ticks = 0;
-    while (y < VIEW_HEIGHT) {
+    while (y < FIELD_HEIGHT) {
       y += SCROLL_SPEED;
       ticks += 1;
     }
@@ -61,7 +61,7 @@ describe('the tuning derivations', () => {
   });
   it("the grave stands about a quarter of the field's width tall at its ceiling (ADR 0003)", () => {
     // Size is the half-height, so the standing height is twice it.
-    expect(SIZE_CEILING * 2).toBe(VIEW_WIDTH / 4);
+    expect(SIZE_CEILING * 2).toBe(FIELD_WIDTH / 4);
   });
   it('SIZE_FLOOR < SIZE_START < SIZE_CEILING, so the recovery path and the growth path both exist (ADR 0003)', () => {
     expect(SIZE_FLOOR).toBeLessThan(SIZE_START);

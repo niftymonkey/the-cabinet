@@ -4,7 +4,7 @@
 // two locked together in the last phase.
 
 import type { SimEvent } from '../events';
-import { VIEW_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
 import { cos, sin } from '../math';
 import type { FireRow } from '../mobFire';
@@ -204,9 +204,9 @@ const gapCentre = (
 ): number => {
   const wanted =
     spiral === null
-      ? VIEW_WIDTH * walked(0.5 + (boss.patternTick / row.period) * GAP_WALK)
+      ? FIELD_WIDTH * walked(0.5 + (boss.patternTick / row.period) * GAP_WALK)
       : armSweptX(boss, spiral, boss.patternTick - GAP_LAG_TICKS);
-  return clamp(wanted, gap / 2, VIEW_WIDTH - gap / 2);
+  return clamp(wanted, gap / 2, FIELD_WIDTH - gap / 2);
 };
 
 /**
@@ -223,7 +223,7 @@ const throwCurtain = (
 ): SimEvent[] => {
   const gap = curtainGap(state.grave.size);
   const opensAt = gapCentre(boss, row, spiral, gap) - gap / 2;
-  const spacing = (VIEW_WIDTH - gap) / row.clods;
+  const spacing = (FIELD_WIDTH - gap) / row.clods;
   const events: SimEvent[] = [];
   for (let clod = 0; clod < row.clods; clod++) {
     const along = (clod + 0.5) * spacing;

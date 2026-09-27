@@ -345,6 +345,8 @@ The play layer, worked independently in double precision for slice 10's tests:
 
 ## The finish line of each slice
 
+Mark approved a lighter process on 2026-09-27 (the branch charter, "How a slice runs"): the slices 10 to 16 named below were merged into four, **A** (old 14: steering back to plain field units, pins back), **B** (old 10 and 11: the play layer and every placement on it), **C** (old 12 and 13: traced areas, ground scroll, the grave, and the drag moved in from old 14) and **D** (old 15 and 16: the weapons check, the whole run, the deploy). Their entries are `docs/branch/records/slice-A.md` to `slice-D.md`; every test and check below is carried by one of them.
+
 Slices 1 to 6 landed. Slices 7 and 8 of the first plan are dropped (T10). The rest, in the order they run (slice 11 of the first replan was split in two on the tech gate's advice, so the numbers after it moved up by one):
 
 1. The camera and the pure placement math, tested; the capture tool. Landed.

@@ -1,5 +1,7 @@
 # Slice 13: the grave on the play layer (design record T4, T10, A6, A10, A23, A24, A25, A29)
 
+**Merged into slice C (2026-09-27, Mark's lighter process).** Never dispatch this entry on its own; `docs/branch/records/slice-C.md` carries it whole.
+
 Follow-along row 13: "The grave is drawn where the food and mobs around it are drawn, still with the tilted look Mark chose: its hole's side walls still change as it moves left and right. A swallowed body and the Undertaker go over the rim from exactly where they were drawn, with no jump."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Load the `pixijs-skills:pixijs` skill before you touch Pixi code. Your scratch folder is `local/tilt-slice-12/` in the worktree; reuse the capture tool in `local/tilt-shots/`. All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read at `9b125bbc03`; slices 9 to 11 did not touch these files except for identifiers, so follow the name beside a number that has moved.

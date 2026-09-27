@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { asSwallowable, cullCorpses } from '../../game/corpses';
 import type { Corpse } from '../../game/corpses';
 import type { SimEvent } from '../../game/events';
-import { VIEW_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT } from '../../game/field';
 import { ageGrave, hitGrave } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -78,7 +78,7 @@ const swallowRung = (run: RunState, rung: Corpse): readonly SimEvent[] => {
 };
 
 const scrollRungOff = (run: RunState, rung: Corpse): readonly SimEvent[] => {
-  rung.y = VIEW_HEIGHT * 2;
+  rung.y = FIELD_HEIGHT * 2;
   return cullCorpses(run);
 };
 

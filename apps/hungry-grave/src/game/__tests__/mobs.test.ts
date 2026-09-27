@@ -17,7 +17,7 @@ import { TICK_HZ } from '../clock';
 import { fireBelch } from '../belch';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveHitbox } from '../grave';
 import { advanceBell } from '../lines/bell';
 import { BIRTHRIGHT_LEVEL, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -460,7 +460,7 @@ describe('the ghoul (ADR 0016)', () => {
     for (let tick = 0; tick < 1000 && mob.alive; tick++) {
       const before = mob.y;
       step(STILL);
-      state.grave.y = Math.min(mob.y, VIEW_HEIGHT - state.grave.size);
+      state.grave.y = Math.min(mob.y, FIELD_HEIGHT - state.grave.size);
       if (!mob.alive) break;
       expect(mob.y - before).toBeGreaterThanOrEqual(1.35 * SCROLL_SPEED - 1e-9);
     }
@@ -951,10 +951,10 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
   });
   it('walks a settled faller split by the right edge inward until its body is fully on-field, then descends straight', () => {
     // The mirror: centred 2 units short of the right edge, the body reaches 9
-    // units past it, and fully on-field means the centre at VIEW_WIDTH - 11.
+    // units past it, and fully on-field means the centre at FIELD_WIDTH - 11.
     const state = quietRun();
     const step = stepping(state);
-    const mob = putMob(state, 'shambler', VIEW_WIDTH - 2, 60);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH - 2, 60);
     const { halfWidth, speed } = MOB_TYPES.shambler;
 
     run(step, 1);
@@ -962,7 +962,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     expect(mob.y).toBeGreaterThan(60);
 
     run(step, Math.ceil((halfWidth - 2) / speed));
-    expect(mob.x).toBeLessThanOrEqual(VIEW_WIDTH - halfWidth);
+    expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH - halfWidth);
 
     const settledX = mob.x;
     run(step, 30);
@@ -989,7 +989,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     expect(mob.vx).toBe(0);
     expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
     expect(mob.x).toBeLessThanOrEqual(
-      VIEW_WIDTH - MOB_TYPES.shambler.halfWidth,
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
     );
   });
   it('returns a mob pushed past a side edge to the field', () => {
@@ -1000,7 +1000,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     // return.
     const state = quietRun();
     const step = stepping(state);
-    const mob = putMob(state, 'shambler', VIEW_WIDTH + 60, 30);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH + 60, 30);
 
     // The walk from 60 past the edge to fully on-field is 71 units at the
     // shambler's speed, near 225 ticks, and the descent over 300 ticks stays
@@ -1009,7 +1009,7 @@ describe('a settled faller split by a side edge walks back on-field (#76)', () =
     expect(mob.alive).toBe(true);
     expect(mob.vx).toBe(0);
     expect(mob.x).toBeLessThanOrEqual(
-      VIEW_WIDTH - MOB_TYPES.shambler.halfWidth,
+      FIELD_WIDTH - MOB_TYPES.shambler.halfWidth,
     );
     expect(mob.x).toBeGreaterThanOrEqual(MOB_TYPES.shambler.halfWidth);
   });
@@ -1175,16 +1175,16 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // never push one out of the box the invariant harness checks. A hundred
     // thousand units of impulse is the honest form of "however large".
     const state = quietRun();
-    const mob = putMob(state, 'shambler', VIEW_WIDTH - 10, 300);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH - 10, 300);
     startShove(mob.impulse, 'bell', mob.id, 1, 0, 100000, 1, 0);
 
     for (let tick = 0; tick < SHOVE_TICKS; tick++) {
       advanceMobs(state);
       expect(mob.x, `tick ${tick}`).toBeLessThanOrEqual(
-        VIEW_WIDTH + SPAWN_MARGIN,
+        FIELD_WIDTH + SPAWN_MARGIN,
       );
     }
-    expect(mob.x).toBe(VIEW_WIDTH + SPAWN_MARGIN);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 
   it('reports one mobShoved for the whole impulse, carrying what the body really travelled', () => {
@@ -1259,7 +1259,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     // A zero-distance shove would report a push that never happened, which is
     // the rule the one-tick push already kept.
     const state = quietRun();
-    const mob = putMob(state, 'shambler', VIEW_WIDTH + SPAWN_MARGIN, 300);
+    const mob = putMob(state, 'shambler', FIELD_WIDTH + SPAWN_MARGIN, 300);
     startShove(mob.impulse, 'bell', mob.id, 1, 0, 40, 1, 0);
 
     const events: SimEvent[] = [];
@@ -1268,7 +1268,7 @@ describe('a body travelling under a shove (design record R1, R2)', () => {
     }
 
     expect(types(events, 'mobShoved')).toEqual([]);
-    expect(mob.x).toBe(VIEW_WIDTH + SPAWN_MARGIN);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 });
 
@@ -1391,7 +1391,7 @@ describe('a shove outliving the body that carried it (design record R10)', () =>
     // honest answer is the partial report rather than a distance the reading
     // never sees.
     const state = quietRun();
-    const mob = putMob(state, 'shambler', 200, VIEW_HEIGHT + 8);
+    const mob = putMob(state, 'shambler', 200, FIELD_HEIGHT + 8);
     startShove(mob.impulse, 'bell', mob.id, 0, 1, THROW, 1, 0);
     advanceMobs(state);
     advanceMobs(state);

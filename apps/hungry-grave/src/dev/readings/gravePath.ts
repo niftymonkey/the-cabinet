@@ -1,6 +1,6 @@
 // What the grave itself did across the run: its size, and where it sat.
 
-import { VIEW_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT } from '../../game/field';
 import type { RunState } from '../../game/run';
 import { SIZE_CEILING, SIZE_FLOOR } from '../../game/tuning';
 import type { NumberRecord } from '../numbersByName';
@@ -16,7 +16,7 @@ import { firstOf, greatestOf, lastOf, leastOf, meanOf } from '../seriesSummary';
  * starting mark outside it, so the reading counts a player who went looking for
  * the edge rather than one who never left home.
  */
-const BOTTOM_EDGE_MARGIN = VIEW_HEIGHT / 10;
+const BOTTOM_EDGE_MARGIN = FIELD_HEIGHT / 10;
 
 /**
  * How much field is left under the grave: the gap from its bottom rim to the
@@ -24,13 +24,13 @@ const BOTTOM_EDGE_MARGIN = VIEW_HEIGHT / 10;
  *
  * The rim is what the player sees touch the edge, and it is also the only
  * size-independent reading of the two. Containment holds the centre at
- * VIEW_HEIGHT minus the size, so a centre test measures a band that shrinks as
+ * FIELD_HEIGHT minus the size, so a centre test measures a band that shrinks as
  * the grave grows, and the count would fall exactly when the grave is largest.
  * That would invert the reading: camping would look rarer the better the run
  * went.
  */
 const gapUnderGrave = (state: RunState): number =>
-  VIEW_HEIGHT - (state.grave.y + state.grave.size);
+  FIELD_HEIGHT - (state.grave.y + state.grave.size);
 
 interface GravePath {
   /**

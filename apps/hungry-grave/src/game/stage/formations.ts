@@ -5,7 +5,7 @@
  * kind of mob is in it. Nothing in this file may reach the mob table, and if it
  * needs to, the design has gone wrong.
  */
-import { VIEW_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import { normalize } from '../math';
 import type { Stream } from '../rng';
 
@@ -102,7 +102,7 @@ const armRank = (index: number): number => {
 // Lone teaching kills: count mobs spread across the field's width at even spacing.
 const drip = (count: number): SpawnOrder[] => {
   return Array.from({ length: count }, (_unused, index) => ({
-    x: (VIEW_WIDTH * (index + 0.5)) / count,
+    x: (FIELD_WIDTH * (index + 0.5)) / count,
     y: -ENTRY_DEPTH,
     vx: DOWN.x,
     vy: DOWN.y,
@@ -112,7 +112,7 @@ const drip = (count: number): SpawnOrder[] => {
 
 // A single-file lane down one x, each mob one body length behind the last. Its corpses land in a trail, which is what teaches the dive.
 const file = (count: number, stream: Stream): SpawnOrder[] => {
-  const lane = EDGE_MARGIN + stream.next() * (VIEW_WIDTH - 2 * EDGE_MARGIN);
+  const lane = EDGE_MARGIN + stream.next() * (FIELD_WIDTH - 2 * EDGE_MARGIN);
   const step = rankStep(count, BODY);
   return Array.from({ length: count }, (_unused, index) => ({
     x: lane,
@@ -130,7 +130,7 @@ const chevron = (count: number): SpawnOrder[] => {
     const sign = armSign(order);
     const rank = armRank(order);
     return {
-      x: VIEW_WIDTH / 2 + sign * (rank + 0.5) * V_SPREAD_X,
+      x: FIELD_WIDTH / 2 + sign * (rank + 0.5) * V_SPREAD_X,
       y: -ENTRY_DEPTH - rank * step,
       vx: sign * V_OPENING.x,
       vy: V_OPENING.y,
@@ -148,7 +148,7 @@ const pincer = (count: number): SpawnOrder[] => {
     // mobs sit back along its own direction, which is further out of the field.
     const sign = armSign(order);
     const rank = armRank(order);
-    const lead = sign < 0 ? EDGE_MARGIN : VIEW_WIDTH - EDGE_MARGIN;
+    const lead = sign < 0 ? EDGE_MARGIN : FIELD_WIDTH - EDGE_MARGIN;
     return {
       x: lead + sign * rank * along * PINCER_ANGLE.x,
       y: -ENTRY_DEPTH - rank * along * PINCER_ANGLE.y,
@@ -167,7 +167,7 @@ const pincer = (count: number): SpawnOrder[] => {
  */
 const rain = (count: number, stream: Stream): SpawnOrder[] => {
   return Array.from({ length: count }, (_unused, index) => ({
-    x: EDGE_MARGIN + stream.next() * (VIEW_WIDTH - 2 * EDGE_MARGIN),
+    x: EDGE_MARGIN + stream.next() * (FIELD_WIDTH - 2 * EDGE_MARGIN),
     y: -ENTRY_DEPTH - stream.next() * RAIN_SPREAD,
     vx: DOWN.x,
     vy: DOWN.y,
@@ -177,7 +177,7 @@ const rain = (count: number, stream: Stream): SpawnOrder[] => {
 
 // An edge-to-edge curtain, evenly spaced across the full width, entering together.
 const wall = (count: number): SpawnOrder[] => {
-  const spacing = VIEW_WIDTH / count;
+  const spacing = FIELD_WIDTH / count;
   return Array.from({ length: count }, (_unused, index) => ({
     x: (index + 0.5) * spacing,
     y: -ENTRY_DEPTH,

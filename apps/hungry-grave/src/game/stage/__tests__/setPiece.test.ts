@@ -23,7 +23,7 @@ import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import { asSwallowable, spawnFeast } from '../../corpses';
 import type { SimEvent } from '../../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { BIRTHRIGHT, MAX_LEVEL } from '../../lines/roster';
 import { advanceTerritory } from '../../lines/territory';
@@ -191,7 +191,7 @@ function atTheWaking(seed: number = SEED): Waking {
   });
   state.stage.sectionIndex = WAKING;
   const piece = placeSetPiece(state);
-  piece.y = VIEW_HEIGHT * SET_PIECE_OPEN_DEPTH;
+  piece.y = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
   const step = stepping(state);
   return { state, tick: (command) => step(command) };
 }
@@ -298,7 +298,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
 
   it('opens at its authored depth and not one tick before', () => {
     const source = atTheSource();
-    const opensAt = VIEW_HEIGHT * SET_PIECE_OPEN_DEPTH;
+    const opensAt = FIELD_HEIGHT * SET_PIECE_OPEN_DEPTH;
     let last = { ...source.state.setPiece! };
     for (let tick = 0; tick < SOURCE_TICKS; tick++) {
       const events = source.tick();
@@ -343,7 +343,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // event and it ends no pour (#104).
     const scrolled = atTheSource();
     tickUntilItOpens(scrolled);
-    scrolled.state.setPiece!.y = VIEW_HEIGHT + SET_PIECE_HALF_HEIGHT;
+    scrolled.state.setPiece!.y = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
     const off = tickUntilItCloses(scrolled);
 
     expect(only(off, 'setPieceClosed')).toHaveLength(1);
@@ -563,7 +563,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
       poured[poured.length - 1],
       'no poured event',
     ).y;
-    const leavesAt = VIEW_HEIGHT + SET_PIECE_HALF_HEIGHT;
+    const leavesAt = FIELD_HEIGHT + SET_PIECE_HALF_HEIGHT;
 
     expect(closed).toHaveLength(1);
     expect(firstOf(closed).reason).toBe('spent');
@@ -595,7 +595,7 @@ describe('the Waking pours from one point (ADR 0042, ADR 0050)', () => {
     // The bounds are inside the field rather than the field itself, which is
     // what says the trail is a curve rather than a wall of corpses.
     expect(SET_PIECE_SWEEP_MIN_X).toBeGreaterThan(0);
-    expect(SET_PIECE_SWEEP_MAX_X).toBeLessThan(VIEW_WIDTH);
+    expect(SET_PIECE_SWEEP_MAX_X).toBeLessThan(FIELD_WIDTH);
   });
 
   it('outlives its own pour under a full build', () => {

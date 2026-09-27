@@ -1,5 +1,7 @@
 # Slice 12: the areas of effect drawn over what they reach, and the ground kept under what lies on it (design record T10, A20, A22)
 
+**Merged into slice C (2026-09-27, Mark's lighter process).** Never dispatch this entry on its own; `docs/branch/records/slice-C.md` carries it whole.
+
 Follow-along row 12: "The belch's rings, the bell's cones and Territory's patches are drawn exactly over what they hit, and food and patches in the middle of the screen stay on the patch of ground they landed on as it scrolls."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Load the `pixijs-skills:pixijs` skill before you touch Pixi code, and check every Pixi claim in `node_modules/pixi.js`. Your scratch folder is `local/tilt-slice-12/` in the worktree; the capture tool is `local/tilt-shots/`. All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read at `9b125bbc03`; slice 11 changed the placement lines in `StormRenderer.ts` named below, so follow the name beside a number that has moved.

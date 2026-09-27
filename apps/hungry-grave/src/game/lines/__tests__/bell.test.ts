@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import { cos, sin } from '../../math';
 import type { Mob, MobType } from '../../mobs';
 import { advanceMobs, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
@@ -307,8 +307,8 @@ describe('a toll throws cones (ADR 0036)', () => {
     expect(damageTo(last)).toBe(0);
 
     const reach = rowAt(MAX_LEVEL).reach;
-    expect(reach).toBeGreaterThan(VIEW_WIDTH / 2 - 30);
-    expect(reach).toBeLessThan(VIEW_WIDTH / 2);
+    expect(reach).toBeGreaterThan(FIELD_WIDTH / 2 - 30);
+    expect(reach).toBeLessThan(FIELD_WIDTH / 2);
   });
 
   it('reaches further at every level, so the answer widens while the cone count is still low', () => {
@@ -812,15 +812,15 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
   it('a shove emits mobShoved carrying the distance the bound let the mob cover, not the nominal push', () => {
     // Grave hard against the right edge, mob 150 out along the level-5 cone
     // that answers the side: the push's falloff is 1 - 150/261 = 0.425, so the
-    // nominal push is about 38, but the bound at VIEW_WIDTH + SPAWN_MARGIN
+    // nominal push is about 38, but the bound at FIELD_WIDTH + SPAWN_MARGIN
     // leaves only 10 of it. The event reports the 10 the mob really moved,
     // which is the only
     // figure a repel reading can honestly sum, and it reports it once the
     // travel is over rather than on the tick the shove landed.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
-    state.grave.x = VIEW_WIDTH;
-    const mob = put(state, 'revenant', VIEW_WIDTH + 150, state.grave.y);
+    state.grave.x = FIELD_WIDTH;
+    const mob = put(state, 'revenant', FIELD_WIDTH + 150, state.grave.y);
     mob.beat = Number.MAX_SAFE_INTEGER;
     mob.vx = 0;
     mob.vy = 0;
@@ -837,21 +837,21 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
         source: 'bell',
       },
     ]);
-    expect(mob.x).toBe(VIEW_WIDTH + SPAWN_MARGIN);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 
   it('a mob pinned at the widened field boundary is struck but never shoved', () => {
     // The bound can refuse the whole move: a mob already at
-    // VIEW_WIDTH + SPAWN_MARGIN with the away direction pointing outward
+    // FIELD_WIDTH + SPAWN_MARGIN with the away direction pointing outward
     // covers zero distance. The repel reading counts events, so a
     // zero-distance shove would report a push that never happened.
     const state = quietRun();
     state.levels.bell = MAX_LEVEL;
-    state.grave.x = VIEW_WIDTH;
+    state.grave.x = FIELD_WIDTH;
     const mob = put(
       state,
       'revenant',
-      VIEW_WIDTH + SPAWN_MARGIN,
+      FIELD_WIDTH + SPAWN_MARGIN,
       state.grave.y,
     );
     mob.beat = Number.MAX_SAFE_INTEGER;
@@ -859,7 +859,7 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     mob.vy = 0;
     const events = oneTollAndTravel(state);
     expect(events.filter((event) => event.type === 'mobShoved')).toEqual([]);
-    expect(mob.x).toBe(VIEW_WIDTH + SPAWN_MARGIN);
+    expect(mob.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
     expect(damageTo(mob)).toBeGreaterThan(0);
   });
 
@@ -938,9 +938,9 @@ describe('the push is on the field from level 1 (ADR 0036)', () => {
     for (const mob of pushed) {
       expect(mob.hp).toBeLessThan(OUTLIVES_ANY_TOLL);
       expect(mob.x).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
-      expect(mob.x).toBeLessThanOrEqual(VIEW_WIDTH + SPAWN_MARGIN);
+      expect(mob.x).toBeLessThanOrEqual(FIELD_WIDTH + SPAWN_MARGIN);
       expect(mob.y).toBeGreaterThanOrEqual(-SPAWN_MARGIN);
-      expect(mob.y).toBeLessThanOrEqual(VIEW_HEIGHT + SPAWN_MARGIN);
+      expect(mob.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
     }
   });
 });

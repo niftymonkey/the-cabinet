@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../events';
-import { VIEW_HEIGHT } from '../../field';
+import { FIELD_HEIGHT } from '../../field';
 import type { Mob } from '../../mobs';
 import { MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -576,7 +576,7 @@ describe('the control', () => {
     mob.vy = -30;
 
     advanceTerritory(run);
-    expect(mob.y).toBe(VIEW_HEIGHT + SPAWN_MARGIN);
+    expect(mob.y).toBe(FIELD_HEIGHT + SPAWN_MARGIN);
   });
 });
 

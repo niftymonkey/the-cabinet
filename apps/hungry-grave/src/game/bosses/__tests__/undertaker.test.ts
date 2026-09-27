@@ -14,7 +14,7 @@ import undertakerSource from '../undertaker.ts?raw';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
 import type { SimEvent } from '../../events';
-import { VIEW_WIDTH } from '../../field';
+import { FIELD_WIDTH } from '../../field';
 import { graveWidth } from '../../grave';
 import { bellDamageNear, BELL_PERIOD } from '../../lines/bell';
 import { MAX_LEVEL } from '../../lines/roster';
@@ -191,7 +191,7 @@ function curtainsIn(beats: readonly Beat[]): Curtain[] {
  * so a way through against a wall is measured rather than missed.
  */
 function wayThrough(curtain: Curtain): { width: number; at: number } {
-  const walls = [0, ...curtain.xs, VIEW_WIDTH];
+  const walls = [0, ...curtain.xs, FIELD_WIDTH];
   const steps = walls.slice(1).map((x, index) => {
     const from = requireDefined(walls[index], 'wall out of range');
     return { width: x - from, from };
@@ -208,7 +208,7 @@ function wayThrough(curtain: Curtain): { width: number; at: number } {
  * can only ever land within half a step of where the pattern aimed it.
  */
 function latticeTolerance(size: number, clods: number): number {
-  return (VIEW_WIDTH - curtainGap(size)) / clods / 2;
+  return (FIELD_WIDTH - curtainGap(size)) / clods / 2;
 }
 
 /**
@@ -406,7 +406,7 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
           expect(`${named}: ${way.at - way.width / 2 >= 0}`).toBe(
             `${named}: true`,
           );
-          expect(`${named}: ${way.at + way.width / 2 <= VIEW_WIDTH}`).toBe(
+          expect(`${named}: ${way.at + way.width / 2 <= FIELD_WIDTH}`).toBe(
             `${named}: true`,
           );
           // And the curtain is still a curtain: the opening is never bought by
@@ -431,7 +431,7 @@ describe("the curtain's way through always fits the grave (ADR 0003)", () => {
       (curtain) => wayThrough(curtain).at,
     );
     const step =
-      GAP_WALK * VIEW_WIDTH +
+      GAP_WALK * FIELD_WIDTH +
       latticeTolerance(fight.state.grave.size, row.clods) * 2;
 
     expect(centres.length).toBeGreaterThan(4);

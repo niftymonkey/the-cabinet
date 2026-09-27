@@ -4,7 +4,7 @@
 import type { PoolSlot } from '../game/caps';
 import { liveCount, takeSlot } from '../game/caps';
 import { CORPSE_HALF_EXTENT } from '../game/corpses';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 import type { MobType } from '../game/mobs';
 import { MOB_TYPES, MOB_TYPE_NAMES, spawnMob } from '../game/mobs';
 import type { RunState } from '../game/run';
@@ -34,8 +34,8 @@ const placeOf = (index: number, count: number): Place => {
   const column = index % columns;
   const row = Math.floor(index / columns);
   return {
-    x: ((column + 0.5) / columns) * VIEW_WIDTH,
-    y: ((row + 0.5) / rows) * VIEW_HEIGHT,
+    x: ((column + 0.5) / columns) * FIELD_WIDTH,
+    y: ((row + 0.5) / rows) * FIELD_HEIGHT,
   };
 };
 

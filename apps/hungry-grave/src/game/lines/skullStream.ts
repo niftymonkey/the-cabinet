@@ -5,7 +5,7 @@
 import { createPool, SKULL_CAP, takeSlot } from '../caps';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { RunState } from '../run';
 import { freshnessScale } from '../tuning';
 import { MAX_LEVEL } from './roster';
@@ -193,7 +193,7 @@ const mountOffset = (column: number, columns: number, size: number): number => {
 const mountIntoField = (x: number): number => {
   return Math.min(
     Math.max(x, SKULL_HALF_EXTENT),
-    VIEW_WIDTH - SKULL_HALF_EXTENT,
+    FIELD_WIDTH - SKULL_HALF_EXTENT,
   );
 };
 
@@ -251,9 +251,9 @@ const cullSkulls = (state: RunState): void => {
     if (!skull.alive) continue;
     const outside =
       skull.x + SKULL_HALF_EXTENT < 0 ||
-      skull.x - SKULL_HALF_EXTENT > VIEW_WIDTH ||
+      skull.x - SKULL_HALF_EXTENT > FIELD_WIDTH ||
       skull.y + SKULL_HALF_EXTENT < 0 ||
-      skull.y - SKULL_HALF_EXTENT > VIEW_HEIGHT;
+      skull.y - SKULL_HALF_EXTENT > FIELD_HEIGHT;
     if (outside) skull.alive = false;
   }
 };

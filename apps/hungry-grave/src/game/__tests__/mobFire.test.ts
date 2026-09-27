@@ -23,7 +23,7 @@ import { stepping } from '../../dev/stepping';
 import { TICK_HZ } from '../clock';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { VIEW_HEIGHT } from '../field';
+import { FIELD_HEIGHT } from '../field';
 import type { FireRow, Shot } from '../mobFire';
 import {
   fireDirectedShot,
@@ -358,7 +358,7 @@ describe('mob fire (ADR 0016 and ADR 0014)', () => {
 
   it('states the shot speed as a reaction budget: a shot from mid-field reaches the starting mark in about two seconds', () => {
     const state = quietRun();
-    const distance = state.grave.y - VIEW_HEIGHT / 2;
+    const distance = state.grave.y - FIELD_HEIGHT / 2;
     const seconds = distance / (MOB_TYPES.revenant.fire.shotSpeed * TICK_HZ);
     expect(seconds).toBeGreaterThan(1.5);
     expect(seconds).toBeLessThan(2.5);
@@ -414,7 +414,7 @@ describe('a shot with an authored direction (ADR 0007)', () => {
     const state = quietRun();
     const step = stepping(state);
     state.grave.x = 20;
-    state.grave.y = VIEW_HEIGHT - 40;
+    state.grave.y = FIELD_HEIGHT - 40;
 
     fireDirectedShot(
       state,
@@ -466,7 +466,7 @@ describe('a shot with an authored direction (ADR 0007)', () => {
     // grammar is ADR 0014's.
     const state = quietRun();
     state.grave.x = 20;
-    state.grave.y = VIEW_HEIGHT - 40;
+    state.grave.y = FIELD_HEIGHT - 40;
     const mob = putMob(state, 'revenant', 400, 120);
 
     fireShot(state, mob, MOB_TYPES.revenant.fire);

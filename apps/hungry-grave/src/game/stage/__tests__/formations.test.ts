@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 // the source scan below stays inside the boundary src/boundary.test.ts holds.
 import formationsSource from '../formations.ts?raw';
 
-import { VIEW_WIDTH } from '../../field';
+import { FIELD_WIDTH } from '../../field';
 import { MOB_TYPE_NAMES, MOB_TYPES, SPAWN_MARGIN } from '../../mobs';
 import { stream } from '../../rng';
 import type { SpawnOrder, FormationName } from '../formations';
@@ -132,7 +132,7 @@ describe("each formation's own shape", () => {
   it("the Drip spreads across the field's width at even spacing", () => {
     const placed = orders('drip', 3);
     expect(placed.map((at) => at.x)).toEqual([90, 270, 450]);
-    expect(at(orders('drip', 1), 0).x).toBe(VIEW_WIDTH / 2);
+    expect(at(orders('drip', 1), 0).x).toBe(FIELD_WIDTH / 2);
     for (const at of placed) expect([at.vx, at.vy]).toEqual([0, 1]);
   });
 
@@ -153,21 +153,21 @@ describe("each formation's own shape", () => {
     expect(right.every((order) => order.vx > 0)).toBe(true);
     for (const arm of [left, right]) {
       for (let rank = 1; rank < arm.length; rank++) {
-        expect(Math.abs(at(arm, rank).x - VIEW_WIDTH / 2)).toBeGreaterThan(
-          Math.abs(at(arm, rank - 1).x - VIEW_WIDTH / 2),
+        expect(Math.abs(at(arm, rank).x - FIELD_WIDTH / 2)).toBeGreaterThan(
+          Math.abs(at(arm, rank - 1).x - FIELD_WIDTH / 2),
         );
         expect(at(arm, rank).y).toBeLessThan(at(arm, rank - 1).y);
       }
     }
     // The apex pair straddles the centre, so neither side leads.
-    expect(at(left, 0).x + at(right, 0).x).toBeCloseTo(VIEW_WIDTH, 9);
+    expect(at(left, 0).x + at(right, 0).x).toBeCloseTo(FIELD_WIDTH, 9);
   });
 
   it('the Pincer comes in from two opposite top corners', () => {
     const placed = orders('pincer', 8);
     const [left, right] = arms(placed);
-    expect(at(left, 0).x).toBeLessThan(VIEW_WIDTH / 4);
-    expect(at(right, 0).x).toBeGreaterThan((VIEW_WIDTH * 3) / 4);
+    expect(at(left, 0).x).toBeLessThan(FIELD_WIDTH / 4);
+    expect(at(right, 0).x).toBeGreaterThan((FIELD_WIDTH * 3) / 4);
     expect(left.every((order) => order.vx > 0 && order.vy > 0)).toBe(true);
     expect(right.every((order) => order.vx < 0 && order.vy > 0)).toBe(true);
     // Mirrored, so the pair forces the player across the middle.
@@ -185,12 +185,12 @@ describe("each formation's own shape", () => {
     expect(new Set(pooled.map((at) => at.x)).size).toBe(pooled.length);
     for (const at of pooled) {
       expect(at.x).toBeGreaterThanOrEqual(0);
-      expect(at.x).toBeLessThanOrEqual(VIEW_WIDTH);
+      expect(at.x).toBeLessThanOrEqual(FIELD_WIDTH);
       expect([at.vx, at.vy]).toEqual([0, 1]);
     }
-    expect(Math.min(...pooled.map((at) => at.x))).toBeLessThan(VIEW_WIDTH / 3);
+    expect(Math.min(...pooled.map((at) => at.x))).toBeLessThan(FIELD_WIDTH / 3);
     expect(Math.max(...pooled.map((at) => at.x))).toBeGreaterThan(
-      (VIEW_WIDTH * 2) / 3,
+      (FIELD_WIDTH * 2) / 3,
     );
     expect(new Set(orders('rain', 12).map((at) => at.y)).size).toBeGreaterThan(
       1,
@@ -205,7 +205,7 @@ describe("each formation's own shape", () => {
       .map((order, index) => order.x - at(placed, index).x);
     expect(new Set(gaps.map((gap) => gap.toFixed(9))).size).toBe(1);
     expect(at(placed, 0).x).toBeCloseTo(at(gaps, 0) / 2, 9);
-    expect(at(placed, 21).x).toBeCloseTo(VIEW_WIDTH - at(gaps, 0) / 2, 9);
+    expect(at(placed, 21).x).toBeCloseTo(FIELD_WIDTH - at(gaps, 0) / 2, 9);
   });
 
   it('indexes the mirrored formations per arm, so the armed share falls in the same place on both sides', () => {

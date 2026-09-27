@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_HALF_EXTENT, POWER_UP_HALF_EXTENT } from '../corpses';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
 import type { Rect } from '../overlap';
 import { shareOverMouth } from '../tip';
@@ -34,7 +34,7 @@ const foodAt = (x: number, y: number, halfExtent: number): Rect => ({
 });
 
 /** Mid-field, where neither edge of the field is in play. */
-const MID_X = VIEW_WIDTH / 2;
+const MID_X = FIELD_WIDTH / 2;
 const MID_Y = 380;
 
 describe('the share of food over the mouth (design record R1)', () => {
@@ -144,7 +144,7 @@ describe('the share of food over the mouth (design record R1)', () => {
       mouth,
     );
     const offTheBottom = shareOverMouth(
-      foodAt(MID_X, VIEW_HEIGHT + CORPSE_HALF_EXTENT * 3, CORPSE_HALF_EXTENT),
+      foodAt(MID_X, FIELD_HEIGHT + CORPSE_HALF_EXTENT * 3, CORPSE_HALF_EXTENT),
       mouth,
     );
 

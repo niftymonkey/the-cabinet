@@ -51,7 +51,7 @@ vi.mock('../tapeExport', async (importOriginal) => ({
 
 import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
@@ -1360,8 +1360,8 @@ describe("the field's clip", () => {
     const rect = clip.getLocalBounds();
     expect(rect.x).toBe(0);
     expect(rect.y).toBe(0);
-    expect(rect.width).toBe(VIEW_WIDTH);
-    expect(rect.height).toBe(VIEW_HEIGHT);
+    expect(rect.width).toBe(FIELD_WIDTH);
+    expect(rect.height).toBe(FIELD_HEIGHT);
 
     // A mask is not a layer, so clear() cannot reach it, and reset() plus a
     // second prepare() is how a pooled screen would lose one that was dressed

@@ -14,7 +14,7 @@ import {
   spawnCorpse,
   spawnFeast,
 } from '../../../game/corpses';
-import { VIEW_HEIGHT } from '../../../game/field';
+import { FIELD_HEIGHT } from '../../../game/field';
 import type { Mob, MobType } from '../../../game/mobs';
 import { spawnMob } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
@@ -87,7 +87,7 @@ describe('food ledger', () => {
     // the design record asks for: swallowed against lost.
     const run = createRun(SEED);
     const accumulator = createFoodLedger();
-    spawnFeast(run, 100, VIEW_HEIGHT + 40);
+    spawnFeast(run, 100, FIELD_HEIGHT + 40);
 
     observeFoodLedger(accumulator, cullCorpses(run));
 

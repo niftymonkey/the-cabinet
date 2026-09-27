@@ -1,5 +1,7 @@
 # Slice 11: everything that moves, except the grave, placed on the play layer (design record T8, T10, A7, A18, A19, A21)
 
+**Merged into slice B (2026-09-27, Mark's lighter process).** Never dispatch this entry on its own; `docs/branch/records/slice-B.md` carries it whole.
+
 Follow-along row 11: "Mobs, the boss, enemy shots, food and the grave's shots move in straight lines on the screen again: a mob walking down the field walks straight down the screen and a skull flies straight up it, at the edges as well as in the middle, while the ground still leans away. Things still look smaller near the top and bigger near the bottom."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Load the `pixijs-skills:pixijs` skill before you touch Pixi code, and check every Pixi claim in `node_modules/pixi.js`. Your scratch folder is `local/tilt-slice-11/` in the worktree; the capture tool is `local/tilt-shots/` (its README says how to run it). All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read at `9b125bbc03`; slice 9 changed identifiers only and slice 10 added files, so follow the name beside a number that has moved.

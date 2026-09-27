@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { FieldPlacement, ReadoutReserve } from '../layout';
 import {
   DEGENERATE_PLACEMENT,
@@ -55,8 +55,8 @@ function fittedRect(placement: FieldPlacement) {
   return {
     left: placement.offsetX,
     top: placement.offsetY,
-    width: VIEW_WIDTH * placement.scale,
-    height: VIEW_HEIGHT * placement.scale,
+    width: FIELD_WIDTH * placement.scale,
+    height: FIELD_HEIGHT * placement.scale,
   };
 }
 
@@ -71,13 +71,13 @@ function expectWholeFieldInside(
   expect(rect.top).toBeGreaterThanOrEqual(0);
   expect(rect.left + rect.width).toBeLessThanOrEqual(viewportWidth + 1e-9);
   expect(rect.top + rect.height).toBeLessThanOrEqual(viewportHeight + 1e-9);
-  expect(rect.width / rect.height).toBeCloseTo(VIEW_WIDTH / VIEW_HEIGHT, 10);
+  expect(rect.width / rect.height).toBeCloseTo(FIELD_WIDTH / FIELD_HEIGHT, 10);
 }
 
 describe("the field's unit space (ADR 0003)", () => {
   it('is 540 by 760 and is not a tuning knob', () => {
-    expect(VIEW_WIDTH).toBe(540);
-    expect(VIEW_HEIGHT).toBe(760);
+    expect(FIELD_WIDTH).toBe(540);
+    expect(FIELD_HEIGHT).toBe(760);
   });
 });
 
@@ -85,14 +85,14 @@ describe('fitField', () => {
   it('presents the whole field on a 1440 by 900 desktop viewport', () => {
     const placement = fitField(DESKTOP.width, DESKTOP.height);
     // The desktop viewport is wide, so height is the binding axis.
-    expect(placement.scale).toBeCloseTo(DESKTOP.height / VIEW_HEIGHT, 10);
+    expect(placement.scale).toBeCloseTo(DESKTOP.height / FIELD_HEIGHT, 10);
     expectWholeFieldInside(placement, DESKTOP.width, DESKTOP.height);
   });
 
   it('presents the whole field on a 390 by 844 phone viewport', () => {
     const placement = fitField(PHONE.width, PHONE.height);
     // The phone viewport is narrow, so width is the binding axis.
-    expect(placement.scale).toBeCloseTo(PHONE.width / VIEW_WIDTH, 10);
+    expect(placement.scale).toBeCloseTo(PHONE.width / FIELD_WIDTH, 10);
     expectWholeFieldInside(placement, PHONE.width, PHONE.height);
   });
 
@@ -104,8 +104,8 @@ describe('fitField', () => {
       const stage = resize(
         viewport.width,
         viewport.height,
-        VIEW_WIDTH,
-        VIEW_HEIGHT,
+        FIELD_WIDTH,
+        FIELD_HEIGHT,
         false,
       );
       expectWholeFieldInside(
@@ -135,7 +135,7 @@ describe('fitField', () => {
     // field is refitted here instead, because at exactly the field's own size
     // the corners the readouts live in are over the field, and the test below
     // is the one that holds that.
-    expect(fitField(VIEW_WIDTH, VIEW_HEIGHT, NO_RESERVE)).toEqual({
+    expect(fitField(FIELD_WIDTH, FIELD_HEIGHT, NO_RESERVE)).toEqual({
       scale: 1,
       offsetX: 0,
       offsetY: 0,
@@ -189,10 +189,10 @@ describe('screenToColumn', () => {
     const placement = fitField(DESKTOP.width, DESKTOP.height);
     const corners = [
       { x: 0, y: 0 },
-      { x: VIEW_WIDTH, y: 0 },
-      { x: 0, y: VIEW_HEIGHT },
-      { x: VIEW_WIDTH, y: VIEW_HEIGHT },
-      { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 },
+      { x: FIELD_WIDTH, y: 0 },
+      { x: 0, y: FIELD_HEIGHT },
+      { x: FIELD_WIDTH, y: FIELD_HEIGHT },
+      { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT / 2 },
     ];
     for (const point of corners) {
       const onScreen = {
@@ -212,13 +212,13 @@ describe('screenToColumn', () => {
     expect(screenToColumn(desktop, 0, DESKTOP.height / 2).x).toBeLessThan(0);
     expect(
       screenToColumn(desktop, DESKTOP.width, DESKTOP.height / 2).x,
-    ).toBeGreaterThan(VIEW_WIDTH);
+    ).toBeGreaterThan(FIELD_WIDTH);
 
     const phone = fitField(PHONE.width, PHONE.height);
     expect(screenToColumn(phone, PHONE.width / 2, 0).y).toBeLessThan(0);
     expect(
       screenToColumn(phone, PHONE.width / 2, PHONE.height).y,
-    ).toBeGreaterThan(VIEW_HEIGHT);
+    ).toBeGreaterThan(FIELD_HEIGHT);
   });
 });
 
@@ -265,8 +265,8 @@ function staged(viewport: { width: number; height: number }) {
   const stage = resize(
     viewport.width,
     viewport.height,
-    VIEW_WIDTH,
-    VIEW_HEIGHT,
+    FIELD_WIDTH,
+    FIELD_HEIGHT,
     false,
   );
   return { stage, placement: fitField(stage.width, stage.height) };
@@ -409,7 +409,7 @@ describe("the HUD's band (record R1)", () => {
         `${where} left ${placement.offsetX}`,
       );
       expect(`${where} width ${row.width}`).toBe(
-        `${where} width ${VIEW_WIDTH * placement.scale}`,
+        `${where} width ${FIELD_WIDTH * placement.scale}`,
       );
     }
   });
@@ -422,10 +422,10 @@ describe("the HUD's band (record R1)", () => {
     const shares = [PHONE, DESKTOP, TABLET_PORTRAIT].map((viewport) => {
       const { placement } = staged(viewport);
       const mark = HUD_BAND.mark * placement.scale;
-      return mark / (VIEW_WIDTH * placement.scale);
+      return mark / (FIELD_WIDTH * placement.scale);
     });
     expect(new Set(shares).size).toBe(1);
-    expect(shares[0]).toBeCloseTo(HUD_BAND.mark / VIEW_WIDTH, 12);
+    expect(shares[0]).toBeCloseTo(HUD_BAND.mark / FIELD_WIDTH, 12);
   });
 
   it('draws a mark of at least 6.25 CSS pixels at the narrowest viewport in the sweep', () => {
@@ -461,7 +461,7 @@ describe('the even slack split (record R10)', () => {
       // Only where lowering is free at all: a field that already fills the
       // height stays exactly where the natural fit put it.
       const free =
-        stage.height - VIEW_HEIGHT * natural.scale >= READOUT_RESERVE.height;
+        stage.height - FIELD_HEIGHT * natural.scale >= READOUT_RESERVE.height;
       expect(`${height} ${placement.offsetY}`).toBe(
         `${height} ${free ? expected : natural.offsetY}`,
       );
@@ -475,7 +475,7 @@ describe('the even slack split (record R10)', () => {
     const { stage, placement } = staged({ width: 393, height: 660 });
     const above = placement.offsetY;
     const below =
-      stage.height - (placement.offsetY + VIEW_HEIGHT * placement.scale);
+      stage.height - (placement.offsetY + FIELD_HEIGHT * placement.scale);
     expect(`${Math.round(above)} ${Math.round(below)}`).toBe('120 26');
   });
 

@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { damageBoss, spawnBoss } from '../../game/bosses/phases';
 import { waveCarriers, carriersForFullBuild } from '../../game/carriers';
 import { TICK_HZ } from '../../game/clock';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import type { SimEvent } from '../../game/events';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../../game/lines/roster';
 import {
@@ -458,7 +458,7 @@ const REACHES_VICTORY_MAXED = [101, 202, 303, 404, 505];
  * field, so the bound follows them.
  */
 const SLOWEST_DESCENT_TICKS =
-  (VIEW_HEIGHT +
+  (FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +
@@ -1455,7 +1455,7 @@ describe('the six policies steer on this module’s own look-ahead', () => {
    * none of the six moved when the look-ahead became a parameter, so a row
    * changed in bot.ts and not here is exactly what should go red.
    */
-  const DRIFTING_MARK = { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT * 0.8 };
+  const DRIFTING_MARK = { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT * 0.8 };
   const DRIFTING_CLEARANCE = 60;
   const COMMITTING_CLEARANCE = 12;
 

@@ -4,7 +4,7 @@
 import { POWER_UP_HALF_EXTENT, spawnPowerUp } from './corpses';
 import type { Corpse } from './corpses';
 import type { OfferSite, SimEvent } from './events';
-import { VIEW_WIDTH } from './field';
+import { FIELD_WIDTH } from './field';
 import type { WeaponLine } from './lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL } from './lines/roster';
 import type { RunState } from './run';
@@ -157,7 +157,7 @@ const drawOptions = (state: RunState): WeaponLine[] => {
  */
 const groupCentre = (x: number, count: number): number => {
   const margin = ((count - 1) / 2) * OFFER_SPACING + POWER_UP_HALF_EXTENT;
-  return Math.min(Math.max(x, margin), VIEW_WIDTH - margin);
+  return Math.min(Math.max(x, margin), FIELD_WIDTH - margin);
 };
 
 /**

@@ -2,7 +2,7 @@
 
 import { spawnFeast } from '../corpses';
 import type { SimEvent } from '../events';
-import { VIEW_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import type { DamageSource } from '../mobs';
 import type { Rect } from '../overlap';
 import type { RunState } from '../run';
@@ -123,7 +123,7 @@ const spawnBoss = (state: RunState, kind: BossKind): Boss => {
     kind,
     phaseIndex: 0,
     hp: firstPhaseHp,
-    x: VIEW_WIDTH / 2,
+    x: FIELD_WIDTH / 2,
     y: BOSS_ARRIVAL_Y,
     flash: 0,
     patternTick: 0,

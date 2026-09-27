@@ -14,7 +14,7 @@ import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
 import type { Swallowed } from '../../../../game/events';
 import { createRun } from '../../../../game/run';
 import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
-import { VIEW_HEIGHT } from '../../../../game/field';
+import { FIELD_HEIGHT } from '../../../../game/field';
 import {
   COLUMN,
   SCENE_CAMERA,
@@ -519,7 +519,7 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     // column. The stalest bake is found by asking the renderer, so the promise
     // holds whatever the step is measured in.
     const size = SIZE_CEILING;
-    const row = VIEW_HEIGHT - size;
+    const row = FIELD_HEIGHT - size;
     const cssPerUnit = 390 / COLUMN.width;
     const drawnReach = (view: GraveView, id: 'left' | 'right'): number => {
       const face = wallFaces(size, view).find((each) => each.id === id);

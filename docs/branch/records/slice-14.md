@@ -1,5 +1,7 @@
 # Slice 14: steering back on the field (design record T9, T10, A11, A27)
 
+**Merged into slices A and C (2026-09-27, Mark's lighter process).** Never dispatch this entry on its own. `docs/branch/records/slice-A.md` carries the keys, the test player and the pins; part 3 of `docs/branch/records/slice-C.md` carries the drag on the play layer, the camera functions' deletion and the `touch.ts` comments, because they need the grave on the play layer.
+
 Follow-along row 14: "Steering plays exactly as it did before the tilt: a held key moves the grave at its old speed in the field, which draws as straight up the screen, and the test player plays in the field again, so its results are back to what they were. A drag still keeps the grave exactly under the finger."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Your scratch folder is `local/tilt-slice-13/` in the worktree; slice 4's instruments are in `local/tilt-slice-4/` (read them, never write there). All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read at `9b125bbc03`; slice 9 changed identifiers only, so follow the name beside a number that has moved.

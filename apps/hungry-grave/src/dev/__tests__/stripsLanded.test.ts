@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SimEvent } from '../../game/events';
-import { VIEW_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT } from '../../game/field';
 import { ageGrave, hitGrave, moveGrave } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -31,7 +31,7 @@ const SEED = 20260917;
 const DIVE_TO_THE_EDGE = { x: 0, y: 1000 };
 
 /** The grave's own starting mark, which is where a run that never moved stands. */
-const START_Y = VIEW_HEIGHT * 0.8;
+const START_Y = FIELD_HEIGHT * 0.8;
 
 /** A boss on the field, and the two events that take it off again. */
 const BOSS_ARRIVED: SimEvent = {
@@ -77,7 +77,7 @@ describe('strips landed', () => {
     // off the run's state at the end of the tick the strip fired on, which is
     // tuning.gravePath's own read point. The gap is measured under the rim and
     // never under the centre, because containment holds the centre at
-    // VIEW_HEIGHT minus the size and a centre test would shrink as the grave
+    // FIELD_HEIGHT minus the size and a centre test would shrink as the grave
     // grows.
     const run = ladderRun();
     const accumulator = createStripsLanded();
@@ -87,7 +87,7 @@ describe('strips landed', () => {
 
     expect(stripsLandedOf(accumulator)).toEqual({
       graveY: [START_Y],
-      gapUnderGrave: [VIEW_HEIGHT - START_Y - SIZE_FLOOR],
+      gapUnderGrave: [FIELD_HEIGHT - START_Y - SIZE_FLOOR],
       atClamp: 0,
       inBoss: 0,
     });
@@ -105,7 +105,7 @@ describe('strips landed', () => {
     observeStripsLanded(accumulator, land(run), run);
 
     expect(stripsLandedOf(accumulator)).toEqual({
-      graveY: [VIEW_HEIGHT - SIZE_FLOOR],
+      graveY: [FIELD_HEIGHT - SIZE_FLOOR],
       gapUnderGrave: [0],
       atClamp: 1,
       inBoss: 0,

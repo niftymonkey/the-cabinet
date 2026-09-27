@@ -10,7 +10,7 @@ import type { Corpse } from '../../../game/corpses';
 import { spawnPowerUp } from '../../../game/corpses';
 import type { SimEvent } from '../../../game/events';
 import { createExecution, executeTick } from '../../../game/execution';
-import { VIEW_HEIGHT } from '../../../game/field';
+import { FIELD_HEIGHT } from '../../../game/field';
 import { openOffer } from '../../../game/offer';
 import type { RunState } from '../../../game/run';
 import { createRun } from '../../../game/run';
@@ -154,7 +154,7 @@ describe('offer choices', () => {
     const acc = createOfferChoices();
     const observe = watching(acc);
 
-    observe(openOffer(state, state.grave.x, VIEW_HEIGHT - 5));
+    observe(openOffer(state, state.grave.x, FIELD_HEIGHT - 5));
     const options = [...state.offer!.options];
     for (let tick = 0; tick < 120; tick++) observe(step(STILL));
 

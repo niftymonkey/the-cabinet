@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Stepper } from '../../dev/stepping';
 import { stepping } from '../../dev/stepping';
 import { TICK_HZ } from '../clock';
-import { VIEW_WIDTH } from '../field';
+import { FIELD_WIDTH } from '../field';
 import { spawnBoss } from '../bosses/phases';
 import type { Corpse } from '../corpses';
 import {
@@ -1168,7 +1168,7 @@ describe('the pull in the tick order (grave-in-the-ground R3)', () => {
  * It lives here and not in src/game, because the phone is not the rules'
  * business and this is the one question that asks about it.
  */
-const PIXELS_PER_UNIT_ON_A_PHONE = 390 / VIEW_WIDTH;
+const PIXELS_PER_UNIT_ON_A_PHONE = 390 / FIELD_WIDTH;
 
 /** Steps the run until the grave owes itself nothing, and answers the ticks that took. */
 function swellOut(state: RunState, step: Stepper): number {

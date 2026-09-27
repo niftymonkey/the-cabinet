@@ -1,4 +1,4 @@
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 
 /**
  * The fixed field fitted into any viewport. The only module in the app that
@@ -145,16 +145,16 @@ const centred = (
   height: number,
   top: number,
 ): FieldPlacement => {
-  const scale = Math.min(viewportWidth / VIEW_WIDTH, height / VIEW_HEIGHT);
+  const scale = Math.min(viewportWidth / FIELD_WIDTH, height / FIELD_HEIGHT);
   return {
     scale,
     // The margins are non-negative by construction, and the floor is there
-    // because they are not non-negative in binary64: height / VIEW_HEIGHT
-    // multiplied back by VIEW_HEIGHT overshoots by about 1e-13, which is
+    // because they are not non-negative in binary64: height / FIELD_HEIGHT
+    // multiplied back by FIELD_HEIGHT overshoots by about 1e-13, which is
     // enough to put the field's top a hair above the reserve it was just moved
     // below and fail the non-overlap invariant on a rounding error.
-    offsetX: Math.max(0, (viewportWidth - VIEW_WIDTH * scale) / 2),
-    offsetY: Math.max(top, top + (height - VIEW_HEIGHT * scale) / 2),
+    offsetX: Math.max(0, (viewportWidth - FIELD_WIDTH * scale) / 2),
+    offsetY: Math.max(top, top + (height - FIELD_HEIGHT * scale) / 2),
   };
 };
 
@@ -164,9 +164,9 @@ const intersects = (
   corner: { x: number; width: number; height: number },
 ): boolean => {
   const left = placement.offsetX;
-  const right = left + VIEW_WIDTH * placement.scale;
+  const right = left + FIELD_WIDTH * placement.scale;
   const top = placement.offsetY;
-  const bottom = top + VIEW_HEIGHT * placement.scale;
+  const bottom = top + FIELD_HEIGHT * placement.scale;
   return (
     left < corner.x + corner.width &&
     corner.x < right &&
@@ -235,7 +235,7 @@ const fitField = (
   const lowered = centred(viewportWidth, available, reserve.height);
   /**
    * The comparison is exact rather than tolerant on purpose. When the lowering
-   * is free both scales are the same `viewportWidth / VIEW_WIDTH` expression
+   * is free both scales are the same `viewportWidth / FIELD_WIDTH` expression
    * and are bit-identical, so no rounding case sits on the boundary for an
    * epsilon to arbitrate.
    */
@@ -284,7 +284,7 @@ const hudRow = (placement: FieldPlacement): HudRow => {
   return {
     left: placement.offsetX,
     top: fieldTop >= height ? fieldTop - height : fieldTop,
-    width: VIEW_WIDTH * placement.scale,
+    width: FIELD_WIDTH * placement.scale,
     height,
   };
 };

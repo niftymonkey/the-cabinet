@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TICK_HZ } from '../../../game/clock';
-import { VIEW_HEIGHT } from '../../../game/field';
+import { FIELD_HEIGHT } from '../../../game/field';
 import type { Mob, MobType } from '../../../game/mobs';
 import { cullMobs, damageMob, spawnMob } from '../../../game/mobs';
 import type { RunState } from '../../../game/run';
@@ -133,7 +133,7 @@ describe('time to kill', () => {
       damageMob(run, fleeing, 1, 'skullStream'),
       run,
     );
-    fleeing.y = VIEW_HEIGHT * 2;
+    fleeing.y = FIELD_HEIGHT * 2;
     cullMobs(run);
     observeEngagements(accumulator, 1, [], run);
 

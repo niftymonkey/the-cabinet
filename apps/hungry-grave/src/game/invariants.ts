@@ -5,7 +5,7 @@
 
 import type { PoolSlot } from './caps';
 import { SKULL_CAP, WISP_CAP } from './caps';
-import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Fault, FaultIdentity } from './faults';
 import { FAULT_SEVERITY } from './faults';
 import { graveHitbox, SCORE_RUNG_REARM_SIZE } from './grave';
@@ -385,7 +385,7 @@ const checkScoreNotNegative = (state: RunState, faults: Fault[]): void => {
 
 /**
  * Rounding room, in field units. containGrave holds the grave's centre at
- * VIEW_HEIGHT minus its size, and the hitbox then computes (y - size) + 2 *
+ * FIELD_HEIGHT minus its size, and the hitbox then computes (y - size) + 2 *
  * size, which is not the same binary64 expression: re-associating it overshoots
  * by up to 1.1e-13 at sizes the grave actually reaches. The tolerance is eleven
  * thousand times larger than that worst case and four thousand times smaller
@@ -400,8 +400,8 @@ const checkInBounds = (state: RunState, faults: Fault[]): void => {
   const inside =
     box.x >= -BOUNDS_TOLERANCE &&
     box.y >= -BOUNDS_TOLERANCE &&
-    box.x + box.width <= VIEW_WIDTH + BOUNDS_TOLERANCE &&
-    box.y + box.height <= VIEW_HEIGHT + BOUNDS_TOLERANCE;
+    box.x + box.width <= FIELD_WIDTH + BOUNDS_TOLERANCE &&
+    box.y + box.height <= FIELD_HEIGHT + BOUNDS_TOLERANCE;
   if (!inside) {
     record(
       faults,
@@ -416,8 +416,8 @@ const within = (x: number, y: number, margin: number): boolean => {
   return (
     x >= -margin &&
     y >= -margin &&
-    x <= VIEW_WIDTH + margin &&
-    y <= VIEW_HEIGHT + margin
+    x <= FIELD_WIDTH + margin &&
+    y <= FIELD_HEIGHT + margin
   );
 };
 
@@ -518,8 +518,8 @@ const checkPatchesInBounds = (state: RunState, faults: Fault[]): void => {
   for (const patch of state.patches) {
     if (!patch.alive) continue;
     const offToTheSide =
-      patch.x < -SPAWN_MARGIN || patch.x > VIEW_WIDTH + SPAWN_MARGIN;
-    const pastTheCloseRule = patch.y - patch.radius > VIEW_HEIGHT;
+      patch.x < -SPAWN_MARGIN || patch.x > FIELD_WIDTH + SPAWN_MARGIN;
+    const pastTheCloseRule = patch.y - patch.radius > FIELD_HEIGHT;
     if (offToTheSide || pastTheCloseRule) {
       record(
         faults,

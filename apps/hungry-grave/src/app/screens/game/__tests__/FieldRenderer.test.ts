@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { capsFor } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
 import {
   CORPSE_HALF_EXTENT,
   POWER_UP_HALF_EXTENT,
@@ -365,7 +365,7 @@ describe('FieldRenderer', () => {
   it('does not scatter for a shot that left the field, which was culled rather than cancelled', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
-    putShot(state, 200, VIEW_HEIGHT + 40);
+    putShot(state, 200, FIELD_HEIGHT + 40);
     renderer.sync(state);
     shotSlotZero(state).alive = false;
     renderer.sync(state);
@@ -1354,7 +1354,7 @@ describe('the teeter (grave-in-the-ground R5)', () => {
     const sprite = corpseSprite(layers, state);
     expect(sprite.rotation).not.toBe(0);
 
-    state.grave.x = VIEW_WIDTH - graveWidth(state.grave.size) / 2;
+    state.grave.x = FIELD_WIDTH - graveWidth(state.grave.size) / 2;
     renderer.sync(state);
     expect(sprite.rotation).toBe(0);
     expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));

@@ -25,7 +25,7 @@ import {
 } from '../corpses';
 import type { TickCommand } from '../command';
 import type { SimEvent } from '../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import type { Mob, MobType } from '../mobs';
 import { damageMob, MOB_TYPES, SPAWN_MARGIN, spawnMob } from '../mobs';
 import { BELL_EXPAND_TICKS } from '../lines/bell';
@@ -108,7 +108,7 @@ describe("a corpse's drift (ADR 0004)", () => {
     // this going red.
     const state = quietRun();
     const step = stepping(state);
-    leaveCorpse(state, killAt(state, 'shambler', 60, VIEW_HEIGHT / 2));
+    leaveCorpse(state, killAt(state, 'shambler', 60, FIELD_HEIGHT / 2));
     const corpse = corpseOf(state);
 
     const events: SimEvent[] = [];
@@ -121,7 +121,7 @@ describe("a corpse's drift (ADR 0004)", () => {
     expect(
       events.filter((event) => event.type === 'corpseExpired'),
     ).toHaveLength(1);
-    expect(atEnd).toBeGreaterThan(VIEW_HEIGHT - 5 * SCROLL_SPEED);
+    expect(atEnd).toBeGreaterThan(FIELD_HEIGHT - 5 * SCROLL_SPEED);
   });
 });
 
@@ -166,7 +166,7 @@ describe('freshness (ADR 0004)', () => {
     expect(expiring.map((event) => event.type)).toContain('corpseExpired');
 
     const lost = quietRun();
-    leaveCorpse(lost, killAt(lost, 'shambler', 60, VIEW_HEIGHT - 2));
+    leaveCorpse(lost, killAt(lost, 'shambler', 60, FIELD_HEIGHT - 2));
     const leaving = corpseOf(lost);
     const stepLost = stepping(lost);
     const events: SimEvent[] = [];
@@ -336,8 +336,8 @@ describe('a power-up on the food pool (plan 6.9)', () => {
     // different ways, so the cull is reading each record's own.
     leaveCorpse(state, killAt(state, 'shambler', 240, 300));
     const corpse = state.corpses.find((each) => each.kind === 'corpse')!;
-    powerUp.y = VIEW_HEIGHT + POWER_UP_HALF_EXTENT;
-    corpse.y = VIEW_HEIGHT + POWER_UP_HALF_EXTENT;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
+    corpse.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT;
 
     const first = cullCorpses(state);
     expect(powerUp.alive).toBe(true);
@@ -347,11 +347,11 @@ describe('a power-up on the food pool (plan 6.9)', () => {
       type: 'corpseLost',
       kind: 'corpse',
       x: 240,
-      y: VIEW_HEIGHT + POWER_UP_HALF_EXTENT,
+      y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT,
       freshness: 1,
     });
 
-    powerUp.y = VIEW_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
+    powerUp.y = FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5;
     const second = cullCorpses(state);
     expect(powerUp.alive).toBe(false);
     expect(second).toEqual([
@@ -359,7 +359,7 @@ describe('a power-up on the food pool (plan 6.9)', () => {
         type: 'corpseLost',
         kind: 'powerUp',
         x: 200,
-        y: VIEW_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
+        y: FIELD_HEIGHT + POWER_UP_HALF_EXTENT + 0.5,
         freshness: 1,
       },
     ]);
@@ -495,7 +495,7 @@ describe('what a lost corpse reports (plan 6.9)', () => {
     const step = stepping(state);
     // Opened as a real offer rather than as a bare body, because an option
     // body standing for no live offer is a fault the harness records.
-    openOffer(state, 200, VIEW_HEIGHT - 2);
+    openOffer(state, 200, FIELD_HEIGHT - 2);
     const events: SimEvent[] = [];
     const powerUp = state.corpses.find((corpse) => corpse.alive)!;
     while (powerUp.alive && state.tick < 200) {
@@ -546,22 +546,22 @@ describe('a corpse a shove is carrying (design record R10)', () => {
     // is (mobs.ts, moveInsideBounds).
     const state = quietRun();
     const step = stepping(state);
-    leaveCorpse(state, killAt(state, 'shambler', VIEW_WIDTH - 10, 300));
+    leaveCorpse(state, killAt(state, 'shambler', FIELD_WIDTH - 10, 300));
     const corpse = corpseOf(state);
     startShove(corpse.impulse, 'belch', 99, 1, 0, 100000, 1, 0);
 
     for (let tick = 0; tick < SHOVE_TICKS; tick++) step(STILL);
 
-    expect(corpse.x).toBe(VIEW_WIDTH + SPAWN_MARGIN);
+    expect(corpse.x).toBe(FIELD_WIDTH + SPAWN_MARGIN);
   });
 
   it('is lost off the bottom edge the way any corpse is when a shove carries it there', () => {
     // The existing rule doing its job rather than something to repair: a corpse
-    // thrown down the field meets cullCorpses' edge at VIEW_HEIGHT before it
+    // thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before it
     // meets the bound a spawn margin further down.
     const state = quietRun();
     const step = stepping(state);
-    leaveCorpse(state, killAt(state, 'shambler', 200, VIEW_HEIGHT - 20));
+    leaveCorpse(state, killAt(state, 'shambler', 200, FIELD_HEIGHT - 20));
     const corpse = corpseOf(state);
     startShove(corpse.impulse, 'belch', 99, 0, 1, THROW, 1, 0);
 
@@ -572,7 +572,7 @@ describe('a corpse a shove is carrying (design record R10)', () => {
     expect(events.filter((event) => event.type === 'corpseLost')).toHaveLength(
       1,
     );
-    expect(corpse.y).toBeLessThanOrEqual(VIEW_HEIGHT + SPAWN_MARGIN);
+    expect(corpse.y).toBeLessThanOrEqual(FIELD_HEIGHT + SPAWN_MARGIN);
   });
 
   it('has further left to drift to the bottom edge than a corpse nothing threw, which is what a throw up the field costs', () => {
@@ -591,7 +591,7 @@ describe('a corpse a shove is carrying (design record R10)', () => {
 
     expect(still.y - thrown.y).toBeCloseTo(THROW, 9);
     expect(thrown.freshness).toBeCloseTo(still.freshness, 9);
-    const ticksLeft = (edge: number) => (VIEW_HEIGHT - edge) / SCROLL_SPEED;
+    const ticksLeft = (edge: number) => (FIELD_HEIGHT - edge) / SCROLL_SPEED;
     expect(ticksLeft(thrown.y) - ticksLeft(still.y)).toBeCloseTo(
       THROW / SCROLL_SPEED,
       6,
@@ -696,7 +696,7 @@ describe('a fallen rung on the food pool (ADR 0055)', () => {
 
     const events: SimEvent[] = [];
     const toTheEdge = Math.ceil(
-      (VIEW_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
+      (FIELD_HEIGHT + POWER_UP_HALF_EXTENT - rung.y) / SCROLL_SPEED,
     );
     for (let tick = 0; tick < toTheEdge; tick++) {
       expect(rung.alive).toBe(true);

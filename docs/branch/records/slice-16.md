@@ -1,5 +1,7 @@
 # Slice 16: a whole run played end to end, and the deploy for Mark's phone (design record T10, A12, #159's done-when)
 
+**Merged into slice D (2026-09-27, Mark's lighter process).** Never dispatch this entry on its own; `docs/branch/records/slice-D.md` carries it whole.
+
 Follow-along row 16: "A whole run is replayed and watched in the real game from its first moment to its end, the proof that the game underneath did not change is run, and the build goes to Mark's phone."
 
 Non-coding dispatch for the watch and the proof: they write no production code and no tests. It is bound by `docs/branch/records/coder-contract.md` where that contract speaks of where to work, scratch files, never committing, stopping what you start, and the anomaly rule. Your scratch folder is `local/tilt-slice-15/`. Paths are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. The deploy is the main session's, under the charter's pre-authorization, after this dispatch reports. It runs on the tree after slices 9 to 15 land.

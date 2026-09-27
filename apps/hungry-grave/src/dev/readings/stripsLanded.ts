@@ -1,7 +1,7 @@
 // Where the player was standing when the ladder stripped, and what was on the field.
 
 import type { SimEvent } from '../../game/events';
-import { VIEW_HEIGHT } from '../../game/field';
+import { FIELD_HEIGHT } from '../../game/field';
 import type { RunState } from '../../game/run';
 
 /**
@@ -28,7 +28,7 @@ interface StripsLanded {
    *
    * The rim and never the centre, exactly as `gapUnderGrave` computes it and
    * for that reading's own stated reason: containment holds the centre at
-   * VIEW_HEIGHT minus the size, so a centre test measures a band that shrinks
+   * FIELD_HEIGHT minus the size, so a centre test measures a band that shrinks
    * as the grave grows and would invert the reading.
    */
   readonly gapUnderGrave: readonly number[];
@@ -63,7 +63,7 @@ const createStripsLanded = (): StripsLandedAcc => ({
  * helper passed between them would tie a strip's read point to a series'.
  */
 const gapUnderGrave = (state: RunState): number =>
-  VIEW_HEIGHT - (state.grave.y + state.grave.size);
+  FIELD_HEIGHT - (state.grave.y + state.grave.size);
 
 /**
  * Whether a boss stands on the field after this tick's events.

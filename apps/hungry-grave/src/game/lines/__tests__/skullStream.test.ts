@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { SKULL_CAP } from '../../caps';
 import { TICK_HZ } from '../../clock';
 import type { SimEvent } from '../../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../field';
 import type { Mob } from '../../mobs';
 import { spawnMob } from '../../mobs';
 import type { RunState } from '../../run';
@@ -164,13 +164,13 @@ describe('the columns (plan 6.3)', () => {
     // volley flown the whole height of the field is gone by then and a check
     // over the dead reads as a pass over an empty set.
     let checked = 0;
-    for (let tick = 0; tick < VIEW_HEIGHT / SKULL_SPEED; tick++) {
+    for (let tick = 0; tick < FIELD_HEIGHT / SKULL_SPEED; tick++) {
       advanceStream(state);
       for (const skull of volley) {
         if (!skull.alive) continue;
         checked += 1;
         expect(skull.x).toBeGreaterThan(0);
-        expect(skull.x).toBeLessThan(VIEW_WIDTH);
+        expect(skull.x).toBeLessThan(FIELD_WIDTH);
       }
     }
     expect(checked).toBeGreaterThan(0);
@@ -514,7 +514,7 @@ describe('a skull leaving the field (plan 6.7)', () => {
     // the assertion, which is the pooled-entity hazard this codebase documents.
     holdFire(state);
     expect(skull.alive).toBe(true);
-    for (let tick = 0; tick < VIEW_HEIGHT / SKULL_SPEED + 10; tick++) {
+    for (let tick = 0; tick < FIELD_HEIGHT / SKULL_SPEED + 10; tick++) {
       advanceStream(state);
     }
     expect(skull.alive).toBe(false);

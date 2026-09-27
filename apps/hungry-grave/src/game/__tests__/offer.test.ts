@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { stepping } from '../../dev/stepping';
 
 import { POWER_UP_HALF_EXTENT, spawnPowerUp } from '../corpses';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { graveWidth } from '../grave';
 import { checkInvariants, createStageWatch } from '../invariants';
 import type { WeaponLine } from '../lines/roster';
@@ -182,7 +182,7 @@ describe('a power-up is an offer of three (ADR 0034)', () => {
     const xs = offerBodies(state).map((body) => body.x);
     for (const x of xs) {
       expect(x - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
-      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(VIEW_WIDTH);
+      expect(x + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(FIELD_WIDTH);
     }
     const [x0, x1, x2] = xs;
     if (x0 === undefined || x1 === undefined || x2 === undefined) {
@@ -622,7 +622,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   it('reports an offer whose bodies all scrolled off as lost once, not three times', () => {
     const state = quietRun();
     const step = stepping(state);
-    openOffer(state, state.grave.x, VIEW_HEIGHT - 5);
+    openOffer(state, state.grave.x, FIELD_HEIGHT - 5);
     const options = [...state.offer!.options];
 
     const seen: string[] = [];
@@ -644,7 +644,7 @@ describe('exactly one offer at a time, and the bank (ADR 0034)', () => {
   it('opens the banked offer when the live one scrolls off untaken', () => {
     const state = quietRun();
     const step = stepping(state);
-    openOffer(state, state.grave.x, VIEW_HEIGHT - 5);
+    openOffer(state, state.grave.x, FIELD_HEIGHT - 5);
     openOffer(state, 100, 100);
 
     const seen: string[] = [];
@@ -782,11 +782,11 @@ describe('nothing offerable (ADR 0034)', () => {
  */
 describe('the spread the offer lays at (ADR 0034)', () => {
   it('lays a group side by side at the spacing, centred on the point', () => {
-    const xs = [0, 1, 2].map((index) => spreadX(VIEW_WIDTH / 2, 3, index));
+    const xs = [0, 1, 2].map((index) => spreadX(FIELD_WIDTH / 2, 3, index));
     expect(xs).toEqual([
-      VIEW_WIDTH / 2 - OFFER_SPACING,
-      VIEW_WIDTH / 2,
-      VIEW_WIDTH / 2 + OFFER_SPACING,
+      FIELD_WIDTH / 2 - OFFER_SPACING,
+      FIELD_WIDTH / 2,
+      FIELD_WIDTH / 2 + OFFER_SPACING,
     ]);
   });
 
@@ -799,7 +799,7 @@ describe('the spread the offer lays at (ADR 0034)', () => {
       }
       expect(at(0) - POWER_UP_HALF_EXTENT).toBeGreaterThanOrEqual(0);
       expect(at(count - 1) + POWER_UP_HALF_EXTENT).toBeLessThanOrEqual(
-        VIEW_WIDTH,
+        FIELD_WIDTH,
       );
     }
   });

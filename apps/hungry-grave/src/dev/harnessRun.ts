@@ -3,7 +3,7 @@
 
 import { TICK_HZ } from '../game/clock';
 import { createExecution } from '../game/execution';
-import { VIEW_HEIGHT } from '../game/field';
+import { FIELD_HEIGHT } from '../game/field';
 import {
   GHOUL_DESCENT_FLOOR,
   MOB_TYPES,
@@ -50,7 +50,7 @@ const RUN_TICK_SLACK = 3;
  * scroll plus its own speed.
  */
 const SLOWEST_DESCENT_TICKS =
-  (VIEW_HEIGHT +
+  (FIELD_HEIGHT +
     SPAWN_MARGIN +
     Math.max(...MOB_TYPE_NAMES.map((type) => MOB_TYPES[type].halfHeight))) /
   (SCROLL_SPEED +

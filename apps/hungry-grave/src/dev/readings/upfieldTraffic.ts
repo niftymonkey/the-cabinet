@@ -2,7 +2,7 @@
 
 import { TICK_HZ } from '../../game/clock';
 import type { SimEvent } from '../../game/events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
 import { SPAWN_MARGIN } from '../../game/mobs';
 import type { RunState } from '../../game/run';
 import { SCROLL_SPEED } from '../../game/tuning';
@@ -31,7 +31,7 @@ const BAND_UNITS = SCROLL_SPEED * TICK_HZ;
  * reaches either side it opens a column a fifth of the field wide. It is
  * reported on every report so the number is never silent.
  */
-const LATERAL_REACH = VIEW_WIDTH / 10;
+const LATERAL_REACH = FIELD_WIDTH / 10;
 
 /**
  * How many bands there are, enough to reach every place a live mob may stand
@@ -42,7 +42,7 @@ const LATERAL_REACH = VIEW_WIDTH / 10;
  * it, so no live mob can stand further up-field than that and no band is ever
  * missing from the top of the histogram.
  */
-const BAND_COUNT = Math.ceil((VIEW_HEIGHT + SPAWN_MARGIN) / BAND_UNITS);
+const BAND_COUNT = Math.ceil((FIELD_HEIGHT + SPAWN_MARGIN) / BAND_UNITS);
 
 /**
  * The field traffic standing up-field at the moment ground was laid.

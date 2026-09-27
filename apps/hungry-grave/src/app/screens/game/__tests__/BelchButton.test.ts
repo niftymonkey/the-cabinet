@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resize } from '../../../../engine/resize/resize';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../../../../game/field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
 import { READOUT_RESERVE } from '../../../layout';
 import { PALETTE } from '../../../palette';
 import {
@@ -46,7 +46,7 @@ interface Rect {
 
 /** How many CSS pixels one stage unit is worth at a viewport. */
 function cssPerStageUnit(width: number, height: number): number {
-  const stage = resize(width, height, VIEW_WIDTH, VIEW_HEIGHT, false);
+  const stage = resize(width, height, FIELD_WIDTH, FIELD_HEIGHT, false);
   return width / stage.width;
 }
 

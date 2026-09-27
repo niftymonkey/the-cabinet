@@ -5,7 +5,7 @@ import { createPool, takeSlot } from './caps';
 import { TICK_HZ } from './clock';
 import { spawnCorpse } from './corpses';
 import type { SimEvent } from './events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from './field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from './field';
 import type { Grave } from './grave';
 import type { WeaponLine } from './lines/roster';
 import { cos, normalize, rotateToward, sin } from './math';
@@ -476,7 +476,7 @@ const fall = (mob: Mob): void => {
   const row = MOB_TYPES[mob.type];
   if (mob.x < row.halfWidth) {
     mob.vx = row.speed;
-  } else if (mob.x > VIEW_WIDTH - row.halfWidth) {
+  } else if (mob.x > FIELD_WIDTH - row.halfWidth) {
     mob.vx = -row.speed;
   } else {
     mob.vx = 0;
@@ -500,7 +500,7 @@ const clamp = (value: number, low: number, high: number): number => {
  * takes something out of the world, so the harness never fires on a legal move
  * by the player's own weapon.
  *
- * A corpse thrown down the field meets cullCorpses' edge at VIEW_HEIGHT before
+ * A corpse thrown down the field meets cullCorpses' edge at FIELD_HEIGHT before
  * it meets this bound, so it is lost as food the way any corpse is rather than
  * being parked at the margin.
  */
@@ -509,8 +509,8 @@ const moveInsideBounds = (
   x: number,
   y: number,
 ): void => {
-  carrier.x = clamp(x, -SPAWN_MARGIN, VIEW_WIDTH + SPAWN_MARGIN);
-  carrier.y = clamp(y, -SPAWN_MARGIN, VIEW_HEIGHT + SPAWN_MARGIN);
+  carrier.x = clamp(x, -SPAWN_MARGIN, FIELD_WIDTH + SPAWN_MARGIN);
+  carrier.y = clamp(y, -SPAWN_MARGIN, FIELD_HEIGHT + SPAWN_MARGIN);
 };
 
 /**
@@ -739,9 +739,9 @@ const cullMobs = (state: RunState): SimEvent[] => {
     if (!mob.alive) continue;
     const row = MOB_TYPES[mob.type];
     const gone =
-      mob.y - row.halfHeight > VIEW_HEIGHT ||
+      mob.y - row.halfHeight > FIELD_HEIGHT ||
       mob.x < -SPAWN_MARGIN ||
-      mob.x > VIEW_WIDTH + SPAWN_MARGIN;
+      mob.x > FIELD_WIDTH + SPAWN_MARGIN;
     if (!gone) continue;
     mob.alive = false;
     // The same reason as the kill path: a body leaving the field mid-shove was

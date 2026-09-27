@@ -4,7 +4,7 @@
 import { createPool, takeSlot, WISP_CAP } from '../caps';
 import { TICK_HZ } from '../clock';
 import type { SimEvent } from '../events';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { cos, normalize, rotateToward, sin } from '../math';
 import type { RunState } from '../run';
 import { MAX_LEVEL } from './roster';
@@ -279,9 +279,9 @@ const cullWisps = (state: RunState): void => {
     if (!wisp.alive) continue;
     const outside =
       wisp.x + WISP_HALF_EXTENT < 0 ||
-      wisp.x - WISP_HALF_EXTENT > VIEW_WIDTH ||
+      wisp.x - WISP_HALF_EXTENT > FIELD_WIDTH ||
       wisp.y + WISP_HALF_EXTENT < 0 ||
-      wisp.y - WISP_HALF_EXTENT > VIEW_HEIGHT;
+      wisp.y - WISP_HALF_EXTENT > FIELD_HEIGHT;
     if (outside) wisp.alive = false;
   }
 };

@@ -40,7 +40,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { GOLDEN, runScenario } from '../../dev/digest';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../field';
+import { FIELD_HEIGHT, FIELD_WIDTH } from '../field';
 import { SIZE_START } from '../tuning';
 import { foldWitness } from '../witness';
 
@@ -169,7 +169,7 @@ describe('the golden digest', () => {
     const { boundary } = runScenario();
     expect(boundary.minX).toBeGreaterThan(0);
     expect(boundary.minY).toBeGreaterThan(0);
-    expect(boundary.maxX).toBeLessThan(VIEW_WIDTH);
-    expect(boundary.maxY).toBeLessThan(VIEW_HEIGHT);
+    expect(boundary.maxX).toBeLessThan(FIELD_WIDTH);
+    expect(boundary.maxY).toBeLessThan(FIELD_HEIGHT);
   });
 });
