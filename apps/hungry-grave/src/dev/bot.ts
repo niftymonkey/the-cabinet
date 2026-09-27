@@ -1,5 +1,6 @@
 // The deterministic headless player (ADR 0013).
 
+import { groundMoveOnColumn, SCENE_CAMERA } from '../app/screens/game/camera';
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
 import type { SimEvent } from '../game/events';
 import { graveWidth } from '../game/grave';
@@ -30,6 +31,17 @@ interface PolicyRun {
 }
 
 /**
+ * A policy's command as the sim takes it: the move a player's same command
+ * makes on the glass, turned into a ground move at where the grave draws
+ * (tilted view A11). Every loop that plays a policy hands its command through
+ * here, so the harness's hand moves at the player's speed on the screen.
+ */
+const onTheGlass = (state: RunState, command: TickCommand): TickCommand => ({
+  move: groundMoveOnColumn(SCENE_CAMERA, state.grave, command.move, BASE_SPEED),
+  belch: command.belch,
+});
+
+/**
  * Runs a policy until the run ends, a fatal fault stops it, or the budget is
  * spent. Every tick crosses the one authority (ADR 0017), so the bot's runs go
  * through the same code the rendered game does and no test can prove something
@@ -51,7 +63,7 @@ const runPolicy = (
   const events: SimEvent[] = [];
   let ticks = 0;
   while (ticks < maxTicks && state.ending === null && execution.stop === null) {
-    const command = policy(state, events);
+    const command = onTheGlass(state, policy(state, events));
     events.push(...executeTick(execution, command));
     ticks += 1;
   }
@@ -137,7 +149,13 @@ const threatsNear = (state: RunState): Threat[] => {
   return threats;
 };
 
-// Where a move would put the grave after some ticks, held inside the field.
+/**
+ * Where a move would put the grave after some ticks, held inside the field.
+ *
+ * The move is on the glass (tilted view A11), and a held move on the glass is
+ * one straight line on the column, so its ticks are one step of their sum from
+ * where the grave draws. The field's clamp is the sim's own, applied last.
+ */
 const graveAfter = (
   state: RunState,
   move: MoveCommand,
@@ -146,13 +164,19 @@ const graveAfter = (
 ): { x: number; y: number } => {
   const halfWidth = graveWidth(state.grave.size) / 2;
   const size = state.grave.size;
+  const ground = groundMoveOnColumn(
+    SCENE_CAMERA,
+    state.grave,
+    { x: move.x * ticks, y: move.y * ticks },
+    speed,
+  );
   return {
     x: Math.min(
-      Math.max(state.grave.x + move.x * speed * ticks, halfWidth),
+      Math.max(state.grave.x + ground.x * speed, halfWidth),
       FIELD_WIDTH - halfWidth,
     ),
     y: Math.min(
-      Math.max(state.grave.y + move.y * speed * ticks, size),
+      Math.max(state.grave.y + ground.y * speed, size),
       FIELD_HEIGHT - size,
     ),
   };
@@ -517,6 +541,8 @@ const waitingPolicy: Policy = (state) => {
 };
 
 export {
+  graveAfter,
+  onTheGlass,
   runPolicy,
   dodgePolicy,
   unloadedPolicy,

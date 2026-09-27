@@ -5,6 +5,7 @@
  * the grave.
  */
 
+import type { MoveCommand } from '../../../game/command';
 import {
   FIELD_HEIGHT,
   FIELD_WIDTH,
@@ -94,6 +95,9 @@ const BLADE_LEAN_DEGREES = 62;
  * `index.html:382`): the angle grass was drawn for before the tilt.
  */
 const BUILD_7_TILT = Math.atan(1.07 / 4.95);
+
+// A still move is exactly still, never a ground-to-column round trip's rounding.
+const STILL: MoveCommand = { x: 0, y: 0 };
 
 const radiansOf = (degrees: number): number => (degrees * Math.PI) / 180;
 
@@ -216,6 +220,30 @@ const stepOnColumn = (
 };
 
 /**
+ * The ground move, in base-speed units, that a move of the same units on the
+ * column makes from where the grave draws (T9, A11). The player's steering and
+ * the harness's hand both convert through this, so the two cannot convert two
+ * ways. A step past the horizon is a still move.
+ */
+const groundMoveOnColumn = (
+  camera: Camera,
+  grave: FieldPoint,
+  move: MoveCommand,
+  baseSpeed: number,
+): MoveCommand => {
+  if (move.x === 0 && move.y === 0) return STILL;
+  const reached = stepOnColumn(camera, grave, {
+    x: move.x * baseSpeed,
+    y: move.y * baseSpeed,
+  });
+  if (reached === null) return STILL;
+  return {
+    x: (reached.x - grave.x) / baseSpeed,
+    y: (reached.y - grave.y) / baseSpeed,
+  };
+};
+
+/**
  * How long a grass blade draws at this camera against build 7's length (A9).
  * Slice 2's ground painting reads it.
  */
@@ -230,6 +258,7 @@ export {
   SCENE_CAMERA,
   bladeReach,
   columnToGround,
+  groundMoveOnColumn,
   groundToColumn,
   makeCamera,
   stanceOverGrave,

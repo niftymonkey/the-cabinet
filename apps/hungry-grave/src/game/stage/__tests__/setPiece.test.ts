@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import setPieceTestSource from './setPiece.test.ts?raw';
 
-import { divingPolicy, waitingPolicy } from '../../../dev/bot';
+import { divingPolicy, onTheGlass, waitingPolicy } from '../../../dev/bot';
 import { stepping } from '../../../dev/stepping';
 import { TICK_HZ } from '../../clock';
 import type { TickCommand } from '../../command';
@@ -223,7 +223,9 @@ function playTheWaking(
   let sealed = false;
   let gone = -1;
   for (let tick = 0; tick < SOURCE_TICKS; tick++) {
-    const stepped = waking.tick(policy(waking.state, caused));
+    const stepped = waking.tick(
+      onTheGlass(waking.state, policy(waking.state, caused)),
+    );
     caused = [...stepped];
     events.push(...stepped);
     if (waking.state.ending === 'sealed') {

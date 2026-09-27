@@ -24,6 +24,18 @@ import {
   damageTakenOf,
   observeDamageTaken,
 } from './damageTaken';
+import type { MobFireShots, MobFireShotsAcc } from './mobFireShots';
+import {
+  createMobFireShots,
+  mobFireShotsOf,
+  observeMobFireShots,
+} from './mobFireShots';
+import type { TimeOnScreen, TimeOnScreenAcc } from './timeOnScreen';
+import {
+  createTimeOnScreen,
+  observeTimeOnScreen,
+  timeOnScreenOf,
+} from './timeOnScreen';
 import type { FallenRungLedger, FallenRungLedgerAcc } from './fallenRungLedger';
 import {
   createFallenRungLedger,
@@ -127,6 +139,9 @@ import {
 interface TuningReadings {
   readonly arrivals: Arrivals;
   readonly damageTaken: DamageTaken;
+  // The shots fired and how long each mob stood on screen, which the field change moves (tilted view A4).
+  readonly mobFireShots: MobFireShots;
+  readonly timeOnScreen: TimeOnScreen;
   // What each input paid into the score, gross, beside run.score's net.
   readonly scoreByInput: ScoreByInput;
   // The floor ladder's cost, beside the counts damageTaken already carries.
@@ -156,6 +171,8 @@ interface TuningReadings {
 interface ReadingsAcc {
   readonly arrivals: ArrivalsAcc;
   readonly damageTaken: DamageTakenAcc;
+  readonly mobFireShots: MobFireShotsAcc;
+  readonly timeOnScreen: TimeOnScreenAcc;
   readonly scoreByInput: ScoreByInputAcc;
   readonly fallenRungLedger: FallenRungLedgerAcc;
   readonly stripsLanded: StripsLandedAcc;
@@ -197,6 +214,8 @@ const createReadings = (
 ): ReadingsAcc => ({
   arrivals: createArrivals(),
   damageTaken: createDamageTaken(),
+  mobFireShots: createMobFireShots(),
+  timeOnScreen: createTimeOnScreen(),
   scoreByInput: createScoreByInput(),
   fallenRungLedger: createFallenRungLedger(),
   stripsLanded: createStripsLanded(),
@@ -237,6 +256,8 @@ const observeReadings = (
 ): void => {
   observeArrivals(acc.arrivals, events, state);
   observeDamageTaken(acc.damageTaken, events);
+  observeMobFireShots(acc.mobFireShots, events);
+  observeTimeOnScreen(acc.timeOnScreen, events, state);
   observeScoreByInput(acc.scoreByInput, events);
   observeFallenRungLedger(acc.fallenRungLedger, tick, events, state);
   observeStripsLanded(acc.stripsLanded, events, state);
@@ -263,6 +284,8 @@ const observeReadings = (
 const readingsOf = (acc: ReadingsAcc): TuningReadings => ({
   arrivals: arrivalsOf(acc.arrivals),
   damageTaken: damageTakenOf(acc.damageTaken),
+  mobFireShots: mobFireShotsOf(acc.mobFireShots),
+  timeOnScreen: timeOnScreenOf(acc.timeOnScreen),
   scoreByInput: scoreByInputOf(acc.scoreByInput),
   fallenRungLedger: fallenRungLedgerOf(acc.fallenRungLedger),
   stripsLanded: stripsLandedOf(acc.stripsLanded),

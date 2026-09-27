@@ -11,6 +11,7 @@ import {
   SCENE_CAMERA,
   bladeReach,
   columnToGround,
+  groundMoveOnColumn,
   groundToColumn,
   makeCamera,
   stanceOverGrave,
@@ -248,5 +249,37 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     // A9: a blade leans back 62 degrees, and the tilt shows more of it.
     expectNear(bladeReach(SCENE_CAMERA), 1.348502, CLOSE);
     expectNear(bladeReach(makeCamera(12.19748, 42.5, 27, COLUMN)), 1, CLOSE);
+  });
+});
+
+describe('a move on the glass becomes a ground move (tilted view T9, A11)', () => {
+  it('a move on the column becomes the ground move that lands where the step on the column says, and a still move stays still', () => {
+    // A11: a move of (0, -10 / 4.5) base-speed units on the column is a step of
+    // (0, -10) at a base speed of 4.5, which from ground (40, 700) lands at
+    // (39.055288, 690.913296), slice 1's pinned landing. The ground move is
+    // that landing less the start, over the base speed.
+    const moved = groundMoveOnColumn(
+      SCENE_CAMERA,
+      { x: 40, y: 700 },
+      { x: 0, y: -10 / 4.5 },
+      4.5,
+    );
+    expectNear(moved.x, (39.055288 - 40) / 4.5, CLOSE);
+    expectNear(moved.y, (690.913296 - 700) / 4.5, CLOSE);
+
+    // A still move is exactly still, never a round trip's rounding.
+    expect(
+      groundMoveOnColumn(SCENE_CAMERA, { x: 40, y: 700 }, { x: 0, y: 0 }, 4.5),
+    ).toEqual({ x: 0, y: 0 });
+
+    // A step past the horizon has no ground to reach, so the move is still.
+    expect(
+      groundMoveOnColumn(
+        SCENE_CAMERA,
+        { x: 270, y: 380 },
+        { x: 0, y: -2200 / 4.5 },
+        4.5,
+      ),
+    ).toEqual({ x: 0, y: 0 });
   });
 });

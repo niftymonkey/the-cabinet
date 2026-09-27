@@ -1,8 +1,7 @@
 // One move command from two live input models.
 
-import type { FieldPoint } from '../game/field';
 import type { MoveCommand } from '../game/command';
-import type { TouchSteer } from './touch';
+import type { ColumnPoint, TouchSteer } from './touch';
 
 /**
  * Touch wins while it is steering, keyboard otherwise, and they are never
@@ -15,7 +14,7 @@ import type { TouchSteer } from './touch';
 const combineSteer = (
   keys: MoveCommand,
   touch: TouchSteer,
-  grave: FieldPoint,
+  grave: ColumnPoint,
 ): MoveCommand => {
   // The drag is asked for on every tick, steering or not, so TouchSteer's view
   // of the grave stays current: a pointer promoted between two frames then

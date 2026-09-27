@@ -139,7 +139,7 @@ class GameScreen extends Container {
   /**
    * The field, carrying exactly the placement fitField returns and nothing
    * else. Screen shake, if it is ever added, goes on a child of this container:
-   * screenToField recomputes the placement in parallel with this transform, and
+   * screenToColumn recomputes the placement in parallel with this transform, and
    * the two agree only while this transform is the placement alone. Shake
    * applied here would break touch input silently, with every test still green.
    */
@@ -209,7 +209,7 @@ class GameScreen extends Container {
 
   /**
    * The live placement, held rather than recomputed. A pointer handler converts
-   * an event through screenToField with this exact value: calling fitField a
+   * an event through screenToColumn with this exact value: calling fitField a
    * second time at event time computes the placement in parallel, and the two
    * agree only until something moves one of them.
    */

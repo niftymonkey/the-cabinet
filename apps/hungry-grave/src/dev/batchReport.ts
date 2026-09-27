@@ -20,6 +20,7 @@ import { ledgerByLineNumbers } from './readings/powerUpLedger';
 import { addsBySection } from './readings/pressure';
 import type { DirectedCardSeen } from './readings/pressure';
 import type { SectionSpan } from './readings/sectionTimeline';
+import { timeOnScreenByName } from './readings/timeOnScreen';
 import { READINGS_VERSION } from './readingsVersion';
 import type { RigName } from './rigs';
 import { fiveNumbersOf, greatestOf, leastOf } from './seriesSummary';
@@ -560,6 +561,24 @@ const BATCH_READINGS: readonly DeclaredBatchReading[] = [
   byNameReading(
     'tuning.arrivals.byType',
     (report) => report.tuning.arrivals.byType,
+  ),
+  // The two figures the tilted field moves (tilted view A4): the shots fired,
+  // and how long each mob stood on screen, with the ones still standing at the
+  // end counted apart.
+  spreadReading(
+    'tuning.mobFireShots.total',
+    (report) => report.tuning.mobFireShots.total,
+  ),
+  byNameReading(
+    'tuning.mobFireShots.byEmitter',
+    (report) => report.tuning.mobFireShots.byEmitter,
+  ),
+  byNameReading('tuning.timeOnScreen.byType', (report) =>
+    timeOnScreenByName(report.tuning.timeOnScreen),
+  ),
+  byNameReading(
+    'tuning.timeOnScreen.onScreenAtEnd',
+    (report) => report.tuning.timeOnScreen.onScreenAtEnd,
   ),
   spreadReading(
     'tuning.damageTaken.totalHits',

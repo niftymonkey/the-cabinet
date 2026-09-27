@@ -9,10 +9,10 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
  * GameScreen.resize is handed logical stage units, so reaching for the ratio
  * here would double-scale everything.
  *
- * screenToField exists rather than container.toLocal() because of the import
+ * screenToColumn exists rather than container.toLocal() because of the import
  * boundary: src/input may not reach src/app, so a pointer handler in
  * src/app/screens/game converts event.global here and hands src/input a point
- * already in field units.
+ * already in column units.
  */
 
 /**
@@ -289,8 +289,12 @@ const hudRow = (placement: FieldPlacement): HudRow => {
   };
 };
 
-// A viewport point back in field units. The inverse of the placement, and how touch input reaches the sim.
-const screenToField = (
+/**
+ * A viewport point back in the column the camera draws the field into (tilted
+ * view A11): the inverse of the placement alone. It is not a field point; the
+ * camera turns a move on the column into a ground move where steering asks.
+ */
+const screenToColumn = (
   placement: FieldPlacement,
   screenX: number,
   screenY: number,
@@ -304,7 +308,7 @@ const screenToField = (
 export {
   fitField,
   hudRow,
-  screenToField,
+  screenToColumn,
   BOUNDARY_STROKE,
   HUD_BAND,
   READOUT_RESERVE,

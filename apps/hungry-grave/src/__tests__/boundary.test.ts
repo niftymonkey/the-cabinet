@@ -72,9 +72,13 @@ const BOUNDARIES: Boundary[] = [
   // the decoded artifact (#58 slice 4). The widening is one-way: src/tape's own
   // row below still reaches only tape and game, so the rig cannot become
   // load-bearing in a shipped recording.
+  //
+  // It reaches the scene camera and no other file of src/app (tilted view
+  // A11): the harness's hand steers through the player's own conversion, and
+  // the camera is pure and imports no package.
   {
     root: 'dev',
-    mayReach: ['dev', 'game', 'tape'],
+    mayReach: ['dev', 'game', 'tape', 'app/screens/game/camera'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -177,13 +181,13 @@ const BOUNDARIES: Boundary[] = [
   /**
    * The scene camera (tilted view T2, T3, A13): pure math, no pixi at all, not
    * even a type import, because its tests and slice 3's fall run without a
-   * renderer. It reaches the field's width, height and point, and the starting
-   * size its height is measured in.
+   * renderer. It reaches the field's width, height and point, the starting
+   * size its height is measured in, and the move command steering converts.
    */
   {
     root: 'app',
     only: ['screens/game/camera.ts'],
-    mayReach: ['game/field', 'game/tuning'],
+    mayReach: ['game/command', 'game/field', 'game/tuning'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -387,6 +391,34 @@ describe('the rendering-import boundary', () => {
     expect(covers('game', 'game/mobs')).toBe(true);
     expect(covers('game', 'game/lines/skullStream')).toBe(true);
     expect(covers('game', 'gamepad/thing')).toBe(false);
+  });
+
+  it('src/dev reaches the camera and no other file of src/app', () => {
+    // Tilted view A11: the harness's hand steers through the same conversion a
+    // player's does, and the camera is pure, so the rig gains that one file and
+    // never a screen, a renderer or the viewport.
+    const dev = BOUNDARIES.find((boundary) => boundary.root === 'dev')!;
+    const bot = join(SRC, 'dev', 'bot.ts');
+
+    const camera = violationsInSource(
+      bot,
+      'import { SCENE_CAMERA } from "../app/screens/game/camera";',
+      dev,
+    );
+    expect(camera).toEqual([]);
+
+    for (const other of [
+      '../app/layout',
+      '../app/screens/game/groundPlacement',
+      '../app/screens/game/steering',
+    ]) {
+      const reached = violationsInSource(
+        bot,
+        `import { thing } from "${other}";`,
+        dev,
+      );
+      expect(reached, other).toHaveLength(1);
+    }
   });
 
   it('the src/dev allowance under src/game is for test files alone', () => {

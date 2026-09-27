@@ -12,6 +12,7 @@ import { sizeSummary } from './readings/gravePath';
 import { groundSummary } from './readings/groundHeld';
 import { signalSummary } from './readings/pressure';
 import { endNumbers, pacingSummary } from './readings/territoryControl';
+import { timeOnScreenByName } from './readings/timeOnScreen';
 import { populationSummary } from './replayTallies';
 
 /**
@@ -376,6 +377,22 @@ const READING_COMPARISONS: readonly DeclaredReading[] = [
   namedNumbersReading(
     'tuning.arrivals.byType',
     (report) => report.tuning.arrivals.byType,
+  ),
+  // The two figures the tilted field moves (tilted view A4).
+  scalarReading(
+    'tuning.mobFireShots.total',
+    (report) => report.tuning.mobFireShots.total,
+  ),
+  namedNumbersReading(
+    'tuning.mobFireShots.byEmitter',
+    (report) => report.tuning.mobFireShots.byEmitter,
+  ),
+  namedNumbersReading('tuning.timeOnScreen.byType', (report) =>
+    timeOnScreenByName(report.tuning.timeOnScreen),
+  ),
+  namedNumbersReading(
+    'tuning.timeOnScreen.onScreenAtEnd',
+    (report) => report.tuning.timeOnScreen.onScreenAtEnd,
   ),
   scalarReading(
     'tuning.damageTaken.totalHits',

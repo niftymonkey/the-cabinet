@@ -2,14 +2,22 @@
 
 import type { FederatedPointerEvent } from 'pixi.js';
 
-import type { CommandSource } from '../../../game/command';
+import type { CommandSource, MoveCommand } from '../../../game/command';
 import type { FieldPoint } from '../../../game/field';
+import { BASE_SPEED } from '../../../game/tuning';
 import { KeySteer } from '../../../input/keys';
 import { combineSteer } from '../../../input/steering';
+import type { ColumnPoint } from '../../../input/touch';
 import { TouchSteer } from '../../../input/touch';
 import type { FieldPlacement } from '../../layout';
-import { screenToField } from '../../layout';
+import { screenToColumn } from '../../layout';
 import { userSettings } from '../../userSettings';
+import {
+  groundMoveOnColumn,
+  groundToColumn,
+  SCENE_CAMERA,
+  stepOnColumn,
+} from './camera';
 
 // The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch.
 const SCROLL_CODES = [
@@ -34,7 +42,7 @@ const STEERING_POINTERS = ['touch', 'pen'];
 
 /**
  * How far a finger must travel to be the steering pointer, in stage units. It
- * is converted to field units against the live placement, because a
+ * is converted to column units against the live placement, because a
  * finger-jitter threshold is physical and a field-unit constant bakes in one
  * viewport. It is 3 CSS pixels wherever the stage is not itself scaled up, and
  * about 2.2 on a 390-wide phone, where it is.
@@ -68,7 +76,7 @@ interface RunSteering {
   ): void;
   pointerMove(event: FederatedPointerEvent, placement: FieldPlacement): void;
   pointerUp(event: FederatedPointerEvent): void;
-  // The drag's slop in field units, from the scale the field is drawn at.
+  // The drag's slop in column units, from the scale the field is drawn at.
   setSlop(scale: number): void;
   // The keyboard speed the player set, re-read whenever they could have changed it.
   readKeyboardSpeed(): void;
@@ -93,6 +101,8 @@ interface Steering {
    * that on prepare(), on reset() and on every hold.
    */
   belchRequested: boolean;
+  // Whether a move past the horizon has been logged, so a stuck one is reported once rather than every tick.
+  pastHorizonLogged: boolean;
   readonly powers: SteeringPowers;
 }
 
@@ -101,11 +111,44 @@ const steersWith = (event: FederatedPointerEvent): boolean => {
   return STEERING_POINTERS.includes(event.pointerType);
 };
 
-const toField = (
+const toColumn = (
   placement: FieldPlacement,
   event: FederatedPointerEvent,
-): FieldPoint => {
-  return screenToField(placement, event.global.x, event.global.y);
+): ColumnPoint => {
+  return screenToColumn(placement, event.global.x, event.global.y);
+};
+
+// Where the grave draws on the column, which is where the input models reason about it (tilted view A11).
+const graveOnColumn = (grave: FieldPoint): ColumnPoint => {
+  const drawn = groundToColumn(SCENE_CAMERA, grave.x, grave.y);
+  return { x: drawn.x, y: drawn.y };
+};
+
+/**
+ * The ground move that makes a move on the column (tilted view T9, A11).
+ *
+ * A step past the horizon has no ground and comes back still. It cannot
+ * happen from inside the column in one tick, because the horizon is 2135
+ * column units above the middle row, so one that does is an anomaly and is
+ * logged once rather than thrown: a pointer is a live input.
+ */
+const groundMoveFor = (
+  steering: Steering,
+  grave: FieldPoint,
+  onColumn: MoveCommand,
+): MoveCommand => {
+  const move = groundMoveOnColumn(SCENE_CAMERA, grave, onColumn, BASE_SPEED);
+  if (move.x !== 0 || move.y !== 0) return move;
+  if (steering.pastHorizonLogged) return move;
+  // A still result is also a settled drag's rounding, so only a step the camera finds no ground for is the anomaly.
+  const step = { x: onColumn.x * BASE_SPEED, y: onColumn.y * BASE_SPEED };
+  if (stepOnColumn(SCENE_CAMERA, grave, step) === null) {
+    steering.pastHorizonLogged = true;
+    console.warn(
+      `a move of (${onColumn.x}, ${onColumn.y}) on the column from ground (${grave.x}, ${grave.y}) reaches past the horizon; the grave is held still`,
+    );
+  }
+  return move;
 };
 
 const keyDown = (steering: Steering, event: KeyboardEvent): void => {
@@ -165,11 +208,16 @@ const commandSource = (steering: Steering): CommandSource => {
     // bought ticks from one that did not.
     const belch = steering.belchRequested;
     steering.belchRequested = false;
-    return { move: combineSteer(keyCommand, steering.touch, grave), belch };
+    const onColumn = combineSteer(
+      keyCommand,
+      steering.touch,
+      graveOnColumn(grave),
+    );
+    return { move: groundMoveFor(steering, grave, onColumn), belch };
   };
 };
 
-// A finger landing, in field units. A mouse is filtered out: desktop steering is the keyboard by design.
+// A finger landing, in column units. A mouse is filtered out: desktop steering is the keyboard by design.
 const pointerDown = (
   steering: Steering,
   event: FederatedPointerEvent,
@@ -178,7 +226,11 @@ const pointerDown = (
 ): void => {
   if (!steersWith(event) || grave === null) return;
   if (steering.powers.claimsPointer(event.pointerId)) return;
-  steering.touch.down(event.pointerId, toField(placement, event), grave);
+  steering.touch.down(
+    event.pointerId,
+    toColumn(placement, event),
+    graveOnColumn(grave),
+  );
 };
 
 const pointerMove = (
@@ -188,7 +240,7 @@ const pointerMove = (
 ): void => {
   if (!steersWith(event)) return;
   if (steering.powers.claimsPointer(event.pointerId)) return;
-  steering.touch.move(event.pointerId, toField(placement, event));
+  steering.touch.move(event.pointerId, toColumn(placement, event));
 };
 
 const pointerUp = (steering: Steering, event: FederatedPointerEvent): void => {
@@ -208,6 +260,7 @@ const createRunSteering = (powers: SteeringPowers): RunSteering => {
     keys: new KeySteer({ multiplier: userSettings.getKeyboardSpeed() }),
     touch: new TouchSteer(),
     belchRequested: false,
+    pastHorizonLogged: false,
     powers,
   };
   return {

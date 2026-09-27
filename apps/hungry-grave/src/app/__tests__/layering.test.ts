@@ -226,7 +226,7 @@ describe("the game screen's field container", () => {
   });
 
   it('holds the placement it applied, so a pointer handler need not recompute it', () => {
-    // screenToField inverts this exact value. A handler calling fitField again
+    // screenToColumn inverts this exact value. A handler calling fitField again
     // at event time computes the placement a second time, and the two agree
     // only until something moves one of them.
     const screen = gameScreen();

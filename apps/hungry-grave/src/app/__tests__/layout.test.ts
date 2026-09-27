@@ -15,7 +15,7 @@ import {
   HUD_BAND,
   hudRow,
   READOUT_RESERVE,
-  screenToField,
+  screenToColumn,
 } from '../layout';
 
 beforeEach(() => {
@@ -184,7 +184,7 @@ describe('fitField', () => {
   });
 });
 
-describe('screenToField', () => {
+describe('screenToColumn', () => {
   it("inverts the placement at the field's corners and its centre", () => {
     const placement = fitField(DESKTOP.width, DESKTOP.height);
     const corners = [
@@ -199,7 +199,7 @@ describe('screenToField', () => {
         x: point.x * placement.scale + placement.offsetX,
         y: point.y * placement.scale + placement.offsetY,
       };
-      const back = screenToField(placement, onScreen.x, onScreen.y);
+      const back = screenToColumn(placement, onScreen.x, onScreen.y);
       expect(back.x).toBeCloseTo(point.x, 9);
       expect(back.y).toBeCloseTo(point.y, 9);
     }
@@ -209,15 +209,15 @@ describe('screenToField', () => {
     // It does not clamp. What a touch outside the field means belongs to the
     // input models, not to the mapping.
     const desktop = fitField(DESKTOP.width, DESKTOP.height);
-    expect(screenToField(desktop, 0, DESKTOP.height / 2).x).toBeLessThan(0);
+    expect(screenToColumn(desktop, 0, DESKTOP.height / 2).x).toBeLessThan(0);
     expect(
-      screenToField(desktop, DESKTOP.width, DESKTOP.height / 2).x,
+      screenToColumn(desktop, DESKTOP.width, DESKTOP.height / 2).x,
     ).toBeGreaterThan(FIELD_WIDTH);
 
     const phone = fitField(PHONE.width, PHONE.height);
-    expect(screenToField(phone, PHONE.width / 2, 0).y).toBeLessThan(0);
+    expect(screenToColumn(phone, PHONE.width / 2, 0).y).toBeLessThan(0);
     expect(
-      screenToField(phone, PHONE.width / 2, PHONE.height).y,
+      screenToColumn(phone, PHONE.width / 2, PHONE.height).y,
     ).toBeGreaterThan(FIELD_HEIGHT);
   });
 });

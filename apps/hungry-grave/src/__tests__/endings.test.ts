@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { hitTakingPolicy } from '../dev/bot';
+import { hitTakingPolicy, onTheGlass } from '../dev/bot';
 import { stepping } from '../dev/stepping';
 import { PHASE_HP, spawnBoss } from '../game/bosses/phases';
 import type { TickCommand } from '../game/command';
@@ -333,7 +333,9 @@ describe("the grave's ending (ADR 0003)", () => {
     for (let tick = 0; tick < FIGHT_TICKS; tick++) {
       // The tick before's events, which is what a policy is handed by the
       // harness it usually runs under.
-      const events = fight.tick(hitTakingPolicy(fight.state, caused));
+      const events = fight.tick(
+        onTheGlass(fight.state, hitTakingPolicy(fight.state, caused)),
+      );
       caused = [...events];
       for (const event of events) {
         if (event.type === 'scorePaid' && beforeTheBleed) {

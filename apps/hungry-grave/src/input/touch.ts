@@ -1,6 +1,5 @@
 // Uncapped relative drag steering as a pure model: no DOM in it at all.
 
-import type { FieldPoint } from '../game/field';
 import type { MoveCommand } from '../game/command';
 import { BASE_SPEED } from '../game/tuning';
 
@@ -12,10 +11,10 @@ import { BASE_SPEED } from '../game/tuning';
 const DRAG_RATIO = 1;
 
 /**
- * How far a pointer must travel before it is the steering pointer, in field
+ * How far a pointer must travel before it is the steering pointer, in column
  * units. The default is the phone's own figure, about 3 CSS pixels there;
  * GameScreen replaces it per viewport through setSlop, because a finger-jitter
- * threshold is physical and expressing it in field units bakes in one viewport.
+ * threshold is physical and expressing it in column units bakes in one viewport.
  *
  * Deliberately far below Android's 8 dp ViewConfiguration slop, which is
  * calibrated for the harder job of telling a deliberate tap from a scroll and
@@ -25,13 +24,14 @@ const DRAG_RATIO = 1;
 const STEER_SLOP = 4;
 
 /**
- * How far the grave may sit from the target it was sent to and still count as
- * standing on it, in field units.
+ * How far the grave may draw from the target it was sent to and still count as
+ * standing on it, in column units.
  *
- * An exact comparison is unusable: moveGrave computes
- * `x + ((target - x) / BASE_SPEED) * BASE_SPEED`, and that round trip is not
- * exact in binary64 for most positions, so an exact test would re-anchor on
- * every tick and silently drop steering. This is far below anything visible
+ * An exact comparison is unusable: the move goes from the column to the ground
+ * through the camera, onto the sim's float32 grid, through moveGrave's
+ * `x + move * BASE_SPEED`, and back to the column, and that round trip is not
+ * exact for most positions, so an exact test would re-anchor on every tick and
+ * silently drop steering. This is far below anything visible
  * and far above the rounding error, the same shape as clock.ts's
  * TICK_TOLERANCE.
  */
@@ -39,13 +39,24 @@ const TARGET_TOLERANCE = 1e-6;
 
 const STILL: MoveCommand = { x: 0, y: 0 };
 
-interface PointerTrack {
-  // Where the slop is measured from: the down position, or the current position after a steering lift.
-  origin: FieldPoint;
-  current: FieldPoint;
+/**
+ * A point on the column the camera draws the field into (tilted view A11).
+ * Not a field point: one column unit is a different length of ground at every
+ * row, and a column point typed as a field point is the confusion that let a
+ * held key drift toward the vanishing point.
+ */
+interface ColumnPoint {
+  readonly x: number;
+  readonly y: number;
 }
 
-const distance = (from: FieldPoint, to: FieldPoint): number => {
+interface PointerTrack {
+  // Where the slop is measured from: the down position, or the current position after a steering lift.
+  origin: ColumnPoint;
+  current: ColumnPoint;
+}
+
+const distance = (from: ColumnPoint, to: ColumnPoint): number => {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   return Math.sqrt(dx * dx + dy * dy);
@@ -53,17 +64,17 @@ const distance = (from: FieldPoint, to: FieldPoint): number => {
 
 // The point a fraction of the way along the segment from one point to another.
 const along = (
-  from: FieldPoint,
-  to: FieldPoint,
+  from: ColumnPoint,
+  to: ColumnPoint,
   fraction: number,
-): FieldPoint => {
+): ColumnPoint => {
   return {
     x: from.x + (to.x - from.x) * fraction,
     y: from.y + (to.y - from.y) * fraction,
   };
 };
 
-const apart = (a: FieldPoint, b: FieldPoint): boolean => {
+const apart = (a: ColumnPoint, b: ColumnPoint): boolean => {
   return (
     Math.abs(a.x - b.x) > TARGET_TOLERANCE ||
     Math.abs(a.y - b.y) > TARGET_TOLERANCE
@@ -71,8 +82,10 @@ const apart = (a: FieldPoint, b: FieldPoint): boolean => {
 };
 
 /**
- * It takes pointer ids and points already in field units, converted by
- * GameScreen through layout.ts's screenToField.
+ * It takes pointer ids and points already in column units, converted by
+ * GameScreen through layout.ts's screenToColumn, and the grave where it draws
+ * on the column. What it returns is a move on the column, which the app turns
+ * into a ground move through the camera (tilted view A11).
  *
  * Steering is all this model does. The belch is not a steering command: Mark
  * ruled on 2026-08-22 that it binds to a dedicated corner button, because the
@@ -85,22 +98,23 @@ class TouchSteer {
   private slop = STEER_SLOP;
 
   // Where the steering pointer was when it crossed the slop, and where the grave was then.
-  private anchor: FieldPoint | null = null;
-  private graveAtAnchor: FieldPoint | null = null;
+  private anchor: ColumnPoint | null = null;
+  private graveAtAnchor: ColumnPoint | null = null;
 
   // The previous call's target and the pointer position that produced it, both needed by the re-anchor.
-  private previousTarget: FieldPoint | null = null;
-  private previousPointer: FieldPoint | null = null;
+  private previousTarget: ColumnPoint | null = null;
+  private previousPointer: ColumnPoint | null = null;
 
   // The grave as recently as this model has been told, so a promotion anchors to where it is now.
-  private lastGrave: FieldPoint = { x: 0, y: 0 };
+  private lastGrave: ColumnPoint = { x: 0, y: 0 };
 
-  public setSlop(fieldUnits: number): void {
-    if (Number.isFinite(fieldUnits) && fieldUnits > 0) this.slop = fieldUnits;
+  public setSlop(columnUnits: number): void {
+    if (Number.isFinite(columnUnits) && columnUnits > 0)
+      this.slop = columnUnits;
   }
 
   // A pointer landing.
-  public down(id: number, point: FieldPoint, grave: FieldPoint): void {
+  public down(id: number, point: ColumnPoint, grave: ColumnPoint): void {
     this.lastGrave = { x: grave.x, y: grave.y };
     this.pointers.set(id, { origin: point, current: point });
   }
@@ -110,7 +124,7 @@ class TouchSteer {
    * rather than accumulating a delta, because globalpointermove is dispatched
    * twice per DOM move on a static container with interactive children.
    */
-  public move(id: number, point: FieldPoint): void {
+  public move(id: number, point: ColumnPoint): void {
     const track = this.pointers.get(id);
     if (!track) return;
     track.current = point;
@@ -136,7 +150,7 @@ class TouchSteer {
    * discard is the slop distance, and only that: they subtract it from the
    * first delta and deliver the rest.
    */
-  private startSteering(id: number, at: FieldPoint): void {
+  private startSteering(id: number, at: ColumnPoint): void {
     this.steeringId = id;
     this.anchor = at;
     this.graveAtAnchor = this.lastGrave;
@@ -194,7 +208,7 @@ class TouchSteer {
    * under the finger. That is the wanted behaviour and nobody has decided it
    * yet.
    */
-  private reanchorIfClamped(grave: FieldPoint): void {
+  private reanchorIfClamped(grave: ColumnPoint): void {
     if (!this.previousTarget || !this.previousPointer) return;
     if (!apart(grave, this.previousTarget)) return;
     this.graveAtAnchor = { x: grave.x, y: grave.y };
@@ -220,7 +234,7 @@ class TouchSteer {
    * fairness WAS the input lag felt on device (ADR 0011), so no clamp goes here
    * and none goes in moveGrave.
    */
-  public command(grave: FieldPoint): MoveCommand {
+  public command(grave: ColumnPoint): MoveCommand {
     this.lastGrave = { x: grave.x, y: grave.y };
     if (this.steeringId === null) return STILL;
 
@@ -243,3 +257,4 @@ class TouchSteer {
 }
 
 export { TouchSteer, DRAG_RATIO, STEER_SLOP };
+export type { ColumnPoint };
