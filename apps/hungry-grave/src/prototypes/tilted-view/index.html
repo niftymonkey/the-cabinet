@@ -51,6 +51,16 @@
   }
 
   #stage { position: absolute; inset: 0; }
+  /**
+   * The 760 column is the real game's play area: 540 by 760, letterboxed into
+   * the column and centred, with the page's own dark above and below it.
+   */
+  body.column-760 #stage {
+    inset: auto;
+    left: 0; right: 0;
+    height: calc(min(100vw, 50vh) * 760 / 540);
+    top: calc((100% - min(100vw, 50vh) * 760 / 540) / 2);
+  }
   #stage canvas { display: block; touch-action: none; }
 
   /* The ground is moonlit now, so the readout needs its own dark to sit on. */
@@ -207,7 +217,8 @@
   <span>angle <b id="r-tilt">0</b>&deg;</span>
   <span>cam <b id="r-camera">0</b></span>
   <span>hole <b id="r-hole">own</b></span>
-  <span>tilt <b>6</b></span>
+  <span>col <b id="r-column">phone</b></span>
+  <span>tilt <b>9</b></span>
   <span id="held">held</span>
 </div>
 
@@ -248,6 +259,10 @@
   </div>
 
   <div class="hr"></div>
+  <div class="group">
+    <button id="c-phone" aria-pressed="true"><span class="key">Phone</span><span class="sub">the whole screen</span></button>
+    <button id="c-760" aria-pressed="false"><span class="key">760</span><span class="sub">540 by 760, letterboxed</span></button>
+  </div>
   <div class="group">
     <button id="t-headstone" aria-pressed="false"><span class="key">Headstone</span><span class="sub">faint, no collision</span></button>
     <button id="t-holecam" aria-pressed="true"><span class="key">Hole camera</span><span class="sub">own, or shared</span></button>
@@ -383,11 +398,13 @@
     drop: 0.75,
     size: 33,
     headstone: false,
-    tilt: DEFAULT_TILT_DEGREES,
-    camera: DEFAULT_CAMERA_HEIGHT,
-    // The hole cut by its own camera, which is the pair this screen is for:
-    // build 7's walls under a field that leans.
-    ownHole: true,
+    // Mark's tilt 6 ruling of 2026-09-27: 32.5 degrees, 42.50 graves up, one
+    // shared camera for the hole and the field.
+    tilt: 32.5,
+    camera: 42.5,
+    ownHole: false,
+    // The column the canvas fills: the whole phone, or the game's 540 by 760.
+    column: 'phone',
   };
 
   /**
@@ -735,6 +752,29 @@
     const groundY = view.y + ((y - view.y) * view.dist) / off;
     const scale = groundScale(view, groundY);
     return { x: view.x + (x - view.x) / scale, y: groundY };
+  };
+
+  /**
+   * Where the play layer draws a field point: every body, the grave, and
+   * anything fired. Scenery goes through the pinhole above; the play layer
+   * does not, because the pinhole's columns converge and a body walking
+   * straight down the field would drift across the glass. Across, a field unit
+   * is a screen unit at every row, so the 540 field units span the screen and
+   * straight down the field is straight down the glass. Down, it is the
+   * pinhole's own row, which does not depend on x, so play rows sit exactly on
+   * scenery rows. `scale` is the pinhole's size at that row, which is what a
+   * thing is drawn at; only its placement across the screen is straight.
+   */
+  const playToScreen = (view, x, y) => ({
+    x,
+    y: groundToScreen(view, view.x, y).y,
+    scale: groundScale(view, y),
+  });
+
+  /** The screen point back to the field point the play layer draws there: the exact inverse. */
+  const screenToPlay = (view, x, y) => {
+    const row = screenToGround(view, view.x, y);
+    return row ? { x, y: row.y } : null;
   };
 
   /**
@@ -1735,10 +1775,16 @@
       holeNadir = { x: 0, y: holeCamera.setback };
       return;
     }
+    // Shared, the hole is cut as the pinhole sees a grave drawn where this one
+    // is drawn: the scene camera's stance taken from the ground point under the
+    // grave's placed screen point, so the side walls show exactly as tilt 7
+    // showed them for a grave at that spot on the glass.
     const view = world.view;
+    const placed = playToScreen(view, world.x, world.y);
+    const seen = screenToGround(view, placed.x, placed.y);
     holeNadir = {
-      x: (view.x - world.x) / world.size,
-      y: (view.y + view.dist * view.rise - world.y) / world.size,
+      x: (view.x - seen.x) / world.size,
+      y: (view.y + view.dist * view.rise - seen.y) / world.size,
     };
   };
 
@@ -1771,10 +1817,9 @@
   const measureField = (world) => {
     const view = world.view;
     const topRow = Math.max(0, groundFadeRow(world));
-    const farLeft = screenToGround(view, 0, topRow);
-    const farRight = screenToGround(view, FIELD_W, topRow);
-    const near = screenToGround(view, FIELD_W / 2, world.fieldH);
-    return { left: farLeft.x, right: farRight.x, top: farLeft.y, bottom: near.y };
+    const far = screenToPlay(view, 0, topRow);
+    const near = screenToPlay(view, FIELD_W, world.fieldH);
+    return { left: 0, right: FIELD_W, top: far.y, bottom: near.y };
   };
 
   const fieldWide = (field) => field.right - field.left;
@@ -2282,7 +2327,7 @@
       len,
       alive,
       lifeLeft: lerp(1.8, 5, random()),
-      x: opts.x ?? lerp(world.field.left + 40, world.field.right - 40, random()),
+      x: opts.x ?? lerp(world.field.left, world.field.right, random()),
       // Just beyond the far edge, which is just beyond the top of the screen.
       y: opts.y ?? world.field.top - len,
       angle: opts.angle ?? random() * TAU,
@@ -2444,11 +2489,14 @@
     // the field's origin is a payout nobody can photograph. The payout is
     // chrome, so it stands outside the leaning plane and only its anchor is
     // read off the ground.
-    const on = groundToScreen(world.view, at.x, at.y);
+    const on = aroundGrave(world, at.x, at.y);
     text.position.set(on.x, on.y);
     text.scale.set(POP_CSS_PX / (POP_FONT * world.scale));
     world.pops.addChild(text);
-    world.popList.push({ text, x: at.x, y: at.y, outX: at.outX, outY: at.outY, t: 0, life: 0.8 });
+    // Its place against the grave is taken once, at birth, so the payout stays
+    // on the ground where it happened rather than following the grave about.
+    const shiftX = on.x - playToScreen(world.view, at.x, at.y).x;
+    world.popList.push({ text, x: at.x, y: at.y, outX: at.outX, outY: at.outY, shiftX, t: 0, life: 0.8 });
     spawnCrumbs(world, body);
     world.sound.scrape();
   };
@@ -3012,7 +3060,7 @@
    * the grave is smaller and higher up, at the near end larger.
    */
   const placeGrave = (world) => {
-    const on = groundToScreen(world.view, world.x, world.y);
+    const on = playToScreen(world.view, world.x, world.y);
     for (const layer of [world.grave, world.graveLip]) {
       layer.position.set(on.x, on.y);
       layer.scale.set(on.scale, on.scale * world.view.lean);
@@ -3029,9 +3077,9 @@
    * screen it stands; and how big it is, because a figure at the far end of a
    * leaning field is further from the camera than one at the near end.
    */
-  const standUpright = (world, node, groundX, groundY) => {
+  const standUpright = (world, node, groundX, groundY, place = groundToScreen) => {
     const layer = groundY > world.y + world.size ? world.uprightsFront : world.uprightsBehind;
-    const on = groundToScreen(world.view, groundX, groundY);
+    const on = place(world.view, groundX, groundY);
     node.position.set(on.x, on.y);
     node.scale.set(on.scale);
     node.zIndex = groundY;
@@ -3043,15 +3091,27 @@
    * along, and the lean on top of that, because it has no height to stand up.
    */
   const layOnGround = (world, node, groundX, groundY) => {
-    const on = groundToScreen(world.view, groundX, groundY);
+    const on = playToScreen(world.view, groundX, groundY);
     node.position.set(on.x, on.y);
     node.scale.set(on.scale, on.scale * world.view.lean);
+  };
+
+  /**
+   * A point drawn relative to the grave: at the grave's placed point, offset
+   * by exactly what the pinhole puts between the grave and that point, so a
+   * payout on the rim sits where tilt 7 drew it against the grave.
+   */
+  const aroundGrave = (world, x, y) => {
+    const placed = playToScreen(world.view, world.x, world.y);
+    const grave = groundToScreen(world.view, world.x, world.y);
+    const at = groundToScreen(world.view, x, y);
+    return { x: placed.x + at.x - grave.x, y: placed.y + at.y - grave.y, scale: at.scale };
   };
 
   const sortUprights = (world) => {
     for (const marker of world.markerList) standUpright(world, marker.node, marker.x, marker.y);
     for (const body of world.bodyList) {
-      if (body.alive) standUpright(world, body.node, body.x, body.y);
+      if (body.alive) standUpright(world, body.node, body.x, body.y, playToScreen);
     }
   };
 
@@ -3174,9 +3234,7 @@
       body.ground.tint = grey(lerp(1, 0.86, body.teeter));
       body.pitCopy.visible = false;
 
-      // Bodies from the far corners scroll straight down the field and pass
-      // off the sides of the narrower near ground on the way. That is them
-      // leaving the screen, and nothing steers or wraps them back.
+      // Bodies scroll straight down the field and leave off the bottom.
       if (body.y > world.field.bottom + body.len) removeBody(world, body);
     }
   };
@@ -3240,8 +3298,8 @@
       pop.t += dt;
       const u = clamp(pop.t / pop.life, 0, 1);
       const away = 16 * ease.outCubic(u);
-      const on = groundToScreen(world.view, pop.x + pop.outX * away, pop.y + pop.outY * away);
-      pop.text.position.set(on.x, on.y - 10 * ease.outCubic(u));
+      const on = playToScreen(world.view, pop.x + pop.outX * away, pop.y + pop.outY * away);
+      pop.text.position.set(on.x + pop.shiftX, on.y - 10 * ease.outCubic(u));
       pop.text.alpha = 1 - ease.inQuad(u);
       pop.text.scale.set(onScreen * on.scale * (1 + 0.25 * ease.outBack(clamp(u / 0.3, 0, 1))));
       if (u >= 1) {
@@ -3293,8 +3351,35 @@
   /** Build 7's floor, so a flat and narrow field still has something to swallow. */
   const FEWEST_BODIES = 12;
 
-  const bodiesWanted = (world) =>
-    Math.max(FEWEST_BODIES, Math.round((fieldWide(world.field) * fieldLong(world.field)) / GROUND_PER_BODY));
+  /** How far in from the far row's ends tilt 7 spawned, in field units. */
+  const TILT_7_SPAWN_INSET = 40;
+
+  /** Rows sampled down the field to average tilt 7's on-screen share. */
+  const SHARE_ROWS = 64;
+
+  /**
+   * As many bodies as tilt 7 had on screen at the same knobs, so the crowd
+   * Mark liked is kept. Tilt 7 spread its bodies over the pinhole's far row,
+   * wider than the screen, and at each row the screen saw only the part of
+   * that span the pinhole shows there; the play layer's field is exactly the
+   * screen, so it holds tilt 7's count times that share, averaged down the rows.
+   */
+  const bodiesWanted = (world) => {
+    const view = world.view;
+    const f = world.field;
+    const topRow = Math.max(0, groundFadeRow(world));
+    const farLeft = screenToGround(view, 0, topRow);
+    const farRight = screenToGround(view, FIELD_W, topRow);
+    const wide7 = farRight.x - farLeft.x;
+    const wanted7 = Math.max(FEWEST_BODIES, Math.round((wide7 * fieldLong(f)) / GROUND_PER_BODY));
+    const span7 = wide7 - 2 * TILT_7_SPAWN_INSET;
+    let share = 0;
+    for (let i = 0; i < SHARE_ROWS; i++) {
+      const y = lerp(f.top, f.bottom, (i + 0.5) / SHARE_ROWS);
+      share += Math.min(1, FIELD_W / groundScale(view, y) / span7);
+    }
+    return Math.max(FEWEST_BODIES, Math.round((wanted7 * share) / SHARE_ROWS));
+  };
 
   const topUpField = (world) => {
     const want = bodiesWanted(world);
@@ -3427,14 +3512,14 @@
       previousTarget = target;
       previousPointer = { x: pointer.current.x, y: pointer.current.y };
       // The answer goes back on the ground here, and only here.
-      const onGround = screenToGround(world.view, target.x, target.y);
+      const onGround = screenToPlay(world.view, target.x, target.y);
       if (!onGround) return;
       moveGrave(world, onGround.x, onGround.y);
     };
   };
 
   /** Where the grave is drawn, in screen units. */
-  const graveOnScreen = (world) => groundToScreen(world.view, world.x, world.y);
+  const graveOnScreen = (world) => playToScreen(world.view, world.x, world.y);
 
   /**
    * How far the drawn grave reaches from its own centre, in screen units, read
@@ -3477,12 +3562,12 @@
 
   /** The whole drawn grave pulled back inside the screen column. */
   const holdOnScreen = (world, at) => {
-    const on = groundToScreen(world.view, at.x, at.y);
+    const on = playToScreen(world.view, at.x, at.y);
     const reach = graveReach(world, on.scale);
     // The top edge is the horizon where there is one, because above it the
     // ground has no image and there is nowhere for a grave to be.
     const ceiling = Math.max(reach.up, groundHorizonRow(world) + world.fieldH * 0.02);
-    const back = screenToGround(
+    const back = screenToPlay(
       world.view,
       clamp(on.x, reach.across, FIELD_W - reach.across),
       clamp(on.y, ceiling, world.fieldH - reach.down),
@@ -3552,18 +3637,7 @@
       }
       if (dx === 0 && dy === 0) return;
       const n = Math.hypot(dx, dy) || 1;
-      // Worked on the glass, the same as the drag: up is straight up the screen
-      // at the same speed everywhere, and only the answer goes back on the
-      // ground. Stepped in ground units instead, a grave off the middle column
-      // runs toward the vanishing point as it climbs.
-      const drawn = graveOnScreen(world);
-      const onGround = screenToGround(
-        world.view,
-        drawn.x + (dx / n) * KEY_SPEED * dt,
-        drawn.y + (dy / n) * KEY_SPEED * dt,
-      );
-      if (!onGround) return;
-      moveGrave(world, onGround.x, onGround.y);
+      moveGrave(world, world.x + (dx / n) * KEY_SPEED * dt, world.y + (dy / n) * KEY_SPEED * dt);
     };
   };
 
@@ -3574,7 +3648,7 @@
    * carries a knob that one has never heard of, so the two must not share a
    * stored set. The flat prototype's key is left exactly where it is.
    */
-  const STORE_KEY = 'tilted-view-knobs-v1';
+  const STORE_KEY = 'tilted-view-knobs-v2';
 
   /** The slider rows, one place: what each knob is called, reads and shows. */
   const KNOB_ROWS = [
@@ -3608,6 +3682,7 @@
     }
     knobs.headstone = Boolean(knobs.headstone);
     knobs.ownHole = Boolean(knobs.ownHole);
+    if (knobs.column !== 'phone' && knobs.column !== '760') knobs.column = DEFAULTS.column;
     return knobs;
   };
 
@@ -3662,6 +3737,16 @@
       one('r-tilt').textContent = knobs.tilt.toFixed(1);
       one('r-camera').textContent = knobs.camera.toFixed(2);
       one('r-hole').textContent = knobs.ownHole ? 'own' : 'shared';
+      one('r-column').textContent = knobs.column;
+    };
+
+    /** The column in the page, then the renderer resized to it; its resize handler refills the field. */
+    const applyColumn = () => {
+      document.body.classList.toggle('column-760', knobs.column === '760');
+      pressed('c-phone', knobs.column === 'phone');
+      pressed('c-760', knobs.column === '760');
+      world.app.resize();
+      showCamera();
     };
 
     const paint = () => {
@@ -3676,6 +3761,8 @@
       }
       pressed('t-headstone', knobs.headstone);
       pressed('t-holecam', knobs.ownHole);
+      pressed('c-phone', knobs.column === 'phone');
+      pressed('c-760', knobs.column === '760');
       showCamera();
     };
 
@@ -3710,9 +3797,17 @@
       paint();
       saveKnobs(knobs);
     });
+    const setColumn = (column) => {
+      knobs.column = column === '760' ? '760' : 'phone';
+      applyColumn();
+      saveKnobs(knobs);
+    };
+    one('c-phone').addEventListener('click', () => setColumn('phone'));
+    one('c-760').addEventListener('click', () => setColumn('760'));
     one('k-reset').addEventListener('click', () => {
       Object.assign(knobs, DEFAULTS);
       world.size = knobs.size;
+      applyColumn();
       applyCamera(true);
       paint();
       try {
@@ -3724,6 +3819,7 @@
     paint();
     return {
       paint,
+      setColumn,
       /**
        * The angle set from outside the panel, for a script driving the screen.
        * It bakes the field there and then rather than on the settling timer,
@@ -3849,6 +3945,9 @@
       preference: 'webgl',
     });
     one('stage').appendChild(app.canvas);
+    // The column before the first layout, so the field is measured in the box it will be drawn in.
+    document.body.classList.toggle('column-760', knobs.column === '760');
+    app.resize();
 
     const sound = makeSound();
     const world = makeWorld(app, sound);
@@ -3917,6 +4016,7 @@
     app.renderer.on('resize', () => {
       resizeWorld(world);
       rebuildHole(world);
+      fillField(world);
     });
 
     fillField(world);
@@ -3963,10 +4063,13 @@
       // The camera, and the three pure functions a check needs to hold it to
       // its own arithmetic without going through a rendered frame.
       setTilt: (degrees, height, ownHole) => paintKnobs.setCamera(degrees, height, ownHole),
+      setColumn: (column) => paintKnobs.setColumn(column),
       camera: () => ({ ...camera, dist: world.view.dist, targetX: world.view.x, targetY: world.view.y }),
       holeCamera: () => ({ ...holeCamera, ownHole: holeCamera !== camera }),
       groundToScreen: (x, y) => groundToScreen(world.view, x, y),
       screenToGround: (x, y) => screenToGround(world.view, x, y),
+      playToScreen: (x, y) => playToScreen(world.view, x, y),
+      screenToPlay: (x, y) => screenToPlay(world.view, x, y),
       belowGround: (x, y, depth, size) => belowGround(x, y, depth, size),
       // Frames on demand, so a check can run a whole fall inside one call
       // instead of waiting on the ticker a frame at a time.
