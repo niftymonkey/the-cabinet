@@ -1,8 +1,10 @@
-# Slice B: the play layer's math and everything that moves placed on it (design record T8, T10, A7, A18, A19, A20, A21, A24, A29)
+# Slice B: the play layer's math and everything that moves placed on it (design record T8, T10, T11, T12, A7, A18, A19, A20, A21, A24, A29, A34)
 
 Follow-along row B: "Mobs, the boss, enemy shots, food and the grave's shots move in straight lines on the screen again, at the edges as well as in the middle, while the ground still leans away. Things still look smaller near the top and bigger near the bottom."
 
-One slice for one coder, carrying the old slice 10 and 11 entries whole, in order: the pure math first, then every placement on it. **It waits on Mark's A28 ruling after his play of tilt 10; an answer of evenly spaced rows re-plans it first.**
+One slice for one coder, carrying the old slice 10 and 11 entries whole, in order: the pure math first, then every placement on it. It runs after slices P1 and P2. Mark ruled A28 on 2026-09-27: tilt 9's rows (T11), which is what this entry builds.
+
+**What slices P1 and P2 changed under this entry (T12).** The field's height is the run's own, 760 to 1260, and there is no `FIELD_HEIGHT`, `COLUMN` or `SCENE_CAMERA` any more: each run has a `Scene` (`src/app/screens/game/scene.ts`: its field, its column and its camera), built by `sceneFor(field)` and handed to every renderer and to steering by `useScene(scene)` when the run begins. So wherever the parts below say `SCENE_PLAY_LAYER`, read the scene's play layer: this slice adds `playLayer: PlayLayer` to `Scene`, built in `sceneFor` as `makePlayLayer(camera, column)`, and every renderer places through the play layer of the scene it was handed. Wherever they say `FIELD_HEIGHT`, read the column's height. The play layer's math is the same function on every shape; the tests pin it on the 760 field (the design record's first table) and on a 1168 field (its second table), and every relational test runs on both. The two boundary rules below also let `scene.ts` reach `app/screens/game/playLayer`.
 
 Inside the parts, the old slice numbers still appear and map as: slice 10 and 11 are this branch's slice B, slice 12 and 13 are slice C, slice 14 is slice A, slice 15 and 16 are slice D. The parts' scratch folders stay as named. The parts share one note, one uncommitted working tree and one return.
 
@@ -10,7 +12,7 @@ Inside the parts, the old slice numbers still appear and map as: slice 10 and 11
 
 Follow-along row 10: "The groundwork for drawing everything that moves so it moves straight on the screen, worked out and tested on its own. Nothing on screen changes yet."
 
-**Dispatch only after Mark rules A28 on his play of tilt 10 of the prototype** (design record A28): his answer decides `playToColumn`'s rows. If he picks evenly spaced rows, this entry is re-planned before it is dispatched.
+Mark ruled A28: tilt 9's rows (T11). `playToColumn`'s rows are the camera's own.
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. This entry is the planning half of the flow. Your scratch folder is `local/tilt-slice-10/` in the worktree. All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read at `9b125bbc03`; slice 9 restored `FIELD_WIDTH` and `FIELD_HEIGHT` and moved lines only in `camera.ts`'s import block, so follow the name beside a number that has moved.
 
@@ -32,15 +34,15 @@ Nothing in the game reads these modules yet.
 
 ### The source it is learned from
 
-Tilt 9's `playToScreen` and `screenToPlay` (prototype worktree, `apps/hungry-grave/src/prototypes/tilted-view/index.html:758-778`), `aimHoleCamera` (`:1773-1788`) and `aroundGrave` (`:3099-3110`). Learn the idea; build fresh. The one departure, already decided (A18): in the prototype the field was the ground itself; here the fixed 540 by 760 field is spread over the ground the column's centre shows, so field y reads as the ground y `top + stretch * y`, with `top` the ground under the top row and `stretch` that ground's length over `FIELD_HEIGHT`.
+Tilt 9's `playToScreen` and `screenToPlay` (prototype worktree, `apps/hungry-grave/src/prototypes/tilted-view/index.html:758-778`), `aimHoleCamera` (`:1773-1788`) and `aroundGrave` (`:3099-3110`). Learn the idea; build fresh. The one departure, already decided (A18): in the prototype the field was the ground itself; here the fixed 540 by 760 field is spread over the ground the column's centre shows, so field y reads as the ground y `top + stretch * y`, with `top` the ground under the top row and `stretch` that ground's length over the column's height (the run's field's height, T12).
 
 ### Parts of the code this slice touches
 
-**`src/app/screens/game/playLayer.ts` (new, pure: no Pixi import, not even a type).** It may import `Camera`, `Column`, `OnColumn`, `groundToColumn`, `columnToGround`, `visibleGround`, `SCENE_CAMERA` and `COLUMN` from `./camera` (`camera.ts:139`, `:152`, `:178`, and the export block at `:251-264`), and `FieldPoint` and `FIELD_HEIGHT` from `src/game/field.ts`. Its public interface, in one export block at the end:
+**`src/app/screens/game/playLayer.ts` (new, pure: no Pixi import, not even a type).** It may import `Camera`, `Column`, `OnColumn`, `groundToColumn`, `columnToGround` and `visibleGround` from `./camera` (`camera.ts:139`, `:152`, `:178`, and its export block), and `FieldPoint` from `src/game/field.ts`. Its public interface, in one export block at the end:
 
-- `interface PlayLayer { readonly camera: Camera; readonly top: number; readonly stretch: number }`. `top`: the ground y under the column's top row (-168.081604). `stretch`: ground units along per field unit (1.224454).
-- `makePlayLayer(camera: Camera, column: Column): PlayLayer`. `top` is `visibleGround(camera, column).top`; `stretch` is that ground's length (`bottom - top`) over `FIELD_HEIGHT`. A pinhole row shows one ground y whatever its column x (`columnToGround`'s y reads the row alone, `camera.ts:152` onward), which is what lets one number stand for a row.
-- `SCENE_PLAY_LAYER: PlayLayer`, `makePlayLayer(SCENE_CAMERA, COLUMN)`.
+- `interface PlayLayer { readonly camera: Camera; readonly top: number; readonly stretch: number }`. `top`: the ground y under the column's top row (-168.081604 on the 760 field, -369.054371 on the 1168 one). `stretch`: ground units along per field unit (1.224454 and 1.281514).
+- `makePlayLayer(camera: Camera, column: Column): PlayLayer`. `top` is `visibleGround(camera, column).top`; `stretch` is that ground's length (`bottom - top`) over `column.height`. A pinhole row shows one ground y whatever its column x (`columnToGround`'s y reads the row alone, `camera.ts:152` onward), which is what lets one number stand for a row.
+- No module-level play layer: the run's is `scene.playLayer`, built in `sceneFor` (`scene.ts`, slice P2), which gains that one field in this slice.
 - `playToColumn(layer: PlayLayer, x: number, y: number): OnColumn`: `x` unchanged; `y` the row `groundToColumn` gives the ground y `top + stretch * y` on the column's centre (the camera's target x); `scale` that call's scale.
 - `columnToPlay(layer: PlayLayer, x: number, y: number): FieldPoint | null`: the exact inverse; null where `columnToGround` finds no ground (at or above the horizon).
 - `groundUnderPlay(layer: PlayLayer, x: number, y: number): FieldPoint`: the ground point the camera shows at `playToColumn(layer, x, y)`. A null there is a bug (every row of the field is below the horizon) and throws.
@@ -66,14 +68,14 @@ Tilt 9's `playToScreen` and `screenToPlay` (prototype worktree, `apps/hungry-gra
 
 Every export names its caller slice in its JSDoc, as the cited-future rule asks.
 
-**`src/__tests__/boundary.test.ts`.** Two rules in the shape of the rules for `camera.ts` and `groundPlacement.ts` (`:180-204`): `screens/game/playLayer.ts` may reach `app/screens/game/camera`, `game/field` and `game/tuning` and imports no package; `screens/game/playPlacement.ts` may reach `app/screens/game/playLayer`, `app/screens/game/groundPlacement`, `app/screens/game/camera`, `game/field` and `game/tuning` and imports no package. The reason in their JSDoc: their tests and slice 14's steering run without a renderer.
+**`src/__tests__/boundary.test.ts`.** Two rules in the shape of the rules for `camera.ts` and `groundPlacement.ts` (`:180-204`): `screens/game/playLayer.ts` may reach `app/screens/game/camera`, `game/field` and `game/tuning` and imports no package; slice P2's rule for `screens/game/scene.ts` gains `app/screens/game/playLayer`; `screens/game/playPlacement.ts` may reach `app/screens/game/playLayer`, `app/screens/game/groundPlacement`, `app/screens/game/camera`, `game/field` and `game/tuning` and imports no package. The reason in their JSDoc: their tests and slice 14's steering run without a renderer.
 
 Nothing else changes.
 
 ### What must stay unchanged
 
 - Every existing test, green and with the same name. `GOLDEN`, the bot's seed lists and every version hold.
-- Every renderer, `camera.ts`, `groundPlacement.ts`, `groundMesh.ts`, and every file under `src/game`, `src/input`, `src/tape` and `src/dev`.
+- Every renderer, `camera.ts`, `groundPlacement.ts`, `groundMesh.ts`, and every file under `src/game`, `src/input`, `src/tape` and `src/dev`. `scene.ts` changes only by its new `playLayer` field.
 
 ### Planned tests
 
@@ -81,7 +83,9 @@ Pin every name as a `test.todo` first against stubs that return a wrong value of
 
 `src/app/screens/game/__tests__/playLayer.test.ts`:
 
-1. the scene's play layer reads the field's top as the ground under the top row and stretches it 1.224454 along: `top` -168.081604 (A18)
+Tests 1 to 10 and 14 to 27 below build their layer from `sceneFor(fieldOfHeight(760))`; the tall-field tests 28 to 32 from `sceneFor(fieldOfHeight(1168))`.
+
+1. the 760 field's play layer reads the field's top as the ground under the top row and stretches it 1.224454 along: `top` -168.081604 (A18)
 2. the field's top row and bottom row are the column's: field (0, 0) draws at (0, 0) at scale 0.822071, and field (540, 760) at (540, 760) at scale 1.177929 (A18, T10: the 540 by 760 is the viewport)
 3. across, a field unit is a column unit at every row: field x 0, 135, 270, 405 and 540 draw at those column x at field y 0, 190, 380, 608 and 760 (T10)
 4. the grave's start, field (270, 608), draws at (270, 559.555815) at scale 1.084074
@@ -93,7 +97,15 @@ Pin every name as a `test.todo` first against stubs that return a wrong value of
 10. rows per field unit along: 0.697895 at field y 0, 0.968341 at 380, 1.213640 at 608, 1.432881 at 760 (A18)
 11. a traced outline has no step longer than `OUTLINE_STEP`, begins where the outline begins, and closes when asked to
 12. a field point one unit inside a traced circle of radius 32, 104 and 270 draws inside the traced polygon, and one unit outside draws outside, all around the circle, for circles centred at field (20, 608), (270, 608), (520, 608), (270, 100) and (270, 740) (A20)
-13. the field's width is the column's: `FIELD_WIDTH` equals `COLUMN.width`, which is what lets field x be column x (A18)
+13. the field's width is the column's on every field: `FIELD_WIDTH` equals the scene's column width at 760, 1168 and 1260, which is what lets field x be column x (A18)
+
+On the 1168 field (T12, the design record's second play layer table); tests 28 to 31 live in `playLayer.test.ts` and test 32 in `playPlacement.test.ts`:
+
+28. the 1168 field's play layer reads its top as the ground under the top row, -369.054371, and stretches it 1.281514 along; field (0, 0) draws at (0, 0) at scale 0.726551 and field (540, 1168) at (540, 1168) at scale 1.273449 (A18, T12)
+29. the grave's start on the 1168 field, (270, 1016), draws at (270, 925.353867) at scale 1.159834; field (100, 100) at (100, 59.231661) at 0.754285; field (400, 1108) at (400, 1066.751116) at 1.226041
+30. rows per field unit along on the 1168 field: 0.570538 at field y 0, 0.925226 at 584, 1.453931 at 1016, 1.752733 at 1168
+31. on the 1168 field column (123, 700) is field (123, 845.491370), and tests 6, 7, 11 and 12's relations hold there as on the 760 field
+32. placements on the 1168 field: mob fire at field y 1016 draws at scale 1.453931 (A21); the grave's frame at field y 1016 is 1.159834 across and 1.453931 along (A29); tests 22, 23 and 27's relations hold for graves of size 27 at (40, 1016), (270, 1016) and (500, 1016)
 
 `src/app/screens/game/__tests__/playPlacement.test.ts`:
 
@@ -116,7 +128,7 @@ Pin every name as a `test.todo` first against stubs that return a wrong value of
 
 The coder contract's floor, plus:
 
-1. Print, in your note, the design record's play layer table computed by your modules (every row and every bullet under it), each beside the record's value.
+1. Print, in your note, both of the design record's play layer tables computed by your modules (every row and every bullet under each), each beside the record's value.
 2. The two boundary rules are shown to bite: in a scratch copy under `local/tilt-slice-10/`, add a `pixi.js` type import to the copy of `playLayer.ts`, then of `playPlacement.ts`, and run the boundary test against each copy. Each must go red. The working tree is never mutated for this.
 3. No rendered check: nothing a player can see changes.
 
@@ -145,7 +157,7 @@ T8, T10, A7 as amended, A18, A19, A21. Read each in `apps/hungry-grave/docs/desi
 
 ### Parts of the code this slice touches
 
-Every renderer below places through `SCENE_PLAY_LAYER` and slice 10's `playPlacement.ts`, and none of them reads `SCENE_CAMERA` or `groundPlacement.ts` after this slice.
+Every renderer below places through the play layer of the scene it was handed (`useScene`, slice P2) and slice 10's `playPlacement.ts`, and none of them reads the scene's camera or `groundPlacement.ts` after this slice. The line numbers below were read before slice P2, which changed `SCENE_CAMERA` at each of them to the renderer's scene; follow the call beside the number.
 
 **`src/app/screens/game/FieldRenderer.ts`.**
 
@@ -223,9 +235,9 @@ Any other test that goes red follows the coder contract's stop rule.
 
 The coder contract's floor, plus:
 
-1. **The tapes still play.** The tapes in `local/tilt-shots/tapes/` were recorded at `517ee0753e`; the sim is untouched, so each still verifies to its end in the replay screen. A tape that stops verifying is a stop and report.
-2. **Rendered check.** With the capture tool, shoot the "before" set's ticks (`local/tilt-shots/before/`, today's flat game) and slice 2's ticks after the change. Read every shot and say: mobs and skulls at the left and right edges stand and fly on straight vertical lines (compare two ticks a second apart and give the drawn x of three named mobs and three skulls at each); the top corners have mobs in them in a busy section; far things are smaller; corpses and patches lie; the frame, the HUD and the buttons have not moved. Put one "before" and one "after" of the same tick side by side in `local/tilt-slice-11/` and describe the difference.
-3. **Measured straightness.** For one busy tick at each of three positions across the column (a mob near the left edge, the middle, the right edge), read the renderer's placed x for that mob over 60 consecutive ticks in a test or a scratch script under `local/tilt-slice-11/` and report the largest change in drawn x that its field x did not make (it must be 0 to 1e-9).
+1. **The tapes still play.** The four tapes slice P1 recorded in `local/tilt-shots/tapes/` (the two 760 tapes and their `-h1168` twins) each verify to their end in the replay screen. A tape that stops verifying is a stop and report.
+2. **Rendered check.** With the capture tool, shoot the "before" set's ticks (`local/tilt-shots/before/`, today's flat game) and slice 2's ticks after the change on the 760 tapes, and the same checks on the `-h1168` tapes at ticks `tape-ticks.ts` gives for the same sections, so each check is read on a tall phone's field too. Read every shot and say: mobs and skulls at the left and right edges stand and fly on straight vertical lines (compare two ticks a second apart and give the drawn x of three named mobs and three skulls at each); the top corners have mobs in them in a busy section; far things are smaller; corpses and patches lie; the frame, the HUD and the buttons have not moved. Put one "before" and one "after" of the same tick side by side in `local/tilt-slice-11/` and describe the difference.
+3. **Measured straightness.** On each of the two field heights, for one busy tick at each of three positions across the column (a mob near the left edge, the middle, the right edge), read the renderer's placed x for that mob over 60 consecutive ticks in a test or a scratch script under `local/tilt-slice-11/` and report the largest change in drawn x that its field x did not make (it must be 0 to 1e-9).
 4. **Console.** A live run in the built app, played with a few key presses, shows no error and no warning.
 
 Open for the human after this slice: nothing on its own; the grave still draws on the pinhole until slice 13, so a swallow's handover is not judged here.
@@ -234,4 +246,4 @@ Open for the human after this slice: nothing on its own; the grave still draws o
 
 ## Done when (the whole slice)
 
-Every planned test of both parts is green, every replaced test is listed, every verification step of both parts has a result in one note, `docs/branch/records/slice-B-note.md`, no pin moved, and the working tree holds the code and the tests, uncommitted.
+Every planned test of both parts is green, on both field heights where the test names them, every replaced test is listed, every verification step of both parts has a result in one note, `docs/branch/records/slice-B-note.md`, no pin moved, and the working tree holds the code and the tests, uncommitted.
