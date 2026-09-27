@@ -4,8 +4,8 @@
  * the ground the run drew.
  */
 
-import type { Container, Renderer, Sprite, TilingSprite } from 'pixi.js';
-import { Texture, TextureSource } from 'pixi.js';
+import type { Container, Renderer, Sprite } from 'pixi.js';
+import { Mesh, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
@@ -24,7 +24,15 @@ import {
   DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
 } from '../BackgroundRenderer';
+import {
+  COLUMN,
+  SCENE_CAMERA,
+  columnToGround,
+  groundToColumn,
+} from '../camera';
 import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
+import { groundGrid } from '../groundMesh';
+import { lyingAt } from '../groundPlacement';
 import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
 
@@ -39,23 +47,62 @@ const NO_TINT = 0xffffff;
 function viewing(shown: number): {
   view: Renderer;
   baked: number[];
+  announced: string[];
 } {
   const baked: number[] = [];
+  // Every change a baked texture's style announces, with the wrap it
+  // announced: the sampler the GPU binds is rebuilt from an announced style.
+  const announced: string[] = [];
   const view = {
     screen: { width: FIELD_WIDTH },
     canvas: { getBoundingClientRect: () => ({ width: shown }) },
     generateTexture: (options: { resolution: number }): Texture => {
       baked.push(options.resolution);
-      return new Texture({
+      const texture = new Texture({
         source: new TextureSource({ width: FIELD_WIDTH, height: FIELD_HEIGHT }),
       });
+      const style = texture.source.style;
+      style.on('change', () =>
+        announced.push(`${style.addressModeU} ${style.addressModeV}`),
+      );
+      return texture;
     },
   } as unknown as Renderer;
-  return { view, baked };
+  return { view, baked, announced };
 }
 
-function groundOf(layers: FieldLayers): TilingSprite {
-  return layers.layer('ground').children[0] as TilingSprite;
+function groundOf(layers: FieldLayers): Mesh {
+  return layers.layer('ground').children[0] as Mesh;
+}
+
+/**
+ * The design record's table for the ground the column sees (tilted view,
+ * "Values are data"), worked independently of the camera module.
+ */
+const SEEN = {
+  top: -168.0816,
+  bottom: 762.5033,
+  farLeft: -58.4389,
+  farRight: 598.4389,
+};
+
+/** The record's numbers are given to four places. */
+const RECORD_CLOSE = 1e-3;
+
+/** Where a dressing piece's foot is on the ground, and how wide it is there. */
+function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
+  const foot = columnToGround(SCENE_CAMERA, sprite.x, sprite.y);
+  if (foot === null)
+    throw new Error('a dressing piece stands above the horizon');
+  const { scale } = groundToColumn(SCENE_CAMERA, foot.x, foot.y);
+  return { x: foot.x, y: foot.y, half: sprite.width / scale / 2 };
+}
+
+/** The ground's texture row under one grid vertex, in field units. */
+function groundRowAt(layers: FieldLayers, vertex: number): number {
+  const v = groundOf(layers).geometry.uvs[vertex * 2 + 1];
+  if (v === undefined) throw new Error(`no ground vertex ${vertex}`);
+  return v * FIELD_HEIGHT;
 }
 
 /** The renderer's own pass reaching the ground, which is where it meets a renderer. */
@@ -143,7 +190,8 @@ function drawnEyeWidth(): number {
   renderer.sync(runInSection('crowd', index * DRESSING_INTERVAL_TICKS, 1e6));
   const eye = dressing(layers)[0];
   if (eye === undefined) throw new Error('the ground layer holds no dressing');
-  return eye.width;
+  // In field units: the camera draws it at its row's scale across (A7).
+  return footOnGround(eye).half * 2;
 }
 
 function dressing(layers: FieldLayers): Sprite[] {
@@ -184,32 +232,6 @@ describe('the stand-in ground (module 105)', () => {
     const { layers } = attached();
     expect(LAYER_ORDER).toContain('ground');
     expect(layers.layer('ground').children.length).toBeGreaterThan(0);
-  });
-
-  it('moves the ground at the rate a landed patch drifts, so a patch stays on its rock', () => {
-    // Territory is lobbed onto the ground and becomes hands pulling at mobs, so
-    // it belongs to the ground: a patch and the rock under it are one thing and
-    // move as one (Mark's ruling after the slice 13b deploy, 2026-09-08). The
-    // rate is read by drifting a real patch through the sim rather than off the
-    // renderer's own row, or the assertion moves with what it is checking.
-    const run = createRun(19);
-    const patch = run.patches[0];
-    if (patch === undefined) throw new Error('no patch pool slot 0');
-    patch.alive = true;
-    patch.y = 100;
-    patch.radius = 40;
-    const stood = patch.y;
-    const ticks = 120;
-    for (let each = 0; each < ticks; each++) advanceTerritory(run);
-    const patchFell = patch.y - stood;
-    expect(patchFell).toBeGreaterThan(0);
-
-    const { layers, renderer } = attached();
-    const floor = layers.layer('ground').children[0] as TilingSprite;
-    renderer.sync(runInSection('procession', 0, 0));
-    const from = floor.tilePosition.y;
-    renderer.sync(runInSection('procession', ticks, ticks));
-    expect(floor.tilePosition.y - from).toBeCloseTo(patchFell, 6);
   });
 
   it('dresses the ground thickly, at an interval derived from the density row', () => {
@@ -275,19 +297,6 @@ describe('the stand-in ground (module 105)', () => {
     );
   });
 
-  it('keeps every placement inside the field it drifts down', () => {
-    const { layers, renderer } = attached();
-    renderer.sync(runInSection('crowd', 5000, 5000));
-    for (const sprite of dressing(layers)) {
-      if (!sprite.visible) continue;
-      expect(sprite.x - sprite.width / 2).toBeGreaterThanOrEqual(-0.001);
-      expect(sprite.x + sprite.width / 2).toBeLessThanOrEqual(
-        FIELD_WIDTH + 0.001,
-      );
-      expect(sprite.y - sprite.height).toBeLessThanOrEqual(FIELD_HEIGHT);
-    }
-  });
-
   it('asks for a texture again while its bundle is still coming, and draws nothing until it lands', () => {
     let answering = false;
     const stub = artStub();
@@ -347,27 +356,6 @@ describe('the ground painted from the prototype (design record R4)', () => {
     expect(baked).toHaveLength(1);
   });
 
-  it('the ground still runs at the rate a landed patch drifts', () => {
-    // Territory is lobbed onto the ground, so a patch and the earth under it
-    // move as one (Mark, after the slice 13b deploy). The painted field has to
-    // keep that rate, and one repeat of the baked picture has to be one field
-    // height, or the rate would be right and the picture would still slide.
-    const { layers, renderer } = attached();
-    const { view } = viewing(390);
-    frame(layers, renderer, view);
-    frame(layers, renderer, view);
-    const floor = groundOf(layers);
-    const ticks = 120;
-    renderer.sync(runInSection('procession', 0, 0));
-    const from = floor.tilePosition.y;
-    renderer.sync(runInSection('procession', ticks, ticks));
-    expect(floor.tilePosition.y - from).toBeCloseTo(ticks * SCROLL_SPEED, 6);
-    expect(floor.tileScale.y * floor.texture.height).toBeCloseTo(
-      FIELD_HEIGHT,
-      6,
-    );
-  });
-
   it('the ground repaints only when the view changes what it asks for', () => {
     // One bake a run is the shape: the picture is a function of the field,
     // which is fixed, and of the texture density, which moves only when the
@@ -377,8 +365,10 @@ describe('the ground painted from the prototype (design record R4)', () => {
     const { layers, renderer } = attached();
     const phone = viewing(390);
     for (let each = 0; each < 3; each++) frame(layers, renderer, phone.view);
+    // The near ground is baked as sharp as it draws, at the column's nearest
+    // row's scale, 1.178 (A10's rule applied to the ground).
     expect(phone.baked).toEqual([
-      groundResolution(390 / FIELD_WIDTH, 1, {
+      groundResolution((390 / FIELD_WIDTH) * 1.177929, 1, {
         width: FIELD_WIDTH,
         height: FIELD_HEIGHT,
       }),
@@ -387,7 +377,7 @@ describe('the ground painted from the prototype (design record R4)', () => {
     const wide = viewing(1600);
     for (let each = 0; each < 3; each++) frame(layers, renderer, wide.view);
     expect(wide.baked).toEqual([
-      groundResolution(1600 / FIELD_WIDTH, 1, {
+      groundResolution((1600 / FIELD_WIDTH) * 1.177929, 1, {
         width: FIELD_WIDTH,
         height: FIELD_HEIGHT,
       }),
@@ -492,8 +482,10 @@ describe("the Waking's own source", () => {
     // sees. The dressing scale is a row rather than a derivation, so this is
     // what holds the two ends together.
     expect(source.width).toBeCloseTo(2 * SET_PIECE_HALF_WIDTH, 6);
-    expect(source.position.x).toBe(200);
-    expect(source.position.y).toBe(380);
+    // It lies on the ground at its own point (A7).
+    const at = lyingAt(SCENE_CAMERA, 200, 380);
+    expect(source.position.x).toBeCloseTo(at.x, 6);
+    expect(source.position.y).toBeCloseTo(at.y, 6);
     expect(source.tint).toBe(PALETTE.standInWaking.hex);
     expect(source.tint).not.toBe(PALETTE.standInVigilTint.hex);
   });
@@ -537,5 +529,167 @@ describe("the Waking's own source", () => {
     expect(layers.layer('ground').getChildIndex(rim)).toBeLessThan(
       layers.layer('ground').getChildIndex(source),
     );
+  });
+});
+
+describe('the ground under the tilted camera (tilted view A7, A9)', () => {
+  it('the ground is a mesh over the baked picture, repeating on both axes', () => {
+    // A grid laid on the column, each vertex sampling the ground the camera
+    // shows it, over the baked picture repeating across and down, because the
+    // far row sees 656.9 units of ground across a 540-unit picture (A9).
+    const { layers, renderer } = attached();
+    const { view } = viewing(390);
+    frame(layers, renderer, view);
+    frame(layers, renderer, view);
+    const floor = groundOf(layers);
+    expect(floor).toBeInstanceOf(Mesh);
+    const grid = groundGrid(
+      SCENE_CAMERA,
+      COLUMN,
+      { width: FIELD_WIDTH, height: FIELD_HEIGHT },
+      0,
+    );
+    expect([...floor.geometry.positions]).toEqual([...grid.positions]);
+    expect(floor.texture).not.toBe(Texture.EMPTY);
+    const style = floor.texture.source.style;
+    expect([style.addressModeU, style.addressModeV]).toEqual([
+      'repeat',
+      'repeat',
+    ]);
+  });
+
+  it("the ground's repeat reaches the sampler, so the far rows and the sides never smear the picture's edge", () => {
+    // Found by the rendered check: the top of the column and its sides showed
+    // the baked picture's last row and column smeared across them, which is a
+    // clamped sampler. WebGL2 binds a sampler built from the style and cached
+    // by its id, and setting the wrap alone leaves that id as it was, so the
+    // style has to announce the change (the prototype's own fix, tilted-view
+    // index.html:1957-1963: "set and pushed rather than left for the texture
+    // to notice").
+    const { layers, renderer } = attached();
+    const { view, announced } = viewing(390);
+    frame(layers, renderer, view);
+    frame(layers, renderer, view);
+    expect(announced).toContain('repeat repeat');
+  });
+
+  it("the ground runs at the rate a landed patch drifts: over a number of ticks its texture moves by that many ticks of the sim's scroll, in ground units", () => {
+    // Territory is lobbed onto the ground, so a patch and the earth under it
+    // move as one (Mark, after the slice 13b deploy). The rate is read by
+    // drifting a real patch through the sim rather than off the renderer's own
+    // row, and one repeat of the picture is one field height, so the texture
+    // row under every vertex moves by exactly what the patch fell (A9: the
+    // scroll stays the sim's own, in ground units).
+    const run = createRun(19);
+    const patch = run.patches[0];
+    if (patch === undefined) throw new Error('no patch pool slot 0');
+    patch.alive = true;
+    patch.y = 100;
+    patch.radius = 40;
+    const ticks = 120;
+    for (let each = 0; each < ticks; each++) advanceTerritory(run);
+    const patchFell = patch.y - 100;
+    expect(patchFell).toBeGreaterThan(0);
+
+    const { layers, renderer } = attached();
+    renderer.sync(runInSection('procession', 0, 0));
+    const from = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
+    renderer.sync(runInSection('procession', ticks, ticks));
+    const to = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
+    to.forEach((row, at) =>
+      expect((from[at] ?? NaN) - row).toBeCloseTo(patchFell, 4),
+    );
+  });
+
+  it('the dressing is laid across the far row of the ground the camera sees and falls from its top row to past its bottom row', () => {
+    // Laid across the ground the camera sees rather than the old rectangle,
+    // so the far corners are dressed too, and on screen for as long as it
+    // takes to fall from the top row to past the bottom one.
+    const { layers, renderer } = attached();
+    const lefts: number[] = [];
+    const rights: number[] = [];
+    for (let index = 1000; index < 1200; index++) {
+      renderer.sync(
+        runInSection('procession', index * DRESSING_INTERVAL_TICKS, 1e6),
+      );
+      const newest = dressing(layers)[0];
+      if (newest === undefined || !newest.visible) continue;
+      const foot = footOnGround(newest);
+      expect(foot.y).toBeCloseTo(SEEN.top, 2);
+      lefts.push(foot.x - foot.half);
+      rights.push(foot.x + foot.half);
+    }
+    expect(lefts.length).toBeGreaterThan(100);
+    expect(Math.min(...lefts)).toBeLessThan(0);
+    expect(Math.min(...lefts)).toBeGreaterThanOrEqual(
+      SEEN.farLeft - RECORD_CLOSE,
+    );
+    expect(Math.max(...rights)).toBeGreaterThan(FIELD_WIDTH);
+    expect(Math.max(...rights)).toBeLessThanOrEqual(
+      SEEN.farRight + RECORD_CLOSE,
+    );
+    // The tallest piece, the cliff, is 112 pixels at 1.875 units a pixel.
+    const fall = SEEN.bottom - SEEN.top + 112 * 1.875;
+    expect(DRIFT_WINDOW_TICKS * SCROLL_SPEED).toBeGreaterThanOrEqual(
+      fall - RECORD_CLOSE,
+    );
+    expect((DRIFT_WINDOW_TICKS - 1) * SCROLL_SPEED).toBeLessThan(
+      fall + RECORD_CLOSE,
+    );
+  });
+
+  it('a statue stands and an eye lies', () => {
+    // Art drawn front-on stands, upright at the camera's scale on both axes;
+    // art drawn from above lies, foreshortened down the column by the lean
+    // times the scale where it lies (A7).
+    const indexOf = (set: 'procession' | 'crowd', alias: string): number => {
+      const found = [...Array(400).keys()].find(
+        (each) => artAt(DRESSING_SETS[set], each).alias === alias,
+      );
+      if (found === undefined) throw new Error(`no ${alias} placed`);
+      return found;
+    };
+    const fallenFor = 400 / SCROLL_SPEED;
+    const shown = (set: 'procession' | 'crowd', alias: string): Sprite => {
+      const { layers, renderer } = attached();
+      const index = indexOf(set, alias);
+      const tick = index * DRESSING_INTERVAL_TICKS + Math.round(fallenFor);
+      renderer.sync(runInSection(set, tick, 1e6));
+      const slot = Math.floor(tick / DRESSING_INTERVAL_TICKS) - index;
+      const sprite = dressing(layers)[slot];
+      if (sprite === undefined || !sprite.visible)
+        throw new Error(`${alias} not shown`);
+      return sprite;
+    };
+    const statue = shown('procession', 'standIn/ground/statue-a1.png');
+    expect(statue.scale.y).toBeCloseTo(statue.scale.x, 9);
+
+    const eye = shown('crowd', 'standIn/ground/little-eyes.png');
+    const foot = footOnGround(eye);
+    const { scale } = groundToColumn(SCENE_CAMERA, foot.x, foot.y);
+    expect(eye.scale.y / eye.scale.x).toBeCloseTo(scale * 0.843391, 5);
+  });
+
+  it('keeps every placement inside the ground the camera sees', () => {
+    // Every piece stands inside the far row it was laid across, and nothing
+    // is still placed once it has fallen past the bottom row by the tallest
+    // piece (A2's trapezoid, bounded in ground units).
+    const { layers, renderer } = attached();
+    renderer.sync(runInSection('crowd', 5000, 5000));
+    const showing = dressing(layers).filter((sprite) => sprite.visible);
+    expect(showing.length).toBeGreaterThan(0);
+    for (const sprite of showing) {
+      const foot = footOnGround(sprite);
+      expect(foot.x - foot.half).toBeGreaterThanOrEqual(
+        SEEN.farLeft - RECORD_CLOSE,
+      );
+      expect(foot.x + foot.half).toBeLessThanOrEqual(
+        SEEN.farRight + RECORD_CLOSE,
+      );
+      expect(foot.y).toBeGreaterThanOrEqual(SEEN.top - RECORD_CLOSE);
+      expect(foot.y).toBeLessThanOrEqual(
+        SEEN.bottom + 112 * 1.875 + RECORD_CLOSE,
+      );
+    }
   });
 });

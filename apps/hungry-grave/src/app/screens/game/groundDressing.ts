@@ -29,20 +29,35 @@ interface Cell {
 interface StandInArt {
   readonly alias: string;
   readonly cell: Cell | null;
+  readonly stance: Stance;
 }
 
-const singleFrame = (alias: string): StandInArt => ({ alias, cell: null });
+/**
+ * How a piece meets the tilted camera (design record A7): art drawn front-on
+ * stands upright from its foot, and art drawn from above lies on the ground.
+ * Read off each piece's own pixels.
+ */
+type Stance = 'standing' | 'lying';
+
+const singleFrame = (alias: string, stance: Stance): StandInArt => ({
+  alias,
+  cell: null,
+  stance,
+});
 
 const sheetCell = (
   alias: string,
   x: number,
-  width: number,
-  height: number,
-): StandInArt => ({ alias, cell: { x, y: 0, width, height } });
+  size: { width: number; height: number },
+  stance: Stance,
+): StandInArt => ({ alias, cell: { x, y: 0, ...size }, stance });
 
 /** The Waking's own source, dormant and awake, both single frames. */
-const SOURCE_DORMANT = singleFrame('standIn/ground/waking-dormant.png');
-const SOURCE_AWAKE = singleFrame('standIn/ground/waking-awake.png');
+const SOURCE_DORMANT = singleFrame(
+  'standIn/ground/waking-dormant.png',
+  'lying',
+);
+const SOURCE_AWAKE = singleFrame('standIn/ground/waking-awake.png', 'lying');
 
 /**
  * The Crowd's eye dressing, in its sheet's own pixels. It is the one dimension
@@ -72,52 +87,97 @@ const DRESSING_SETS = {
   procession: {
     tint: PALETTE.standInGroundDressCold,
     art: [
-      singleFrame('standIn/ground/statue-a1.png'),
-      singleFrame('standIn/ground/statue-a2.png'),
-      singleFrame('standIn/ground/statue-b1.png'),
-      singleFrame('standIn/ground/statue-b2.png'),
-      singleFrame('standIn/ground/statue-c1.png'),
-      singleFrame('standIn/ground/statue-c2.png'),
-      singleFrame('standIn/ground/book-altar.png'),
+      singleFrame('standIn/ground/statue-a1.png', 'standing'),
+      singleFrame('standIn/ground/statue-a2.png', 'standing'),
+      singleFrame('standIn/ground/statue-b1.png', 'standing'),
+      singleFrame('standIn/ground/statue-b2.png', 'standing'),
+      singleFrame('standIn/ground/statue-c1.png', 'standing'),
+      singleFrame('standIn/ground/statue-c2.png', 'standing'),
+      singleFrame('standIn/ground/book-altar.png', 'standing'),
       // The left column of a two-piece sheet whose top right cell is a solid
       // black block, which drew as a hole in the rock until it was cut out.
-      sheetCell('standIn/ground/cliff.png', 0, 48, 112),
+      sheetCell(
+        'standIn/ground/cliff.png',
+        0,
+        { width: 48, height: 112 },
+        'standing',
+      ),
     ],
   },
   crowd: {
     tint: PALETTE.standInGroundDressWet,
     art: [
-      singleFrame('standIn/ground/urn-1.png'),
-      singleFrame('standIn/ground/urn-2.png'),
-      singleFrame('standIn/ground/short-vein-column-1.png'),
-      singleFrame('standIn/ground/short-vein-column-2.png'),
-      singleFrame('standIn/ground/tall-vein-column-1.png'),
-      singleFrame('standIn/ground/tall-vein-column-2.png'),
+      singleFrame('standIn/ground/urn-1.png', 'standing'),
+      singleFrame('standIn/ground/urn-2.png', 'standing'),
+      singleFrame('standIn/ground/short-vein-column-1.png', 'standing'),
+      singleFrame('standIn/ground/short-vein-column-2.png', 'standing'),
+      singleFrame('standIn/ground/tall-vein-column-1.png', 'standing'),
+      singleFrame('standIn/ground/tall-vein-column-2.png', 'standing'),
       // The fullest frame of each vein's own pulse, off sheets of 32 by 16
       // frames that differ from one another only by where in that pulse they
       // stand.
-      sheetCell('standIn/ground/vein-a.png', 8 * 32, 32, 16),
-      sheetCell('standIn/ground/vein-b.png', 9 * 32, 32, 16),
+      sheetCell(
+        'standIn/ground/vein-a.png',
+        8 * 32,
+        { width: 32, height: 16 },
+        'lying',
+      ),
+      sheetCell(
+        'standIn/ground/vein-b.png',
+        9 * 32,
+        { width: 32, height: 16 },
+        'lying',
+      ),
       // The open eye of a 36-cell sheet whose first eleven cells are empty.
       sheetCell(
         'standIn/ground/little-eyes.png',
         13 * EYE_CELL_PIXELS,
-        EYE_CELL_PIXELS,
-        EYE_CELL_PIXELS,
+        { width: EYE_CELL_PIXELS, height: EYE_CELL_PIXELS },
+        'lying',
       ),
     ],
   },
   vigil: {
     tint: PALETTE.standInVigilTint,
     art: [
-      sheetCell('standIn/ground/floating-rock-a1.png', 0, 32, 32),
-      sheetCell('standIn/ground/floating-rock-a2.png', 0, 32, 32),
-      sheetCell('standIn/ground/floating-rock-b1.png', 0, 16, 32),
-      sheetCell('standIn/ground/floating-rock-b2.png', 0, 16, 32),
-      singleFrame('standIn/ground/amalgam-arc-1.png'),
-      singleFrame('standIn/ground/amalgam-arc-2.png'),
-      sheetCell('standIn/ground/eye.png', 0, 32, 32),
-      sheetCell('standIn/ground/tentacle.png', 0, 48, 64),
+      sheetCell(
+        'standIn/ground/floating-rock-a1.png',
+        0,
+        { width: 32, height: 32 },
+        'standing',
+      ),
+      sheetCell(
+        'standIn/ground/floating-rock-a2.png',
+        0,
+        { width: 32, height: 32 },
+        'standing',
+      ),
+      sheetCell(
+        'standIn/ground/floating-rock-b1.png',
+        0,
+        { width: 16, height: 32 },
+        'standing',
+      ),
+      sheetCell(
+        'standIn/ground/floating-rock-b2.png',
+        0,
+        { width: 16, height: 32 },
+        'standing',
+      ),
+      singleFrame('standIn/ground/amalgam-arc-1.png', 'standing'),
+      singleFrame('standIn/ground/amalgam-arc-2.png', 'standing'),
+      sheetCell(
+        'standIn/ground/eye.png',
+        0,
+        { width: 32, height: 32 },
+        'lying',
+      ),
+      sheetCell(
+        'standIn/ground/tentacle.png',
+        0,
+        { width: 48, height: 64 },
+        'standing',
+      ),
     ],
   },
 } as const satisfies Record<string, DressingSet>;
@@ -192,4 +252,4 @@ export {
   artAt,
   acrossAt,
 };
-export type { StandInArt, DressingSetName };
+export type { StandInArt, DressingSetName, Stance };

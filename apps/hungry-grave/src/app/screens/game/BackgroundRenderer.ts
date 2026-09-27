@@ -2,7 +2,14 @@
 // the per-section dressing that drifts across a boundary, and the Waking's own
 // source. It draws into `ground` and adds no layer name (ADR 0014, ADR 0049).
 
-import { Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
+import {
+  Graphics,
+  Mesh,
+  MeshGeometry,
+  Rectangle,
+  Sprite,
+  Texture,
+} from 'pixi.js';
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
 import type { RunState } from '../../../game/run';
@@ -10,7 +17,14 @@ import type { SetPiece } from '../../../game/stage/setPiece';
 import { SECTIONS } from '../../../game/stage/stage';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import type { DressingSetName, StandInArt } from './groundDressing';
+import {
+  COLUMN,
+  SCENE_CAMERA,
+  bladeReach,
+  groundToColumn,
+  visibleGround,
+} from './camera';
+import type { DressingSetName, Stance, StandInArt } from './groundDressing';
 import {
   acrossAt,
   artAt,
@@ -21,11 +35,28 @@ import {
   SOURCE_DORMANT,
 } from './groundDressing';
 import type { Field } from './groundPainting';
+import type { GroundGrid } from './groundMesh';
+import { groundGrid, groundGridIndices } from './groundMesh';
 import { groundResolution, paintGround } from './groundPainting';
+import type { Placement } from './groundPlacement';
+import { lyingAt, standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /** The field the ground is painted across, which ADR 0003 fixes. */
 const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
+
+/** The patch of ground the camera shows the column (A2), which the dressing is laid across. */
+const SEEN = visibleGround(SCENE_CAMERA, COLUMN);
+
+/**
+ * The camera's scale at the column's nearest row, 1.178, so the near ground is
+ * baked as sharp as it draws (A10's rule, applied to the ground).
+ */
+const NEAREST_ROW_SCALE = groundToColumn(
+  SCENE_CAMERA,
+  COLUMN.width / 2,
+  SEEN.bottom,
+).scale;
 
 /**
  * How fast the ground runs against the field: the field's own scroll, so what
@@ -64,14 +95,15 @@ const DRESSING_SCALE = 1.875;
 const TALLEST_DRESSING_PIXELS = 112;
 
 /**
- * How long a piece of dressing takes to fall from the top edge to clear of the
- * bottom one. It is the drift window: at a boundary the outgoing set stops
- * being placed and the incoming starts, and both are on screen until the last
- * of the old leaves the bottom edge (decision 22's amendment, Einhänder's
- * answer). No fade, no cut, no card.
+ * How long a piece of dressing takes to fall from the top row of the ground
+ * the camera sees to clear of its bottom row. It is the drift window: at a
+ * boundary the outgoing set stops being placed and the incoming starts, and
+ * both are on screen until the last of the old leaves the bottom edge
+ * (decision 22's amendment, Einhänder's answer). No fade, no cut, no card.
  */
 const DRIFT_WINDOW_TICKS = Math.ceil(
-  (FIELD_HEIGHT + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) / GROUND_SPEED,
+  (SEEN.bottom - SEEN.top + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) /
+    GROUND_SPEED,
 );
 
 /**
@@ -95,6 +127,16 @@ const DRESSING_INTERVAL_TICKS = Math.round(
 /** One sprite per placement that can be on screen at once, plus the one arriving. */
 const DRESSING_SLOTS =
   Math.ceil(DRIFT_WINDOW_TICKS / DRESSING_INTERVAL_TICKS) + 1;
+
+/**
+ * Where a piece of dressing draws with its foot at this ground point. Every
+ * piece is anchored at its foot, so a standing one rises from it and a lying
+ * one reaches up the ground from it.
+ */
+const placementOf = (stance: Stance, x: number, y: number): Placement =>
+  stance === 'standing'
+    ? standingAt(SCENE_CAMERA, x, y, 0)
+    : lyingAt(SCENE_CAMERA, x, y);
 
 /** How far the source's dark companion stands out past its body, in field units. */
 const SOURCE_RIM = 3;
@@ -134,11 +176,28 @@ interface GroundView {
  * chosen tick draws the ground the run drew and this renderer holds nothing
  * across frames but its textures.
  */
+/**
+ * The ground as a grid laid on the column, each vertex sampling the ground the
+ * camera shows it (A9). Its positions never move; only the texture rows do, as
+ * the ground scrolls. Held out of the batcher, which would not keep the
+ * repeat the texture samples with.
+ */
+const groundMeshOver = (grid: GroundGrid): Mesh => {
+  const geometry = new MeshGeometry({
+    positions: grid.positions,
+    uvs: grid.uvs,
+    indices: groundGridIndices(),
+  });
+  geometry.batchMode = 'no-batch';
+  return new Mesh({ geometry, texture: Texture.EMPTY });
+};
+
 class BackgroundRenderer {
-  private readonly ground = new TilingSprite({
-    texture: Texture.EMPTY,
-    width: FIELD_WIDTH,
-    height: FIELD_HEIGHT,
+  /** The grid unscrolled, which every frame's texture rows are read from. */
+  private readonly grid = groundGrid(SCENE_CAMERA, COLUMN, FIELD, 0);
+  private readonly ground = groundMeshOver({
+    positions: this.grid.positions,
+    uvs: this.grid.uvs.slice(),
   });
   private readonly dressing: Sprite[] = [];
   private readonly sourceRim = new Sprite();
@@ -198,10 +257,22 @@ class BackgroundRenderer {
     this.syncSource(run.setPiece);
   }
 
-  // The picture is one field tall and repeats down the screen, so the run's own
-  // tick is the whole of where the ground stands.
+  /**
+   * The picture is one field tall and repeats down the ground, so the run's
+   * own tick is the whole of where the ground stands: every vertex samples the
+   * ground it shows less the scroll, in ground units, so near ground runs
+   * faster on the screen than far ground (A9). The scroll is taken within one
+   * repeat, which the texture cannot tell apart, so the rows keep their
+   * precision on a long run.
+   */
   private syncGround(tick: number): void {
-    this.ground.tilePosition.y = tick * GROUND_SPEED;
+    const scrolled = ((tick * GROUND_SPEED) % FIELD.height) / FIELD.height;
+    const rows = this.ground.geometry.uvs;
+    const unscrolled = this.grid.uvs;
+    for (let at = 1; at < rows.length; at += 2) {
+      rows[at] = (unscrolled[at] ?? 0) - scrolled;
+    }
+    this.ground.geometry.getBuffer('aUV').update();
   }
 
   /**
@@ -240,7 +311,7 @@ class BackgroundRenderer {
     const viewScale = this.viewScaleFor(renderer);
     if (viewScale === null) return;
     const resolution = groundResolution(
-      viewScale,
+      viewScale * NEAREST_ROW_SCALE,
       globalThis.devicePixelRatio || 1,
       FIELD,
     );
@@ -273,19 +344,21 @@ class BackgroundRenderer {
    */
   private bakeGround(renderer: GroundView, resolution: number): void {
     const art = new Graphics();
-    paintGround(art, FIELD);
+    paintGround(art, FIELD, bladeReach(SCENE_CAMERA));
     const texture = renderer.generateTexture({
       target: art,
       frame: new Rectangle(0, 0, FIELD.width, FIELD.height),
       resolution,
       antialias: true,
     });
+    // Repeating both ways, because the camera sees more ground than the
+    // picture holds. WebGL2 binds a sampler built from the style and cached by
+    // its id, which setting the wrap leaves as it was, so the style is pushed
+    // (the prototype's own fix, tilted-view index.html:1957-1963).
+    texture.source.style.addressMode = 'repeat';
+    texture.source.style.update();
     const spent = this.ground.texture;
     this.ground.texture = texture;
-    this.ground.tileScale.set(
-      FIELD.width / texture.width,
-      FIELD.height / texture.height,
-    );
     art.destroy(true);
     if (spent !== Texture.EMPTY) spent.destroy(true);
   }
@@ -308,22 +381,28 @@ class BackgroundRenderer {
   private placeDressing(sprite: Sprite, run: RunState, index: number): void {
     const fallen = (run.tick - index * DRESSING_INTERVAL_TICKS) * GROUND_SPEED;
     const set = DRESSING_SETS[this.dressingFor(run, index)];
-    const texture = this.textureFor(artAt(set, index));
+    const art = artAt(set, index);
+    const texture = this.textureFor(art);
     if (texture === null) {
       sprite.visible = false;
       return;
     }
     const width = texture.frame.width * DRESSING_SCALE;
     const height = texture.frame.height * DRESSING_SCALE;
-    sprite.visible = fallen - height <= FIELD_HEIGHT;
+    sprite.visible = fallen - height <= SEEN.bottom - SEEN.top;
     if (!sprite.visible) return;
     if (sprite.texture !== texture) sprite.texture = texture;
     sprite.tint = set.tint.hex;
-    sprite.setSize(width, height);
-    sprite.position.set(
-      width / 2 + acrossAt(index) * (FIELD_WIDTH - width),
-      fallen,
+    // Laid across the far row, where it is placed, so the far corners the
+    // camera sees are dressed too (A4's rule for anything spread across).
+    const farWidth = SEEN.farRight - SEEN.farLeft;
+    const at = placementOf(
+      art.stance,
+      SEEN.farLeft + width / 2 + acrossAt(index) * (farWidth - width),
+      SEEN.top + fallen,
     );
+    sprite.setSize(width * at.scaleX, height * at.scaleY);
+    sprite.position.set(at.x, at.y);
   }
 
   /**
@@ -358,10 +437,15 @@ class BackgroundRenderer {
     const height = (width * texture.frame.height) / texture.frame.width;
     if (this.source.texture !== texture) this.source.texture = texture;
     if (this.sourceRim.texture !== texture) this.sourceRim.texture = texture;
-    this.source.setSize(width, height);
-    this.sourceRim.setSize(width + 2 * SOURCE_RIM, height + 2 * SOURCE_RIM);
-    this.source.position.set(setPiece.x, setPiece.y);
-    this.sourceRim.position.set(setPiece.x, setPiece.y);
+    // The source lies on the ground at the set piece's point (A7).
+    const at = lyingAt(SCENE_CAMERA, setPiece.x, setPiece.y);
+    this.source.setSize(width * at.scaleX, height * at.scaleY);
+    this.sourceRim.setSize(
+      (width + 2 * SOURCE_RIM) * at.scaleX,
+      (height + 2 * SOURCE_RIM) * at.scaleY,
+    );
+    this.source.position.set(at.x, at.y);
+    this.sourceRim.position.set(at.x, at.y);
   }
 
   /**

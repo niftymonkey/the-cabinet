@@ -4,12 +4,14 @@
  */
 
 import type { Container, ICanvas, Renderer } from 'pixi.js';
-import { BrowserAdapter, DOMAdapter, Graphics } from 'pixi.js';
+import { BrowserAdapter, DOMAdapter, Graphics, PerspectiveMesh } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Grave } from '../../../../game/grave';
 import { graveHitbox, graveWidth } from '../../../../game/grave';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../../../game/tuning';
+import { SCENE_CAMERA, groundToColumn } from '../camera';
 import { BAKE_PADDING } from '../graveDrawingValues';
+import type { Corners } from '../GraveRenderer';
 import { GraveRenderer } from '../GraveRenderer';
 import { FieldLayers } from '../layering';
 
@@ -90,6 +92,29 @@ function pieceOf(layers: FieldLayers, at: number): Container {
   return piece;
 }
 
+/** The corners of a ground rectangle round the grave, clockwise from the far left, where the camera draws them. */
+function projectedRectangle(at: Grave, halfWidth: number, halfLength: number) {
+  return [
+    [at.x - halfWidth, at.y - halfLength],
+    [at.x + halfWidth, at.y - halfLength],
+    [at.x + halfWidth, at.y + halfLength],
+    [at.x - halfWidth, at.y + halfLength],
+  ].map(([x, y]) => groundToColumn(SCENE_CAMERA, x ?? NaN, y ?? NaN));
+}
+
+/** Corners written out, so two sets compare at a glance. */
+const cornersText = (corners: readonly { x: number; y: number }[]): string =>
+  corners.map((each) => `${each.x.toFixed(6)},${each.y.toFixed(6)}`).join(' ');
+
+/** The perspective mesh a baked layer is drawn with. */
+function meshOf(layers: FieldLayers, at: number): PerspectiveMesh {
+  const mesh = pieceOf(layers, at).children[0];
+  if (!(mesh instanceof PerspectiveMesh)) {
+    throw new Error(`the mouth piece at ${at} holds no perspective mesh`);
+  }
+  return mesh;
+}
+
 /** Every piece under a container, however deep. */
 function everyPieceUnder(parent: Container): Container[] {
   return parent.children.flatMap((child) => [child, ...everyPieceUnder(child)]);
@@ -147,16 +172,6 @@ describe('GraveRenderer', () => {
     expect(layers.layer('graveRim').children).toEqual([]);
   });
 
-  it('position follows grave.x and grave.y', () => {
-    const { layers, renderer } = attached();
-    frame(layers, renderer, grave(SIZE_START, 123, 456));
-    const pieces = [pieceOf(layers, THE_PIT), pieceOf(layers, THE_LIP)];
-    for (const piece of pieces) {
-      expect(piece.position.x).toBe(123);
-      expect(piece.position.y).toBe(456);
-    }
-  });
-
   it('the grave is repainted when its size changes, and a size that has not changed does not repaint', () => {
     // The prototype bakes the hole afresh at each size (rebuildHole), because
     // several of its details are screen pixels wide and must not scale with
@@ -177,59 +192,50 @@ describe('GraveRenderer', () => {
   it('the drawn grave grows with every swallow, not only when it is repainted', () => {
     // Mark, 2026-09-21: the grave must grow gradually as it eats. A repaint
     // waits for the size to move past its step, so between repaints the baked
-    // art is stretched to the size the sim says, and never waits at the old one.
+    // art is drawn through the corners of the ground it covers at the size the
+    // sim says, and never waits at the old one (tilted view A7).
     const { layers, renderer } = attached();
     frame(layers, renderer, grave(27));
+    let before = cornersText(renderer.corners.pit);
     for (const size of [27.1, 27.2, 27.3]) {
       const at = grave(size);
       frame(layers, renderer, at);
       const box = graveHitbox(at);
       const reach = graveWidth(size) * BAKE_PADDING.pit;
-      const bounds = pieceOf(layers, THE_PIT).getBounds();
-      expect(bounds.height).toBeCloseTo(box.height + reach * 2, 6);
-      expect(bounds.width).toBeCloseTo(box.width + reach * 2, 6);
+      const drawn = cornersText(renderer.corners.pit);
+      expect(drawn).toBe(
+        cornersText(
+          projectedRectangle(at, box.width / 2 + reach, box.height / 2 + reach),
+        ),
+      );
+      expect(drawn).not.toBe(before);
+      before = drawn;
     }
   });
 
   it('the baked hole is centred on the grave, sized to it with the prototype padding round it', () => {
     // bakeLayer's own geometry: a canvas the grave's width and length plus a
-    // pad on every side, anchored at its middle on the grave's origin.
+    // pad on every side, in the grave's own units, painted about its middle.
+    // Where it draws is the corners' business (tilted view A7). The phone here
+    // bakes at one pixel a unit: 390 CSS pixels over 540 units times the
+    // nearest row's 1.178 is under the floor of one.
     const { layers, renderer } = attached();
     for (const size of EVERY_SIZE) {
       const at = grave(size);
+      const first = canvasesMade.length;
       frame(layers, renderer, at);
       const box = graveHitbox(at);
-      const pad = {
-        pit: graveWidth(size) * BAKE_PADDING.pit,
-        lip: graveWidth(size) * BAKE_PADDING.lip,
-      };
-      for (const [piece, reach] of [
-        [THE_PIT, pad.pit],
-        [THE_LIP, pad.lip],
+      const baked = canvasesMade.slice(first);
+      for (const [index, share] of [
+        [0, BAKE_PADDING.pit],
+        [1, BAKE_PADDING.lip],
       ] as const) {
-        const bounds = pieceOf(layers, piece).getBounds();
-        expect(bounds.x).toBeCloseTo(box.x - reach, 6);
-        expect(bounds.y).toBeCloseTo(box.y - reach, 6);
-        expect(bounds.width).toBeCloseTo(box.width + reach * 2, 6);
-        expect(bounds.height).toBeCloseTo(box.height + reach * 2, 6);
+        const reach = graveWidth(size) * share;
+        expect(`${size} ${baked[index]?.width} ${baked[index]?.height}`).toBe(
+          `${size} ${Math.ceil(box.width + reach * 2)} ${Math.ceil(box.height + reach * 2)}`,
+        );
       }
     }
-  });
-
-  it('bakes at the pixels the phone shows, the view times the device pixel ratio', () => {
-    // The prototype's own choice: the view's CSS pixels per field unit times
-    // the device pixel ratio, held between one and six. At device scale 3 on a
-    // 390-wide phone that is about 2.17 texture pixels a unit.
-    vi.stubGlobal('devicePixelRatio', 3);
-    const { layers, renderer } = attached();
-    const before = canvasesMade.length;
-    frame(layers, renderer, grave(SIZE_START));
-    const pit = canvasesMade[before];
-    vi.unstubAllGlobals();
-    const wanted = (390 / 540) * 3;
-    const side =
-      graveWidth(SIZE_START) / 2 + graveWidth(SIZE_START) * BAKE_PADDING.pit;
-    expect(pit?.width).toBe(Math.ceil(side * 2 * wanted));
   });
 
   it('detach then attach puts both pieces back, which FieldLayers.clear() between runs requires', () => {
@@ -263,17 +269,23 @@ describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
     );
   });
 
-  it('the place for falls follows the grave and is never scaled', () => {
+  it("the place for falls follows the grave's point on the column and takes the camera's scale, never the grave's size", () => {
     // A fall holds its place in the grave's own proportions and multiplies by
-    // the size itself (R5), so a container scaled here would apply the size
-    // twice and a feast would start its fall in mid-hole.
+    // the size itself (R5), so a container scaled by the size would apply it
+    // twice and a feast would start its fall in mid-hole. It lies at the
+    // grave's centre under the camera (tilted view A7): at ground (111, 222),
+    // worked on an independent pinhole, (120.338158, 254.570341), 0.941269
+    // across and 0.747235 down, whatever the size.
     const { renderer } = attached();
     for (const size of EVERY_SIZE) {
       renderer.sync(grave(size, 111, 222));
-      expect(`${size} ${renderer.falls.position.x}`).toBe(`${size} 111`);
-      expect(`${size} ${renderer.falls.position.y}`).toBe(`${size} 222`);
-      expect(`${size} ${renderer.falls.scale.x}`).toBe(`${size} 1`);
-      expect(`${size} ${renderer.falls.scale.y}`).toBe(`${size} 1`);
+      const falls = renderer.falls;
+      const near = (value: number, expected: number) =>
+        `${size} ${Math.abs(value - expected) < 1e-5}`;
+      expect(near(falls.position.x, 120.338158)).toBe(`${size} true`);
+      expect(near(falls.position.y, 254.570341)).toBe(`${size} true`);
+      expect(near(falls.scale.x, 0.941269)).toBe(`${size} true`);
+      expect(near(falls.scale.y, 0.747235)).toBe(`${size} true`);
     }
   });
 });
@@ -293,5 +305,71 @@ describe("the blinking border is gone (Mark's ruling of 2026-09-21)", () => {
         `${size} 0`,
       );
     }
+  });
+});
+
+describe('the grave under the tilted camera (tilted view A5, A7, A10)', () => {
+  it("the grave's pit and lip are drawn through the four projected corners of their ground rectangle, at the size the sim says, and a grave near the top draws its far end narrower than its near end", () => {
+    // The pit and the lip are large enough for the camera's scale to change
+    // across them, so each is a perspective mesh through the camera's points
+    // for the four corners of the ground its bake covers: the grave's width
+    // and length plus the bake's padding, 0.12 of the width for the pit and
+    // 0.3 for the lip (A5, A7). A start-size grave at ground (270, 150), its
+    // corners worked on an independent pinhole, clockwise from the far left.
+    const { layers, renderer } = attached();
+    frame(layers, renderer, grave(SIZE_START, 270, 150));
+    const pit: Corners = renderer.corners.pit;
+    const lip: Corners = renderer.corners.lip;
+    expect(cornersText(pit)).toBe(
+      '254.820046,180.970142 285.179954,180.970142 285.516000,223.842788 254.484000,223.842788',
+    );
+    expect(cornersText(lip)).toBe(
+      '250.446993,177.605489 289.553007,177.605489 290.056324,227.370454 249.943676,227.370454',
+    );
+    for (const [piece, corners] of [
+      [THE_PIT, pit],
+      [THE_LIP, lip],
+    ] as const) {
+      const handed = meshOf(layers, piece).geometry.corners;
+      expect([...handed].map((each) => each.toFixed(6)).join(',')).toBe(
+        corners
+          .flatMap((each) => [each.x.toFixed(6), each.y.toFixed(6)])
+          .join(','),
+      );
+    }
+    const farWidth = (pit[1]?.x ?? NaN) - (pit[0]?.x ?? NaN);
+    const nearWidth = (pit[2]?.x ?? NaN) - (pit[3]?.x ?? NaN);
+    expect(farWidth).toBeLessThan(nearWidth);
+  });
+
+  it('moving the grave up and down the column does not bake the hole again', () => {
+    // The hole is baked at the nearest row's density, so a grave moving up and
+    // down the column never needs a sharper bake (A10), and the view it is
+    // baked for is read off the unscaled layer rather than off anything the
+    // camera draws, or every row would ask for a bake of its own.
+    const { layers, renderer } = attached();
+    frame(layers, renderer, grave(SIZE_START, 270, 600));
+    const baked = canvasesMade.length;
+    for (const y of [150, 700, 40, 380]) {
+      frame(layers, renderer, grave(SIZE_START, 270, y));
+    }
+    expect(canvasesMade.length).toBe(baked);
+  });
+
+  it("the hole is baked at the view's pixels times the nearest row's scale times the device pixel ratio", () => {
+    // The prototype's own choice, the view's CSS pixels per field unit times
+    // the device pixel ratio, taken at the column's nearest row, where the
+    // camera draws the grave largest: 1.177929 (A10). At device scale 3 on a
+    // 390-wide phone that is about 2.55 texture pixels a unit.
+    vi.stubGlobal('devicePixelRatio', 3);
+    const { layers, renderer } = attached();
+    const before = canvasesMade.length;
+    frame(layers, renderer, grave(SIZE_START));
+    const pit = canvasesMade[before];
+    vi.unstubAllGlobals();
+    const wanted = (390 / 540) * 1.177929 * 3;
+    const side =
+      graveWidth(SIZE_START) / 2 + graveWidth(SIZE_START) * BAKE_PADDING.pit;
+    expect(pit?.width).toBe(Math.ceil(side * 2 * wanted));
   });
 });

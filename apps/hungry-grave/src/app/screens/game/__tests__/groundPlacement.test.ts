@@ -120,3 +120,26 @@ describe('where things draw under the camera (tilted view A7)', () => {
     expectNear(lift.y, -10 * 0.900436, 1e-5);
   });
 });
+
+describe('headings off the middle column (tilted view A7)', () => {
+  it('a body moving straight down the field off the middle column turns away from the middle on the column, as nearer ground spreads', () => {
+    // Worked on an independent pinhole: a camera 1147.5 up, 32.5 degrees off
+    // straight down, aimed at ground (270, 380), each point projected along
+    // its ray and the heading read off a central difference of 0.005 units.
+    expectNear(
+      headingOnColumn(SCENE_CAMERA, 100, 200, 0, 5),
+      1.650228786,
+      CLOSE,
+    );
+    expectNear(
+      headingOnColumn(SCENE_CAMERA, 200, 200, 0, 5),
+      1.603561044,
+      CLOSE,
+    );
+    expectNear(
+      headingOnColumn(SCENE_CAMERA, 100, 200, 5, 5),
+      0.69870318,
+      CLOSE,
+    );
+  });
+});

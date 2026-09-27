@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 
 import type { Caps } from '../../../game/caps';
 import { TICK_HZ } from '../../../game/clock';
@@ -12,6 +12,7 @@ import type { RunState } from '../../../game/run';
 import { shareOverMouth } from '../../../game/tip';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
+import { SCENE_CAMERA } from './camera';
 import {
   drawCorpse,
   drawTreasureBody,
@@ -25,6 +26,13 @@ import {
   TEETER_START,
   TEETER_TILT,
 } from './graveDrawingValues';
+import {
+  airborneAt,
+  headingOnColumn,
+  hostileFireAt,
+  lyingAt,
+  standingAt,
+} from './groundPlacement';
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
@@ -40,6 +48,29 @@ import { drawMob, mobLook } from './mobSprite';
 
 // How dark the field goes at the instant of a hit. It is a subtraction and never a flash (ADR 0040).
 const HIT_DIM_ALPHA = 0.5;
+
+/**
+ * A pool of lying drawings, each inside a placement of its own, allocated
+ * together so a spawn never allocates. A lying drawing that turns or breathes
+ * keeps its own rotation and scale, and Pixi applies a node's own scale before
+ * its rotation, so the camera's foreshortening rides on the placement and the
+ * turn foreshortens along the screen's vertical (design record A7).
+ */
+const fillPlaced = (
+  sprites: Graphics[],
+  placements: Container[],
+  capacity: number,
+): void => {
+  fill(sprites, capacity);
+  while (placements.length < capacity) {
+    const placement = new Container();
+    const sprite = sprites[placements.length];
+    if (sprite === undefined)
+      throw new Error('a lying pool outgrew its sprites');
+    placement.addChild(sprite);
+    placements.push(placement);
+  }
+};
 
 // How many scatters can be on the field at once before the oldest is reused.
 const SCATTER_SLOTS = 24;
@@ -155,6 +186,9 @@ class FieldRenderer {
    * renderer no edit (design record R6).
    */
   private readonly treasureSprites: Graphics[] = [];
+  // The placements the corpse and treasure drawings lie in, slot for slot.
+  private readonly corpsePlacements: Container[] = [];
+  private readonly treasurePlacements: Container[] = [];
   private readonly scatters: Scatter[] = [];
   private readonly dim = new Graphics();
 
@@ -182,8 +216,14 @@ class FieldRenderer {
     const treasure = layers.layer('treasure');
     const bodies = layers.layer('mobBodies');
     const fire = layers.layer('mobFire');
-    for (const sprite of this.corpseSprites) corpses.addChild(sprite);
-    for (const sprite of this.treasureSprites) treasure.addChild(sprite);
+    for (const placement of this.corpsePlacements) corpses.addChild(placement);
+    for (const placement of this.treasurePlacements) {
+      treasure.addChild(placement);
+    }
+    // Standing things draw nearer over farther inside this one layer (A8),
+    // which sorts them by where their feet are on the ground; ADR 0014's
+    // order of the layers themselves does not move.
+    bodies.sortableChildren = true;
     for (const sprite of this.mobSprites) bodies.addChild(sprite);
     for (const sprite of this.shotSprites) fire.addChild(sprite);
     for (const scatter of this.scatters) fire.addChild(scatter.sprite);
@@ -253,8 +293,10 @@ class FieldRenderer {
   }
 
   public detach(): void {
-    for (const sprite of this.corpseSprites) sprite.removeFromParent();
-    for (const sprite of this.treasureSprites) sprite.removeFromParent();
+    for (const placement of this.corpsePlacements) placement.removeFromParent();
+    for (const placement of this.treasurePlacements) {
+      placement.removeFromParent();
+    }
     for (const sprite of this.mobSprites) sprite.removeFromParent();
     for (const sprite of this.shotSprites) sprite.removeFromParent();
     for (const scatter of this.scatters) scatter.sprite.removeFromParent();
@@ -276,8 +318,8 @@ class FieldRenderer {
   private growPools(caps: Caps): void {
     fill(this.mobSprites, caps.mobs);
     fill(this.shotSprites, caps.mobFire);
-    fill(this.corpseSprites, caps.corpses);
-    fill(this.treasureSprites, caps.corpses);
+    fillPlaced(this.corpseSprites, this.corpsePlacements, caps.corpses);
+    fillPlaced(this.treasureSprites, this.treasurePlacements, caps.corpses);
   }
 
   /**
@@ -324,12 +366,17 @@ class FieldRenderer {
         this.mobLooks[slot] = look;
         drawMob(sprite, mob);
       }
-      sprite.position.set(mob.x, mob.y);
-      // A wedge that points where it is going is what makes the ghoul's turn
-      // readable at all; the other two types are drawn upright.
+      const { halfHeight, motion } = MOB_TYPES[mob.type];
+      const at = standingAt(SCENE_CAMERA, mob.x, mob.y, halfHeight);
+      sprite.position.set(at.x, at.y);
+      sprite.scale.set(at.scaleX, at.scaleY);
+      sprite.zIndex = mob.y + halfHeight;
+      // A wedge that points where it is going on the screen is what makes the
+      // ghoul's turn readable at all; the other two types are drawn upright.
       sprite.rotation =
-        MOB_TYPES[mob.type].motion === 'chases'
-          ? Math.atan2(mob.vy, mob.vx) - Math.PI / 2
+        motion === 'chases'
+          ? headingOnColumn(SCENE_CAMERA, mob.x, mob.y, mob.vx, mob.vy) -
+            Math.PI / 2
           : 0;
     }
   }
@@ -365,7 +412,9 @@ class FieldRenderer {
         this.shotLooks[slot] = look;
         drawShot(sprite, shot);
       }
-      sprite.position.set(shot.x, shot.y);
+      const at = hostileFireAt(SCENE_CAMERA, shot.x, shot.y);
+      sprite.position.set(at.x, at.y);
+      sprite.scale.set(at.scaleX, at.scaleY);
     }
   }
 
@@ -400,7 +449,14 @@ class FieldRenderer {
           drawCorpse(sprite, corpse);
         }
       }
-      sprite.position.set(corpse.x, corpse.y);
+      const placement = requireSlot(
+        (treasure ? this.treasurePlacements : this.corpsePlacements)[slot],
+        slot,
+        'food placement',
+      );
+      const at = lyingAt(SCENE_CAMERA, corpse.x, corpse.y);
+      placement.position.set(at.x, at.y);
+      placement.scale.set(at.scaleX, at.scaleY);
       // The teeter, on every live piece of food and on every frame (design
       // record R5). A lean of zero is written as deliberately as a full one:
       // a body the grave slid out from under has to stand back up, and a
@@ -432,7 +488,9 @@ class FieldRenderer {
     scatter.born = run.tick;
     scatter.extent = seen.extent;
     scatter.kind = seen.kind;
-    scatter.sprite.position.set(seen.x, seen.y);
+    const at = airborneAt(SCENE_CAMERA, seen.x, seen.y);
+    scatter.sprite.position.set(at.x, at.y);
+    scatter.sprite.scale.set(at.scaleX, at.scaleY);
     scatter.sprite.visible = true;
   }
 

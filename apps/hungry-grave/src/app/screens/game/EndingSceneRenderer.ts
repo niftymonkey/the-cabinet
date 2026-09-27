@@ -2,15 +2,17 @@
 
 import { Container, Graphics } from 'pixi.js';
 
-import { BOSS_HALF_WIDTH } from '../../../game/bosses/phases';
+import { BOSS_HALF_HEIGHT, BOSS_HALF_WIDTH } from '../../../game/bosses/phases';
 import type { BossKilled } from '../../../game/events';
 import type { Grave } from '../../../game/grave';
 import { PALETTE } from '../../palette';
 import { drawBoss } from './bossSprite';
-import type { EndingScene } from './endingScene';
+import { SCENE_CAMERA, groundToColumn } from './camera';
+import type { EndingScene, EndingSceneDrawing } from './endingScene';
 import { endingSceneAt, sceneFrom } from './endingScene';
 import { greyTint } from './foodSprite';
 import { ENDING_FURROWS } from './graveDrawingValues';
+import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /**
@@ -117,11 +119,31 @@ class EndingSceneRenderer {
     this.scrapeFurrows(scene, drawn.furrows);
     this.dragged.visible = !drawn.inTheHole;
     this.falling.visible = drawn.inTheHole && !drawn.gone;
-    const body = drawn.inTheHole ? this.falling : this.dragged;
-    body.position.set(drawn.x, drawn.y);
-    body.rotation = drawn.turn;
-    body.scale.set(drawn.wide, drawn.tall);
-    body.tint = greyTint(drawn.light);
+    if (drawn.inTheHole) this.placeFalling(drawn);
+    else this.placeDragged(drawn);
+  }
+
+  /**
+   * Dragged over the field, he stands at the ground point the scene draws him
+   * at, upright at the camera's scale with his feet on the near edge of his
+   * footprint, and sorts by depth with the bodies around him (design record
+   * A7, A8). His own turn and squash ride inside that uniform scale.
+   */
+  private placeDragged(drawn: EndingSceneDrawing): void {
+    const at = standingAt(SCENE_CAMERA, drawn.x, drawn.y, BOSS_HALF_HEIGHT);
+    this.dragged.position.set(at.x, at.y);
+    this.dragged.rotation = drawn.turn;
+    this.dragged.scale.set(drawn.wide * at.scaleX, drawn.tall * at.scaleY);
+    this.dragged.zIndex = drawn.y + BOSS_HALF_HEIGHT;
+    this.dragged.tint = greyTint(drawn.light);
+  }
+
+  /** In the hole he is drawn as the falls are, in the grave's own placement. */
+  private placeFalling(drawn: EndingSceneDrawing): void {
+    this.falling.position.set(drawn.x, drawn.y);
+    this.falling.rotation = drawn.turn;
+    this.falling.scale.set(drawn.wide, drawn.tall);
+    this.falling.tint = greyTint(drawn.light);
   }
 
   /**
@@ -166,10 +188,15 @@ class EndingSceneRenderer {
       const walked = point / (FURROW_POINTS - 1);
       const off = sits + wanderAt(line, point);
       // Across the way he is dragged, which is that way turned a quarter.
-      const x = scene.fromX + toX * walked - alongY * off;
-      const y = scene.fromY + toY * walked + alongX * off;
-      if (point === 0) this.furrows.moveTo(x, y);
-      else this.furrows.lineTo(x, y);
+      // The furrows lie in the ground, so each point is where the camera
+      // draws that ground (A7).
+      const on = groundToColumn(
+        SCENE_CAMERA,
+        scene.fromX + toX * walked - alongY * off,
+        scene.fromY + toY * walked + alongX * off,
+      );
+      if (point === 0) this.furrows.moveTo(on.x, on.y);
+      else this.furrows.lineTo(on.x, on.y);
     }
   }
 }

@@ -71,25 +71,47 @@ const GROUND_PAINTING = {
   resolution: { min: 1, max: 3 },
 } as const;
 
+/** How far a shape reaches on the field, in field units. */
+interface Extent {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+/** The offsets along one axis a shape spanning this much is drawn again at. */
+const wrapsAt = (
+  low: number,
+  high: number,
+  length: number,
+): readonly number[] => {
+  const offsets = [0];
+  if (low < 0) offsets.push(length);
+  if (high > length) offsets.push(-length);
+  return offsets;
+};
+
 /**
  * Where a shape is drawn again so the picture meets itself.
  *
  * The prototype paints one still field and never moves it; the game's ground
- * runs down the screen at the field's own scroll, so the baked picture is shown
- * over and over and has to join itself. A shape whose extent leaves an edge is
- * painted a second time a field height away, and the two halves meet at the
- * join. It is an addition to the prototype's painters and never a change to a
- * colour, a count or a placement: nothing here draws off the stream.
+ * runs down the screen at the field's own scroll and the tilted camera sees
+ * wider than the field across its far row, so the baked picture is shown over
+ * and over both ways and has to join itself. A shape whose extent leaves an
+ * edge is painted again a field height or a field width away, and one across a
+ * corner is painted four times. It is an addition to the prototype's painters
+ * and never a change to a colour, a count or a placement: nothing here draws
+ * off the stream. Each row of copies starts with the one at no offset across,
+ * so the picture without its side copies is the one painted before the tilt.
  */
-const wrapsAt = (
-  top: number,
-  bottom: number,
-  height: number,
-): readonly number[] => {
-  const offsets = [0];
-  if (top < 0) offsets.push(height);
-  if (bottom > height) offsets.push(-height);
-  return offsets;
+const copiesAt = (
+  extent: Extent,
+  field: Field,
+): readonly (readonly [number, number])[] => {
+  const across = wrapsAt(extent.left, extent.right, field.width);
+  return wrapsAt(extent.top, extent.bottom, field.height).flatMap((dy) =>
+    across.map((dx) => [dx, dy] as const),
+  );
 };
 
 /**
@@ -116,8 +138,9 @@ const paintWidePatches = (
             : PALETTE.groundDamp.hex,
       alpha: lerp(0.09, 0.22, random()),
     };
-    for (const dy of wrapsAt(y - ry, y + ry, field.height)) {
-      canvas.ellipse(x, y + dy, rx, ry).fill(style);
+    const extent = { left: x - rx, right: x + rx, top: y - ry, bottom: y + ry };
+    for (const [dx, dy] of copiesAt(extent, field)) {
+      canvas.ellipse(x + dx, y + dy, rx, ry).fill(style);
     }
   }
 };
@@ -147,8 +170,9 @@ const paintMottles = (
             : PALETTE.groundDamp.hex,
       alpha: lerp(0.07, 0.2, random()),
     };
-    for (const dy of wrapsAt(y - ry, y + ry, field.height)) {
-      canvas.ellipse(x, y + dy, rx, ry).fill(style);
+    const extent = { left: x - rx, right: x + rx, top: y - ry, bottom: y + ry };
+    for (const [dx, dy] of copiesAt(extent, field)) {
+      canvas.ellipse(x + dx, y + dy, rx, ry).fill(style);
     }
   }
 };
@@ -171,15 +195,16 @@ const paintCracks = (
         alpha: 0.45,
       };
       const half = style.width / 2;
-      const offsets = wrapsAt(
-        Math.min(y, ny) - half,
-        Math.max(y, ny) + half,
-        field.height,
-      );
-      for (const dy of offsets) {
+      const extent = {
+        left: Math.min(x, nx) - half,
+        right: Math.max(x, nx) + half,
+        top: Math.min(y, ny) - half,
+        bottom: Math.max(y, ny) + half,
+      };
+      for (const [dx, dy] of copiesAt(extent, field)) {
         canvas
-          .moveTo(x, y + dy)
-          .lineTo(nx, ny + dy)
+          .moveTo(x + dx, y + dy)
+          .lineTo(nx + dx, ny + dy)
           .stroke(style);
       }
       x = nx;
@@ -202,22 +227,32 @@ const paintGrain = (canvas: GroundCanvas, field: Field, random: Draw): void => {
       color: dark ? PALETTE.groundCrack.hex : PALETTE.groundSpeckle.hex,
       alpha: lerp(0.25, 0.8, random()),
     };
-    for (const dy of wrapsAt(y - radius, y + radius, field.height)) {
-      canvas.circle(x, y + dy, radius).fill(style);
+    const extent = {
+      left: x - radius,
+      right: x + radius,
+      top: y - radius,
+      bottom: y + radius,
+    };
+    for (const [dx, dy] of copiesAt(extent, field)) {
+      canvas.circle(x + dx, y + dy, radius).fill(style);
     }
   }
 };
 
-/** One blade of a tuft, sprouting from the tuft's own point. */
+/**
+ * One blade of a tuft, sprouting from the tuft's own point, as long as the
+ * camera shows it: the reach is the tilted prototype's (`lerp(2.4, 6,
+ * random()) * reach`, tilted-view index.html:1910-1916, design record A9).
+ */
 const paintBlade = (
   canvas: GroundCanvas,
   field: Field,
   random: Draw,
-  at: { x: number; y: number },
+  at: { x: number; y: number; reach: number },
 ): void => {
   const bx = at.x + lerp(-4, 4, random());
   const by = at.y + lerp(-3, 3, random());
-  const up = lerp(2.4, 6, random());
+  const up = lerp(2.4, 6, random()) * at.reach;
   const controlX = bx + lerp(-1.4, 1.4, random());
   const tipX = bx + lerp(-2.4, 2.4, random());
   const style = {
@@ -226,10 +261,21 @@ const paintBlade = (
     alpha: 0.7,
   };
   const half = style.width / 2;
-  for (const dy of wrapsAt(by - up - half, by + half, field.height)) {
+  const extent = {
+    left: Math.min(bx, controlX, tipX) - half,
+    right: Math.max(bx, controlX, tipX) + half,
+    top: by - up - half,
+    bottom: by + half,
+  };
+  for (const [dx, dy] of copiesAt(extent, field)) {
     canvas
-      .moveTo(bx, by + dy)
-      .quadraticCurveTo(controlX, by + dy - up * 0.5, tipX, by + dy - up)
+      .moveTo(bx + dx, by + dy)
+      .quadraticCurveTo(
+        controlX + dx,
+        by + dy - up * 0.5,
+        tipX + dx,
+        by + dy - up,
+      )
       .stroke(style);
   }
 };
@@ -238,9 +284,14 @@ const paintBlade = (
  * Tufts of grass, small: at a close camera a blade the length a far view wanted
  * comes out as a hand-drawn sprout a third the grave's width.
  */
-const paintTufts = (canvas: GroundCanvas, field: Field, random: Draw): void => {
+const paintTufts = (
+  canvas: GroundCanvas,
+  field: Field,
+  random: Draw,
+  reach: number,
+): void => {
   for (let i = 0; i < GROUND_PAINTING.tufts; i++) {
-    const at = { x: random() * field.width, y: random() * field.height };
+    const at = { x: random() * field.width, y: random() * field.height, reach };
     for (let b = 0; b < GROUND_PAINTING.tuftBlades; b++) {
       paintBlade(canvas, field, random, at);
     }
@@ -261,8 +312,14 @@ const paintGravel = (
       color: PALETTE.groundGravel.hex,
       alpha: lerp(0.14, 0.34, random()),
     };
-    for (const dy of wrapsAt(y - radius, y + radius, field.height)) {
-      canvas.circle(x, y + dy, radius).fill(style);
+    const extent = {
+      left: x - radius,
+      right: x + radius,
+      top: y - radius,
+      bottom: y + radius,
+    };
+    for (const [dx, dy] of copiesAt(extent, field)) {
+      canvas.circle(x + dx, y + dy, radius).fill(style);
     }
   }
 };
@@ -270,9 +327,15 @@ const paintGravel = (
 /**
  * The night field: the base earth, the patches of damp and dry, the cracks, the
  * grain, the tufts and the gravel, in the prototype's own order off one seeded
- * stream, so the field is the same picture every time it is painted.
+ * stream, so the field is the same picture every time it is painted. The
+ * blade reach is how long the camera shows a blade against build 7's; at one
+ * it is exactly the picture painted before the tilt.
  */
-const paintGround = (canvas: GroundCanvas, field: Field): void => {
+const paintGround = (
+  canvas: GroundCanvas,
+  field: Field,
+  bladeReach: number,
+): void => {
   const random = makeRandom(GROUND_PAINTING.seed);
   const over = GROUND_PAINTING.baseOverflow;
   canvas
@@ -282,7 +345,7 @@ const paintGround = (canvas: GroundCanvas, field: Field): void => {
   paintMottles(canvas, field, random);
   paintCracks(canvas, field, random);
   paintGrain(canvas, field, random);
-  paintTufts(canvas, field, random);
+  paintTufts(canvas, field, random, bladeReach);
   paintGravel(canvas, field, random);
 };
 

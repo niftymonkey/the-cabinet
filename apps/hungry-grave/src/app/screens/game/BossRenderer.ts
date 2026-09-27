@@ -3,8 +3,11 @@
 
 import { Graphics } from 'pixi.js';
 
+import { BOSS_HALF_HEIGHT } from '../../../game/bosses/phases';
 import type { RunState } from '../../../game/run';
 import { bossLook, drawBoss } from './bossSprite';
+import { SCENE_CAMERA } from './camera';
+import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /**
@@ -29,8 +32,9 @@ class BossRenderer {
   }
 
   /**
-   * Puts the boss's sprite into `mobBodies`, above the mob pool, so a boss
-   * draws over the adds it summons. FieldLayers.clear() empties every layer
+   * Puts the boss's sprite into `mobBodies`, where it sorts by depth with its
+   * adds like every standing thing: a nearer add draws over it and a farther
+   * one under it (tilted view A8). FieldLayers.clear() empties every layer
    * between runs, so the renderer has to be able to put itself back rather than
    * assume it is still attached.
    */
@@ -48,7 +52,11 @@ class BossRenderer {
       this.look = look;
       drawBoss(this.body, boss);
     }
-    this.body.position.set(boss.x, boss.y);
+    // Standing, its feet on the near edge of its footprint (A7).
+    const at = standingAt(SCENE_CAMERA, boss.x, boss.y, BOSS_HALF_HEIGHT);
+    this.body.position.set(at.x, at.y);
+    this.body.scale.set(at.scaleX, at.scaleY);
+    this.body.zIndex = boss.y + BOSS_HALF_HEIGHT;
   }
 }
 

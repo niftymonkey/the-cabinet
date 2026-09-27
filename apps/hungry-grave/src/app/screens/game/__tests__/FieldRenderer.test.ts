@@ -3,7 +3,8 @@
  * and holds no rules.
  */
 
-import type { Bounds, Graphics } from 'pixi.js';
+import type { Bounds, Container } from 'pixi.js';
+import { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
 import { capsFor } from '../../../../game/caps';
@@ -71,8 +72,24 @@ function put(state: RunState, type: MobType, x: number, y: number) {
   )!;
 }
 
+/**
+ * Each slot's drawing in a layer. A lying drawing that turns sits inside a
+ * placement of its own (tilted view A7), so the drawing is the placement's one
+ * child; a drawing placed directly is its own slot.
+ */
+function drawingsIn(
+  layers: FieldLayers,
+  name: 'corpses' | 'treasure' | 'mobBodies',
+): Graphics[] {
+  return layers
+    .layer(name)
+    .children.map((slot) =>
+      slot instanceof Graphics ? slot : (slot.children[0] as Graphics),
+    );
+}
+
 function sprites(layers: FieldLayers, name: 'corpses' | 'mobBodies') {
-  return layers.layer(name).children as Graphics[];
+  return drawingsIn(layers, name);
 }
 
 /** The sprite at this slot in a pool layer, or a bug: the sprite pool is sized to the entity pool. */
@@ -176,7 +193,6 @@ describe('FieldRenderer', () => {
     renderer.sync(state);
     const slot = state.mobs.indexOf(mob);
     expect(spriteAt(layers, 'mobBodies', slot).visible).toBe(true);
-    expect(spriteAt(layers, 'mobBodies', slot).position.x).toBe(100);
 
     mob.alive = false;
     renderer.sync(state);
@@ -200,7 +216,6 @@ describe('FieldRenderer', () => {
 
     expect(sprites(layers, 'mobBodies')).toHaveLength(MOB_CAP);
     expect(spriteAt(layers, 'mobBodies', slot)).toBe(sprite);
-    expect(sprite.position.x).toBe(300);
   });
 
   it('fades a corpse by its freshness, as a tint on the declared hex and never as an alpha', () => {
@@ -604,8 +619,8 @@ describe('a power-up on the field (plan 6.8)', () => {
     powerUpAt(state, 'bell');
     renderer.sync(state);
 
-    const treasure = layers.layer('treasure').children as Graphics[];
-    const corpses = layers.layer('corpses').children as Graphics[];
+    const treasure = drawingsIn(layers, 'treasure');
+    const corpses = drawingsIn(layers, 'corpses');
     expect(treasure.filter((each) => each.visible)).toHaveLength(1);
     expect(corpses.filter((each) => each.visible)).toHaveLength(0);
   });
@@ -621,7 +636,7 @@ describe('a power-up on the field (plan 6.8)', () => {
       const state = createRun(3);
       powerUpAt(state, line);
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       const bounds = sprite.getLocalBounds();
@@ -640,7 +655,7 @@ describe('a power-up on the field (plan 6.8)', () => {
     for (const tick of [0, 7, 13, 40, 121]) {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       tints.add(sprite.tint);
@@ -659,7 +674,7 @@ describe('a power-up on the field (plan 6.8)', () => {
       const state = createRun(3);
       spawnPowerUp(state, 200, 300, line);
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       const box = sprite.getLocalBounds();
@@ -673,9 +688,7 @@ describe('a power-up on the field (plan 6.8)', () => {
     const state = createRun(3);
     spawnPowerUp(state, 200, 300);
     renderer.sync(state);
-    const sprite = (layers.layer('treasure').children as Graphics[]).find(
-      (each) => each.visible,
-    )!;
+    const sprite = drawingsIn(layers, 'treasure').find((each) => each.visible)!;
     const filled = sprite.context.instructions
       .filter((instruction) => instruction.action === 'fill')
       .map((instruction) => instruction.data.style);
@@ -689,9 +702,7 @@ describe('a power-up on the field (plan 6.8)', () => {
     const state = createRun(3);
     const powerUp = powerUpAt(state, 'territory');
     renderer.sync(state);
-    const sprite = (layers.layer('treasure').children as Graphics[]).find(
-      (each) => each.visible,
-    )!;
+    const sprite = drawingsIn(layers, 'treasure').find((each) => each.visible)!;
     expect(powerUp.halfExtent).toBeGreaterThan(CORPSE_HALF_EXTENT);
     expect(sprite.getLocalBounds().width).toBeGreaterThan(0);
   });
@@ -704,9 +715,7 @@ describe("a power-up's legibility (the fix inside #36)", () => {
     const state = createRun(3);
     spawnPowerUp(state, 200, 300, line);
     renderer.sync(state);
-    const sprite = (layers.layer('treasure').children as Graphics[]).find(
-      (each) => each.visible,
-    )!;
+    const sprite = drawingsIn(layers, 'treasure').find((each) => each.visible)!;
     return sprite.getLocalBounds();
   }
 
@@ -866,7 +875,7 @@ describe("a power-up's legibility (the fix inside #36)", () => {
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       return read(sprite);
@@ -962,7 +971,7 @@ describe("a power-up's legibility (the fix inside #36)", () => {
     return ticks.map((tick) => {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       return {
@@ -1058,7 +1067,7 @@ describe("a power-up's legibility (the fix inside #36)", () => {
     for (const tick of breathTicks()) {
       state.tick = tick;
       renderer.sync(state);
-      const visible = (layers.layer('treasure').children as Graphics[]).filter(
+      const visible = drawingsIn(layers, 'treasure').filter(
         (each) => each.visible,
       );
       expect(visible).toHaveLength(2);
@@ -1150,9 +1159,7 @@ describe('a fallen rung on the field (ADR 0055)', () => {
 
   /** The one visible sprite in a layer, as the shape its own points make. */
   function shapeOf(layers: FieldLayers, name: 'treasure' | 'corpses'): string {
-    const sprite = (layers.layer(name).children as Graphics[]).find(
-      (each) => each.visible,
-    );
+    const sprite = drawingsIn(layers, name).find((each) => each.visible);
     if (sprite === undefined) throw new Error(`nothing visible in ${name}`);
     const box = sprite.getLocalBounds();
     return `${box.width.toFixed(3)}x${box.height.toFixed(3)}`;
@@ -1168,14 +1175,10 @@ describe('a fallen rung on the field (ADR 0055)', () => {
     renderer.sync(state);
 
     expect(
-      (layers.layer('treasure').children as Graphics[]).filter(
-        (each) => each.visible,
-      ),
+      drawingsIn(layers, 'treasure').filter((each) => each.visible),
     ).toHaveLength(1);
     expect(
-      (layers.layer('corpses').children as Graphics[]).filter(
-        (each) => each.visible,
-      ),
+      drawingsIn(layers, 'corpses').filter((each) => each.visible),
     ).toHaveLength(0);
   });
 
@@ -1246,7 +1249,7 @@ describe('a fallen rung on the field (ADR 0055)', () => {
     for (const tick of [0, 7, 13, 40, 121]) {
       state.tick = tick;
       renderer.sync(state);
-      const sprite = (layers.layer('treasure').children as Graphics[]).find(
+      const sprite = drawingsIn(layers, 'treasure').find(
         (each) => each.visible,
       )!;
       tints.add(sprite.tint);
@@ -1461,5 +1464,124 @@ describe('the field under the ending (grave-in-the-ground R6)', () => {
 
     expect(spriteAt(layers, 'mobBodies', 0).alpha).toBe(1);
     expect((layers.layer('mobFire').children[0] as Graphics).alpha).toBe(1);
+  });
+});
+
+describe('the field under the tilted camera (tilted view A7, A8)', () => {
+  // Expected placements are worked on an independent pinhole (a camera 1147.5
+  // up, 32.5 degrees off straight down, aimed at ground (270, 380)), never
+  // read off the camera module.
+  const CLOSE = 1e-5;
+
+  it('a mob stands on its footprint where the camera puts its feet', () => {
+    // Upright at the camera's scale, its feet on the near edge of its
+    // footprint, ground (100, 211) for a shambler of half-height 11 at
+    // (100, 200): drawn centred 11 times the scale above them (A7).
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const mob = put(state, 'shambler', 100, 200);
+    expect(MOB_TYPES.shambler.halfHeight).toBe(11);
+    renderer.sync(state);
+    const sprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob));
+    expect(sprite.position.x).toBeCloseTo(110.635808, 5);
+    expect(sprite.position.y).toBeCloseTo(236.072429, 5);
+    expect(sprite.scale.x).toBeCloseTo(0.937436, 5);
+    expect(sprite.scale.y).toBeCloseTo(0.937436, 5);
+  });
+
+  it('a nearer mob draws over a farther one', () => {
+    // Standing things in the mob layer sort by where their feet are on the
+    // ground, nearer on top, while ADR 0014's layer order stays as it is (A8).
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const near = put(state, 'shambler', 200, 350);
+    const far = put(state, 'revenant', 210, 300);
+    renderer.sync(state);
+    const nearSprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(near));
+    const farSprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(far));
+    const bodies = layers.layer('mobBodies');
+    bodies.sortChildren();
+    expect(bodies.getChildIndex(nearSprite)).toBeGreaterThan(
+      bodies.getChildIndex(farSprite),
+    );
+  });
+
+  it('a corpse lies on the ground, foreshortened down the column, and its teeter turns it inside that foreshortening', () => {
+    // A lying thing draws at the camera's scale across and the ground's own
+    // rate down the column: at the grave's start row, 1.098947 and 1.018552
+    // (the record's table). A corpse teetering over the rim turns inside
+    // that, so the turn foreshortens along the screen's vertical and never
+    // along its own axis (A7).
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const dead = put(state, 'shambler', 60, 100);
+    dead.alive = false;
+    leaveCorpse(state, dead);
+    const corpse = state.corpses.find((each) => each.alive)!;
+    corpse.x = state.grave.x - graveWidth(state.grave.size) / 2;
+    corpse.y = state.grave.y;
+    expect([corpse.x, corpse.y]).toEqual([256.5, 608]);
+    renderer.sync(state);
+    const slot = state.corpses.indexOf(corpse);
+    const drawing = sprites(layers, 'corpses')[slot]!;
+    const placement = layers.layer('corpses').children[slot] as Container;
+    expect(placement).not.toBe(drawing);
+    expect(placement.position.x).toBeCloseTo(255.164209, 5);
+    expect(placement.position.y).toBeCloseTo(591.320185, 5);
+    expect(placement.scale.x).toBeCloseTo(1.098947, 5);
+    expect(placement.scale.y).toBeCloseTo(1.018552, 5);
+    expect(placement.rotation).toBe(0);
+
+    const turn = drawing.rotation;
+    expect(turn).not.toBe(0);
+    const drawn = drawing.getGlobalTransform();
+    const expected = [
+      1.098947 * Math.cos(turn),
+      1.018552 * Math.sin(turn),
+      -1.098947 * Math.sin(turn),
+      1.018552 * Math.cos(turn),
+    ];
+    [drawn.a, drawn.b, drawn.c, drawn.d].forEach((value, at) =>
+      expect(value).toBeCloseTo(expected[at] ?? NaN, 5),
+    );
+  });
+
+  it("a shot draws at its ground point at the camera's size near the bottom and never smaller than today's size near the top", () => {
+    // Mob fire is the one thing that never shrinks: near the top it keeps
+    // today's size, so it is never drawn smaller than its hitbox, and near the
+    // bottom it grows with everything else (A7).
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const shot = putShot(state, 270, 700);
+    renderer.sync(state);
+    const sprite = layers.layer('mobFire').children[0] as Graphics;
+    expect(sprite.position.x).toBeCloseTo(270, 5);
+    expect(sprite.position.y).toBeCloseTo(688.923885, 5);
+    expect(sprite.scale.x).toBeCloseTo(1.144649, 5);
+    expect(sprite.scale.y).toBeCloseTo(1.144649, 5);
+
+    shot.y = -100;
+    renderer.sync(state);
+    expect(sprite.position.y).toBeCloseTo(39.681107, 5);
+    expect(sprite.scale.x).toBe(1);
+    expect(sprite.scale.y).toBe(1);
+  });
+
+  it("the ghoul's wedge points the way it moves on the column", () => {
+    // The wedge is what makes the ghoul's turn readable, so it follows the way
+    // the body goes on the screen, which off the middle column is not the way
+    // it goes on the ground (A7). Worked heading at ground (100, 200) moving
+    // (3, 4): 0.853169113; the wedge is drawn pointing down its own y.
+    const { layers, renderer } = attached();
+    const state = createRun(1);
+    const ghoul = put(state, 'ghoul', 100, 200);
+    ghoul.vx = 3;
+    ghoul.vy = 4;
+    expect(MOB_TYPES.ghoul.motion).toBe('chases');
+    renderer.sync(state);
+    const sprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(ghoul));
+    expect(
+      Math.abs(sprite.rotation - (0.853169113 - Math.PI / 2)),
+    ).toBeLessThan(CLOSE);
   });
 });

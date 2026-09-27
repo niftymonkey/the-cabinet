@@ -240,6 +240,15 @@ describe("the game screen's field container", () => {
   });
 });
 
+/**
+ * A pooled slot's drawing. A lying drawing that turns sits inside a placement
+ * of its own (tilted view A7), so the drawing is the placement's one child; a
+ * drawing placed directly is its own slot.
+ */
+function drawingOf(slot: Container): Container {
+  return slot instanceof Graphics ? slot : (slot.children[0] ?? slot);
+}
+
 describe('the game screen across a pooled reuse', () => {
   it("empties the field on reset and puts the field's own furniture back", () => {
     // Screens are pooled, so a second run on this instance must not open with
@@ -258,8 +267,9 @@ describe('the game screen across a pooled reuse', () => {
     for (const name of ['corpses', 'mobFire', 'mobBodies'] as const) {
       const children = layers.layer(name).children;
       expect(children).not.toContain(stray);
-      expect(children.every((child) => !child.visible)).toBe(true);
-      expect(children.every((child) => child instanceof Graphics)).toBe(true);
+      const drawings = children.map(drawingOf);
+      expect(drawings.every((child) => !child.visible)).toBe(true);
+      expect(drawings.every((child) => child instanceof Graphics)).toBe(true);
     }
     expect(layers.layer('fieldBoundary').children).toEqual([frame]);
   });

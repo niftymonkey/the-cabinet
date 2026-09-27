@@ -9,7 +9,7 @@
  * this file exists to catch.
  */
 
-import { Container } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import type { Filter, Ticker } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -221,6 +221,15 @@ function settleNavigation(): Promise<void> {
 /** Waits for the rejection handler, which runs a microtask after the press. */
 async function settle(): Promise<void> {
   await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
+}
+
+/**
+ * A pooled slot's drawing. A lying drawing that turns sits inside a placement
+ * of its own (tilted view A7), so the drawing is the placement's one child; a
+ * drawing placed directly is its own slot.
+ */
+function drawingOf(slot: Container): Container {
+  return slot instanceof Graphics ? slot : (slot.children[0] ?? slot);
 }
 
 describe('a screen whose navigation rejects', () => {
@@ -848,7 +857,7 @@ describe('a second run on the pooled game screen (dispatch 4)', () => {
       'bellRing',
       'belchEruption',
     ] as const) {
-      const children = layers.layer(name).children;
+      const children = layers.layer(name).children.map(drawingOf);
       expect(children.length).toBeGreaterThan(0);
       expect(children.every((child) => !child.visible)).toBe(true);
     }

@@ -198,16 +198,6 @@ describe('the two boss silhouettes (module 107)', () => {
       expect(bounds.height).toBeCloseTo(2 * BOSS_HALF_HEIGHT + BOSS_STROKE, 6);
     }
   });
-
-  it('stands where the sim says it stands', () => {
-    const { layers, renderer } = attached();
-    const { run, boss } = runWith('banshee');
-    boss.x = 173;
-    boss.y = 96;
-    renderer.sync(run);
-    expect(bossSprite(layers).position.x).toBe(173);
-    expect(bossSprite(layers).position.y).toBe(96);
-  });
 });
 
 describe('the phase flash (module 107, ADR 0007)', () => {
@@ -310,5 +300,25 @@ describe('the phase flash (module 107, ADR 0007)', () => {
         strokeColours(bossSprite(layers)),
       ]);
     expect(read(walked.layers)).toBe(read(straight.layers));
+  });
+});
+
+describe('the boss under the tilted camera (tilted view A7)', () => {
+  it('the boss stands on its footprint where the camera puts its feet', () => {
+    // Upright at the camera's scale with its feet on the near edge of its
+    // footprint (A7): a Banshee at ground (173, 96) of half-height 40 has its
+    // feet at ground (173, 136). Worked on an independent pinhole (a camera
+    // 1147.5 up, 32.5 degrees off straight down, aimed at ground (270, 380)).
+    const { layers, renderer } = attached();
+    const { run, boss } = runWith('banshee');
+    boss.x = 173;
+    boss.y = 96;
+    expect(BOSS_HALF_HEIGHT).toBe(40);
+    renderer.sync(run);
+    const body = bossSprite(layers);
+    expect(body.position.x).toBeCloseTo(181.525162, 5);
+    expect(body.position.y).toBeCloseTo(155.814325, 5);
+    expect(body.scale.x).toBeCloseTo(0.912112, 5);
+    expect(body.scale.y).toBeCloseTo(0.912112, 5);
   });
 });

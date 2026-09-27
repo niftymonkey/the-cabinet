@@ -4,6 +4,8 @@
  * time.
  */
 
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
@@ -23,12 +25,17 @@ const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
  *
  * The ys are kept apart from the rest because that is what tells a wrapped twin
  * from the shape it repeats: the same drawing at the same x, a field height up
- * or down.
+ * or down. The placed xs are kept apart from the sizes for the same reason
+ * across the sides, and every call is kept as it was made so a paint can be
+ * compared call for call.
  */
 interface Shape {
   readonly kind: string;
   readonly across: readonly number[];
+  readonly xs: readonly number[];
+  readonly sizes: readonly number[];
   readonly ys: readonly number[];
+  readonly calls: readonly string[];
   readonly style: string;
   readonly colour: number;
   readonly left: number;
@@ -43,6 +50,17 @@ interface Ended {
   readonly width?: number;
 }
 
+/** A path call's numbers: all of them as made, the xs it places, and its sizes. */
+interface PathCall {
+  readonly args: readonly number[];
+  readonly at: readonly number[];
+  readonly size: readonly number[];
+}
+
+/** One call written exactly as it was made. */
+const callText = (name: string, args: readonly unknown[]): string =>
+  `${name}(${args.map((each) => JSON.stringify(each)).join(',')})`;
+
 /**
  * A canvas that records instead of drawing. A shape is a path followed by the
  * fill or the stroke that ends it, which is how the prototype's painters chain
@@ -51,8 +69,10 @@ interface Ended {
 function recorder(): { canvas: GroundCanvas; shapes: Shape[] } {
   const shapes: Shape[] = [];
   let kind = '';
-  let across: number[] = [];
+  let placed: number[] = [];
+  let sizes: number[] = [];
   let ys: number[] = [];
+  let calls: string[] = [];
   let left = Infinity;
   let right = -Infinity;
   let top = Infinity;
@@ -60,27 +80,31 @@ function recorder(): { canvas: GroundCanvas; shapes: Shape[] } {
 
   const path = (
     name: string,
-    others: number[],
+    call: PathCall,
     xs: number[],
     downs: number[],
-    reach = 0,
   ): GroundCanvas => {
     kind = kind.length === 0 ? name : `${kind}+${name}`;
-    across = [...across, ...others];
+    placed = [...placed, ...call.at];
+    sizes = [...sizes, ...call.size];
     ys = [...ys, ...downs];
-    left = Math.min(left, ...xs.map((x) => x - reach));
-    right = Math.max(right, ...xs.map((x) => x + reach));
-    top = Math.min(top, ...downs.map((y) => y - reach));
-    bottom = Math.max(bottom, ...downs.map((y) => y + reach));
+    calls = [...calls, callText(name, call.args)];
+    left = Math.min(left, ...xs);
+    right = Math.max(right, ...xs);
+    top = Math.min(top, ...downs);
+    bottom = Math.max(bottom, ...downs);
     return canvas;
   };
 
-  const close = (style: Ended): GroundCanvas => {
+  const close = (name: string, style: Ended): GroundCanvas => {
     const half = (style.width ?? 0) / 2;
     shapes.push({
       kind,
-      across,
+      across: [...placed, ...sizes],
+      xs: placed,
+      sizes,
       ys,
+      calls: [...calls, callText(name, [style])],
       style: JSON.stringify(style),
       colour: style.color,
       left: left - half,
@@ -89,8 +113,10 @@ function recorder(): { canvas: GroundCanvas; shapes: Shape[] } {
       bottom: bottom + half,
     });
     kind = '';
-    across = [];
+    placed = [];
+    sizes = [];
     ys = [];
+    calls = [];
     left = Infinity;
     right = -Infinity;
     top = Infinity;
@@ -100,34 +126,46 @@ function recorder(): { canvas: GroundCanvas; shapes: Shape[] } {
 
   const canvas: GroundCanvas = {
     rect: (x, y, width, height) =>
-      path('rect', [x, width, height], [x, x + width], [y, y + height]),
+      path(
+        'rect',
+        { args: [x, y, width, height], at: [x], size: [width, height] },
+        [x, x + width],
+        [y, y + height],
+      ),
     ellipse: (x, y, radiusX, radiusY) =>
       path(
         'ellipse',
-        [x, radiusX, radiusY],
+        { args: [x, y, radiusX, radiusY], at: [x], size: [radiusX, radiusY] },
         [x - radiusX, x + radiusX],
         [y - radiusY, y + radiusY],
       ),
     circle: (x, y, radius) =>
       path(
         'circle',
-        [x, radius],
+        { args: [x, y, radius], at: [x], size: [radius] },
         [x - radius, x + radius],
         [y - radius, y + radius],
       ),
-    moveTo: (x, y) => path('moveTo', [x], [x], [y]),
-    lineTo: (x, y) => path('lineTo', [x], [x], [y]),
+    moveTo: (x, y) =>
+      path('moveTo', { args: [x, y], at: [x], size: [] }, [x], [y]),
+    lineTo: (x, y) =>
+      path('lineTo', { args: [x, y], at: [x], size: [] }, [x], [y]),
     quadraticCurveTo: (cpx, cpy, x, y) =>
-      path('quadraticCurveTo', [cpx, x], [cpx, x], [cpy, y]),
-    fill: (style) => close(style),
-    stroke: (style) => close(style),
+      path(
+        'quadraticCurveTo',
+        { args: [cpx, cpy, x, y], at: [cpx, x], size: [] },
+        [cpx, x],
+        [cpy, y],
+      ),
+    fill: (style) => close('fill', style),
+    stroke: (style) => close('stroke', style),
   };
   return { canvas, shapes };
 }
 
-function painted(field: Field = FIELD): Shape[] {
+function painted(field: Field = FIELD, reach = 1): Shape[] {
   const { canvas, shapes } = recorder();
-  paintGround(canvas, field);
+  paintGround(canvas, field, reach);
   return shapes;
 }
 
@@ -149,6 +187,26 @@ function isTwinOf(twin: Shape, home: Shape, away: number): boolean {
   );
 }
 
+/** Whether every number moved by exactly this much. */
+const shiftedBy = (
+  moved: readonly number[],
+  from: readonly number[],
+  by: number,
+): boolean =>
+  moved.length === from.length &&
+  from.every((each, at) => Math.abs((moved[at] ?? NaN) - (each + by)) < 1e-9);
+
+/** Whether one shape is the other drawn again this far across and down. */
+function isCopyOf(copy: Shape, home: Shape, across: number, down: number) {
+  return (
+    copy.kind === home.kind &&
+    copy.style === home.style &&
+    shiftedBy(copy.sizes, home.sizes, 0) &&
+    shiftedBy(copy.xs, home.xs, across) &&
+    shiftedBy(copy.ys, home.ys, down)
+  );
+}
+
 /** Every shape that shares an identity, which is where a twin can be found. */
 function byIdentity(shapes: Shape[]): Map<string, Shape[]> {
   const found = new Map<string, Shape[]>();
@@ -160,22 +218,58 @@ function byIdentity(shapes: Shape[]): Map<string, Shape[]> {
   return found;
 }
 
+/** What two copies of one shape share wherever they are drawn. */
+const lookOf = (shape: Shape): string =>
+  `${shape.kind} ${shape.sizes.join(',')} ${shape.style}`;
+
+/**
+ * Keeps each shape that is not a copy of one already kept, at any of these
+ * offsets across and down.
+ */
+function keepingFirstOf(
+  shapes: Shape[],
+  offsets: readonly (readonly [number, number])[],
+): Shape[] {
+  const kept = new Map<string, Shape[]>();
+  return shapes.filter((shape) => {
+    const same = kept.get(lookOf(shape)) ?? [];
+    const copy = same.some((home) =>
+      offsets.some(([across, down]) => isCopyOf(shape, home, across, down)),
+    );
+    if (!copy) kept.set(lookOf(shape), [...same, shape]);
+    return !copy;
+  });
+}
+
+/** The ways a wrapped copy can sit from the shape it repeats. */
+function wrapOffsets(field: Field): [number, number][] {
+  const offsets: [number, number][] = [];
+  for (const across of [-field.width, 0, field.width]) {
+    for (const down of [-field.height, 0, field.height]) {
+      if (across !== 0 || down !== 0) offsets.push([across, down]);
+    }
+  }
+  return offsets;
+}
+
 /**
  * The shapes the painters placed, with the wrapped repeats left out. A repeat
- * is the same drawing a field height away from one already placed.
+ * is the same drawing a field height away from one already placed, a field
+ * width away across the sides, or both at a corner.
  */
 function homes(shapes: Shape[], field: Field): Shape[] {
-  const placed = new Map<string, Shape[]>();
-  return shapes.filter((shape) => {
-    const same = placed.get(identity(shape)) ?? [];
-    const repeat = same.some(
-      (home) =>
-        isTwinOf(shape, home, field.height) ||
-        isTwinOf(shape, home, -field.height),
-    );
-    if (!repeat) placed.set(identity(shape), [...same, shape]);
-    return !repeat;
-  });
+  return keepingFirstOf(shapes, wrapOffsets(field));
+}
+
+/**
+ * The shapes with every copy across the sides left out: what the painters drew
+ * before the ground learned to wrap across them.
+ */
+function withoutSideCopies(shapes: Shape[], field: Field): Shape[] {
+  return keepingFirstOf(
+    shapes,
+    wrapOffsets(field).filter(([across]) => across !== 0),
+  );
 }
 
 /** The kinds in the order they were drawn, each with how many ran together. */
@@ -383,5 +477,103 @@ describe('the ground painted from the prototype (design record R4)', () => {
       GROUND_PAINTING.maxTexturePixels / tall.height,
       6,
     );
+  });
+});
+
+describe('the ground under the tilted camera (tilted view A9)', () => {
+  /** A blade is the one shape a moveTo and a curve make. */
+  const isBlade = (shape: Shape): boolean =>
+    shape.kind === 'moveTo+quadraticCurveTo';
+
+  it('at a blade reach of one the ground is painted exactly as before, call for call', () => {
+    // R8's port is a ruled look, so the tilt adds to it and changes nothing
+    // (A9). The hash is of the painter's whole call log on the tree before this
+    // slice (1b728db1d3), one line per call written as name(JSON arguments):
+    // 10855 calls. The side wrap is new, so its copies are left out here and
+    // the next tests hold them.
+    const log = withoutSideCopies(painted(FIELD, 1), FIELD).flatMap(
+      (shape) => shape.calls,
+    );
+    expect(log).toHaveLength(10855);
+    expect(createHash('sha256').update(log.join('\n')).digest('hex')).toBe(
+      '26723213549924cb57e385b03c51a06bd8c4b8c49e7fb9b1e7bbc09d36095efb',
+    );
+  });
+
+  it('at a blade reach of 1.3485 every blade is that many times as long and nothing else moves', () => {
+    // A blade leans back 62 degrees off the vertical, so a camera tilted 32.5
+    // degrees shows 1.3485 times what build 7's showed (A9, the prototype's
+    // `const up = lerp(2.4, 6, random()) * reach`, index.html:1910-1916). The
+    // stream is untouched, so every other shape and every blade's root and
+    // sway stay where they were.
+    const reach = 1.3485;
+    const before = homes(painted(FIELD, 1), FIELD);
+    const after = homes(painted(FIELD, reach), FIELD);
+    expect(after).toHaveLength(before.length);
+    const moved = before.flatMap((was, at) => {
+      const now = after[at];
+      if (now === undefined) return [`${at} missing`];
+      if (!isBlade(was))
+        return asText(now) === asText(was) ? [] : [asText(now)];
+      const root = was.ys[0] ?? NaN;
+      const grown = was.ys.map((y) => root + (y - root) * reach);
+      const same =
+        identity(now) === identity(was) &&
+        now.ys.every((y, index) => Math.abs(y - (grown[index] ?? NaN)) < 1e-9);
+      return same ? [] : [asText(now)];
+    });
+    expect(moved).toEqual([]);
+    expect(before.filter(isBlade)).toHaveLength(
+      GROUND_PAINTING.tufts * GROUND_PAINTING.tuftBlades,
+    );
+  });
+
+  it('a shape crossing the left or right edge is painted again a field width away, so the picture meets itself across its sides', () => {
+    // The camera sees ground from -58.4 to 598.4 across its far row, wider
+    // than the 540 the picture is painted on, so the mesh samples it repeating
+    // across as well as down, and a shape cut by a side edge has to carry on
+    // across the join (A9, the addition R8 was given for the vertical wrap).
+    const shapes = painted();
+    const placed = homes(shapes, FIELD).slice(1);
+    const crossing = placed.filter(
+      (shape) => shape.left < 0 || shape.right > FIELD.width,
+    );
+    expect(crossing.length).toBeGreaterThan(0);
+    const unmet = crossing.filter((home) => {
+      const across = home.left < 0 ? FIELD.width : -FIELD.width;
+      return !shapes.some((copy) => isCopyOf(copy, home, across, 0));
+    });
+    expect(unmet.map(asText)).toEqual([]);
+  });
+
+  it('a shape crossing a corner is painted four times', () => {
+    // Across a side and across the top or bottom at once, so the join meets
+    // itself at the corner as well: the shape, its side copy, its copy down
+    // the field, and the copy across both. The game's picture happens to put
+    // nothing across a corner, so a small field, where most shapes cross one,
+    // is what can show the rule.
+    const small: Field = { width: 40, height: 40 };
+    const shapes = painted(small);
+    const placed = homes(shapes, small).slice(1);
+    const cornered = placed.filter(
+      (shape) =>
+        (shape.left < 0 || shape.right > small.width) &&
+        (shape.top < 0 || shape.bottom > small.height),
+    );
+    expect(cornered.length).toBeGreaterThan(0);
+    const counts = cornered.map((home) => {
+      const across = home.left < 0 ? small.width : -small.width;
+      const down = home.top < 0 ? small.height : -small.height;
+      const drawn = [
+        [0, 0],
+        [across, 0],
+        [0, down],
+        [across, down],
+      ].filter(([dx, dy]) =>
+        shapes.some((copy) => isCopyOf(copy, home, dx ?? NaN, dy ?? NaN)),
+      ).length;
+      return `${asText(home)} ${drawn}`;
+    });
+    expect(counts.filter((line) => !line.endsWith(' 4'))).toEqual([]);
   });
 });

@@ -135,7 +135,7 @@ To reverse: anchor a standing thing at its footprint's centre, which trades risi
 
 ### A8. Near draws over far inside a layer, and ADR 0014's layer order does not move
 
-Standing things in `mobBodies` are sorted by their ground y, nearer on top. The twelve layers (`src/app/screens/game/layering.ts:16-30`) keep their order, so mob fire still draws over everything and treasure still draws over mobs. No lit scene, so every colour stays declared and ADR 0014's value band is untouched.
+Standing things in `mobBodies` are sorted by their ground y, nearer on top. The twelve layers (`src/app/screens/game/layering.ts:16-30`) keep their order, so mob fire still draws over everything and treasure still draws over mobs. No lit scene, so every colour stays declared and ADR 0014's value band is untouched. The boss sorts by depth with its adds, so a nearer add draws over it; this is the agent's call, reversible by lifting the boss into its own layer above the sorted bodies.
 
 To reverse: drop the sort; the layer order was never touched.
 
@@ -293,6 +293,7 @@ The numbers, for the 540 by 760 column, worked out independently for slice 1's t
 - Far things draw at 0.82 of their size at the top of the screen. Does mob fire near the top still read, and does a floor-size grave near the top still read as a grave (about 10.7 CSS pixels across there on a 390-wide phone, against the 13 the size floor was set for)?
 - The flat dark hole at a big grave shows a little more wall than the prototype did (A6): does it still read as the hole he chose?
 - Do the placeholder mobs read as standing on the ground, with the near ones in front?
+- Does the boss still read when a near add draws over it?
 - Is a quarter more on screen at once (A4) a better field or a busier one, and does the sparser near third read as space to move or as empty?
 - Bodies walk off the sides as they come near (A2): does that read as the field or as things escaping?
 - A drag at the top and at the bottom of the screen, and a held key across the screen: does the grave go exactly where he means?

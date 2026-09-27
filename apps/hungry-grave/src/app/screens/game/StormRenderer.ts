@@ -25,6 +25,13 @@ import type { WeaponLine } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
+import { SCENE_CAMERA } from './camera';
+import {
+  airborneAt,
+  headingOnColumn,
+  liftOnColumn,
+  lyingAt,
+} from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /**
@@ -443,10 +450,15 @@ const drawSplash = (into: Graphics, age: number): void => {
   into.fill({ color: PALETTE.splash.hex });
 };
 
-/** Where one of a stripped line's sprites stood on the tick the rung was lost. */
+/**
+ * Where one of a stripped line's sprites stood on the tick the rung was lost,
+ * on the column, and the camera's scale there: a skull has no height, so its
+ * ring is airborne at its ground point (design record A7).
+ */
 interface LossPop {
   readonly x: number;
   readonly y: number;
+  readonly scale: number;
 }
 
 /**
@@ -469,8 +481,8 @@ const drawLossPops = (
   // A ring on the tick it is born has reached nowhere yet and is nothing to draw.
   if (radius <= 0) return;
   for (const pop of pops) {
-    into.circle(pop.x, pop.y, radius).stroke({
-      width: LOSS_BLOW_UP_STROKE * (1 - progress) + SPRITE_STROKE,
+    into.circle(pop.x, pop.y, radius * pop.scale).stroke({
+      width: (LOSS_BLOW_UP_STROKE * (1 - progress) + SPRITE_STROKE) * pop.scale,
       color: PALETTE.skull.hex,
       alignment: 0.5,
     });
@@ -527,13 +539,26 @@ const requireSlot = <T>(
 interface Burst {
   readonly sprite: Graphics;
   readonly drift: number;
+  /**
+   * Whether it lies on the ground at its own point. The loss announcement does
+   * not: it sits at the column's origin and each of its rings carries its own
+   * place on the column.
+   */
+  readonly onGround: boolean;
   born: number;
   x: number;
   y: number;
 }
 
-const blankBurst = (drift: number): Burst => {
-  return { sprite: new Graphics(), drift, born: -Infinity, x: 0, y: 0 };
+const blankBurst = (drift: number, onGround: boolean): Burst => {
+  return {
+    sprite: new Graphics(),
+    drift,
+    onGround,
+    born: -Infinity,
+    x: 0,
+    y: 0,
+  };
 };
 
 class StormRenderer {
@@ -544,13 +569,14 @@ class StormRenderer {
   private readonly ring = new Graphics();
   // The eruption is drawn over the ground the press caught, so it rides it. The
   // splash is a spray out of the grave's mouth and rides nothing.
-  private readonly eruption = blankBurst(SCROLL_SPEED);
-  private readonly splash = blankBurst(0);
+  private readonly eruption = blankBurst(SCROLL_SPEED, true);
+  private readonly splash = blankBurst(0, true);
   /**
-   * The loss announcement. It rides nothing and sits at the field's own origin,
-   * because each of its rings carries the field position of the sprite it left.
+   * The loss announcement. It rides nothing and sits at the column's own
+   * origin, because each of its rings carries the column position of the
+   * sprite it left.
    */
-  private readonly lossBlowUp = blankBurst(0);
+  private readonly lossBlowUp = blankBurst(0, false);
   private readonly lossPops: LossPop[] = [];
 
   private readonly skullDrawn: boolean[] = [];
@@ -685,7 +711,9 @@ class StormRenderer {
     if (!lines.includes(BLOWN_UP_LINE)) return;
     this.lossPops.length = 0;
     for (const skull of run.skulls) {
-      if (skull.alive) this.lossPops.push({ x: skull.x, y: skull.y });
+      if (!skull.alive) continue;
+      const at = airborneAt(SCENE_CAMERA, skull.x, skull.y);
+      this.lossPops.push({ x: at.x, y: at.y, scale: at.scaleX });
     }
     this.lossBlowUp.born = run.tick;
   }
@@ -707,7 +735,9 @@ class StormRenderer {
         this.skullDrawn[slot] = true;
         drawSkull(sprite);
       }
-      sprite.position.set(skull.x, skull.y);
+      const at = airborneAt(SCENE_CAMERA, skull.x, skull.y);
+      sprite.position.set(at.x, at.y);
+      sprite.scale.set(at.scaleX, at.scaleY);
     }
   }
 
@@ -722,7 +752,9 @@ class StormRenderer {
         this.patchDrawn[slot] = look;
         drawPatch(sprite, patch.radius);
       }
-      sprite.position.set(patch.x, patch.y);
+      const at = lyingAt(SCENE_CAMERA, patch.x, patch.y);
+      sprite.position.set(at.x, at.y);
+      sprite.scale.set(at.scaleX, at.scaleY);
       // Ground still opening draws dimmed, so the beat before the hands come up
       // reads as a patch that cannot yet bite rather than as one that missed.
       const opening = patch.opening > 0;
@@ -791,11 +823,21 @@ class StormRenderer {
         ARRIVAL_RISE_CEILING,
       );
 
-      sprite.position.set(
-        origin.x + (patch.x - origin.x) * travel,
-        origin.y + (patch.y - origin.y) * travel - height * rise,
+      // Along the ground, then lifted straight up the column by the arc,
+      // which is an art offset in field units at the camera's scale where the
+      // mark is (A7).
+      const alongX = origin.x + (patch.x - origin.x) * travel;
+      const alongY = origin.y + (patch.y - origin.y) * travel;
+      const at = airborneAt(SCENE_CAMERA, alongX, alongY);
+      const lift = liftOnColumn(
+        SCENE_CAMERA,
+        alongX,
+        alongY,
+        0,
+        -height * rise,
       );
-      sprite.scale.set(1 + height * (ARRIVAL_SWELL - 1));
+      sprite.position.set(at.x + lift.x, at.y + lift.y);
+      sprite.scale.set(at.scaleX * (1 + height * (ARRIVAL_SWELL - 1)));
     }
   }
 
@@ -809,9 +851,18 @@ class StormRenderer {
         this.wispDrawn[slot] = true;
         drawWisp(sprite);
       }
-      sprite.position.set(wisp.x, wisp.y);
-      // Oriented to its heading, which is what makes the curve readable.
-      sprite.rotation = Math.atan2(wisp.vy, wisp.vx);
+      const at = airborneAt(SCENE_CAMERA, wisp.x, wisp.y);
+      sprite.position.set(at.x, at.y);
+      sprite.scale.set(at.scaleX, at.scaleY);
+      // Oriented to its heading on the screen, which is what makes the curve
+      // readable (A7).
+      sprite.rotation = headingOnColumn(
+        SCENE_CAMERA,
+        wisp.x,
+        wisp.y,
+        wisp.vx,
+        wisp.vy,
+      );
     }
   }
 
@@ -820,7 +871,9 @@ class StormRenderer {
     this.ring.visible = toll !== null;
     if (toll === null) return;
     drawCones(this.ring, toll.level, tollReach(toll));
-    this.ring.position.set(run.grave.x, run.grave.y);
+    const at = lyingAt(SCENE_CAMERA, run.grave.x, run.grave.y);
+    this.ring.position.set(at.x, at.y);
+    this.ring.scale.set(at.scaleX, at.scaleY);
     // Fading as it expands, so the falloff in damage is visible as a falloff on
     // screen rather than being a number only the sim knows.
     const spent = Math.max(0, Math.min(1, toll.ticks / BELL_EXPAND_TICKS));
@@ -856,8 +909,13 @@ class StormRenderer {
       return;
     }
     burst.sprite.visible = true;
-    burst.sprite.position.set(burst.x, burst.y + age * burst.drift);
     draw(burst.sprite, age);
+    if (!burst.onGround) return;
+    // Lying on the ground at its point, which rides down the field with the
+    // bodies it was drawn over (A7).
+    const at = lyingAt(SCENE_CAMERA, burst.x, burst.y + age * burst.drift);
+    burst.sprite.position.set(at.x, at.y);
+    burst.sprite.scale.set(at.scaleX, at.scaleY);
   }
 }
 

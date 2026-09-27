@@ -147,7 +147,7 @@ class ReplayScreen extends Container {
     this.layers.layer('fieldBoundary').addChild(this.frame);
     this.background.attach(this.layers);
     this.fieldRenderer.attach(this.layers, this.fieldCaps());
-    // After the mob pool, so a boss draws over the adds it summons.
+    // The boss sorts by depth with the mob pool: nearer bodies draw over it.
     this.bossRenderer.attach(this.layers);
     this.stormRenderer.attach(this.layers);
     this.grave.attach(this.layers);

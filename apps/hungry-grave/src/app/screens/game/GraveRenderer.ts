@@ -1,8 +1,15 @@
 import type { ICanvas } from 'pixi.js';
-import { CanvasSource, Container, DOMAdapter, Sprite, Texture } from 'pixi.js';
+import {
+  CanvasSource,
+  Container,
+  DOMAdapter,
+  PerspectiveMesh,
+  Texture,
+} from 'pixi.js';
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
+import { COLUMN, SCENE_CAMERA, groundToColumn, visibleGround } from './camera';
 import type { GraveCanvas } from './graveCanvas';
 import { clamp } from './graveCanvas';
 import {
@@ -13,6 +20,7 @@ import {
 import { paintLip } from './graveLip';
 import { mouthPolygon } from './graveMouth';
 import { paintPit } from './graveWalls';
+import { lyingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
 /**
@@ -25,6 +33,73 @@ interface RendererView {
     getBoundingClientRect?(): { readonly width: number };
   };
 }
+
+/** A point on the column, in column units. */
+interface ColumnPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** A quadrilateral's corners, clockwise from the far left. */
+type Corners = readonly [ColumnPoint, ColumnPoint, ColumnPoint, ColumnPoint];
+
+/** Where the grave's two baked layers are drawn, corner for corner. */
+interface GraveCorners {
+  readonly pit: Corners;
+  readonly lip: Corners;
+}
+
+const ORIGIN: ColumnPoint = { x: 0, y: 0 };
+const UNPLACED: Corners = [ORIGIN, ORIGIN, ORIGIN, ORIGIN];
+
+/**
+ * The camera's scale at the column's nearest row, 1.178, where it draws the
+ * grave largest. The hole is baked at that density so a grave moving up and
+ * down the column never needs a bake for resolution (design record A10).
+ */
+const NEAREST_ROW_SCALE = groundToColumn(
+  SCENE_CAMERA,
+  COLUMN.width / 2,
+  visibleGround(SCENE_CAMERA, COLUMN).bottom,
+).scale;
+
+/**
+ * Where the camera draws the corners of the ground a baked layer covers: the
+ * grave's width and length plus the layer's padding, clockwise from the far
+ * left, so the drawn layer is exactly the projection of its ground (A5, A7).
+ */
+const cornersOver = (grave: Grave, padShare: number): Corners => {
+  const pad = graveWidth(grave.size) * padShare;
+  const across = graveWidth(grave.size) / 2 + pad;
+  const along = grave.size + pad;
+  const at = (x: number, y: number): ColumnPoint => {
+    const drawn = groundToColumn(SCENE_CAMERA, x, y);
+    return { x: drawn.x, y: drawn.y };
+  };
+  return [
+    at(grave.x - across, grave.y - along),
+    at(grave.x + across, grave.y - along),
+    at(grave.x + across, grave.y + along),
+    at(grave.x - across, grave.y + along),
+  ];
+};
+
+/** A baked layer's mesh put through its corners. */
+const setCornersOf = (art: Container, corners: Corners): void => {
+  const mesh = art.children[0];
+  if (!(mesh instanceof PerspectiveMesh)) return;
+  const [far, farRight, nearRight, near] = corners;
+  mesh.setCorners(
+    far.x,
+    far.y,
+    farRight.x,
+    farRight.y,
+    nearRight.x,
+    nearRight.y,
+    near.x,
+    near.y,
+  );
+};
 
 // The view and the texture density the hole was last baked at.
 interface Baked {
@@ -42,16 +117,16 @@ const contextOf = (canvas: ICanvas): GraveCanvas => {
 
 /**
  * One canvas, one texture, painted in field units around the grave's origin
- * and shown at the size it was painted at (the prototype's bakeLayer). The
- * canvas comes from Pixi's own adapter, which is the browser's document in the
- * game.
+ * (the prototype's bakeLayer), drawn through the corners of the ground it
+ * covers. The canvas comes from Pixi's own adapter, which is the browser's
+ * document in the game.
  */
 const bakeLayer = (
   size: number,
   pad: number,
   pxPerUnit: number,
   paint: (ctx: GraveCanvas) => void,
-): Sprite => {
+): PerspectiveMesh => {
   const w = graveWidth(size) / 2 + pad;
   const h = size + pad;
   const canvas = DOMAdapter.get().createCanvas(
@@ -68,21 +143,22 @@ const bakeLayer = (
     canvas.height / 2,
   );
   paint(ctx);
-  const sprite = new Sprite(
-    new Texture({
+  return new PerspectiveMesh({
+    texture: new Texture({
       source: new CanvasSource({ resource: canvas, resolution: 1 }),
     }),
-  );
-  sprite.anchor.set(0.5);
-  sprite.width = w * 2;
-  sprite.height = h * 2;
-  return sprite;
+  });
 };
 
-// Swaps a layer's baked sprite for a fresh one, freeing the old canvas's texture.
-const replaceArt = (art: Container, sprite: Sprite): void => {
+// Swaps a layer's baked mesh for a fresh one, freeing the old canvas's texture.
+const replaceArt = (
+  art: Container,
+  mesh: PerspectiveMesh,
+  corners: Corners,
+): void => {
   art.removeChildren().forEach((child) => child.destroy(true));
-  art.addChild(sprite);
+  art.addChild(mesh);
+  setCornersOf(art, corners);
 };
 
 /**
@@ -91,10 +167,12 @@ const replaceArt = (art: Container, sprite: Sprite): void => {
  *
  * The hole is baked afresh once the size has moved past HOLE_REBUILD_STEP, as
  * the prototype's rebuildHole is, because several of its details are a screen
- * pixel or two wide and must not scale with the grave. Between bakes the art is
- * stretched to the size the sim says, so the grave grows with every swallow. The bake needs the
- * view's pixels per field unit, which only the renderer knows, so it happens in
- * the renderer's own pass (onRender) rather than in sync.
+ * pixel or two wide and must not scale with the grave. Every frame each baked
+ * layer is drawn through the camera's points for the corners of the ground it
+ * covers at the size the sim says, so the grave grows with every swallow and
+ * sits in the leaning ground (design record A7). The bake needs the view's
+ * pixels per field unit, which only the renderer knows, so it happens in the
+ * renderer's own pass (onRender) rather than in sync.
  */
 class GraveRenderer {
   private readonly pitArt = new Container();
@@ -103,12 +181,13 @@ class GraveRenderer {
    * a body lying across the opening stays visible until it tips (design record
    * R5).
    *
-   * It follows the grave and is never scaled: a fall holds its own place in the
-   * grave's proportions and multiplies by the size itself, so a container scaled
-   * here would apply the size twice.
+   * It lies at the grave's centre under the camera and never takes the grave's
+   * size: a fall holds its own place in the grave's proportions and multiplies
+   * by the size itself, so a container scaled by the size would apply it twice.
    */
   public readonly falls = new Container();
   private readonly lipArt = new Container();
+  private drawn: GraveCorners = { pit: UNPLACED, lip: UNPLACED };
   private wantedSize: number | null = null;
   private baked: Baked | null = null;
   private warnedUnmeasured = false;
@@ -129,6 +208,11 @@ class GraveRenderer {
     layers.layer('graveMouth').addChild(this.pitArt, this.falls, this.lipArt);
   }
 
+  /** Where the pit and the lip are drawn this frame, read-only. */
+  public get corners(): GraveCorners {
+    return this.drawn;
+  }
+
   public detach(): void {
     this.pitArt.removeFromParent();
     this.falls.removeFromParent();
@@ -140,13 +224,19 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * Position is free, and the size is recorded for the next bake.
+   * Where it draws is free, and the size is recorded for the next bake.
    */
   public sync(grave: Grave): void {
     this.wantedSize = grave.size;
-    for (const piece of [this.pitArt, this.falls, this.lipArt]) {
-      piece.position.set(grave.x, grave.y);
-    }
+    this.drawn = {
+      pit: cornersOver(grave, BAKE_PADDING.pit),
+      lip: cornersOver(grave, BAKE_PADDING.lip),
+    };
+    setCornersOf(this.pitArt, this.drawn.pit);
+    setCornersOf(this.lipArt, this.drawn.lip);
+    const at = lyingAt(SCENE_CAMERA, grave.x, grave.y);
+    this.falls.position.set(at.x, at.y);
+    this.falls.scale.set(at.scaleX, at.scaleY);
   }
 
   /**
@@ -156,9 +246,10 @@ class GraveRenderer {
    * screen.
    */
   private viewScaleFor(renderer: RendererView): number | null {
-    // Read off the falls, which are never scaled, so the art's own stretch
-    // between bakes never feeds back into the view it is baked for.
-    const transform = this.falls.getGlobalTransform();
+    // Read off the pit's container, which the camera never places or scales,
+    // so where the grave stands never feeds back into the view it is baked
+    // for (A10).
+    const transform = this.pitArt.getGlobalTransform();
     const stageUnits = Math.hypot(transform.a, transform.b);
     const shown = renderer.canvas.getBoundingClientRect?.().width;
     const viewScale =
@@ -176,7 +267,8 @@ class GraveRenderer {
   /**
    * Bakes the hole when the size has moved past the step since the last bake,
    * or the view has changed under it, at the pixels per unit the prototype
-   * chooses: the view's CSS pixels times the device pixel ratio.
+   * chooses, the view's CSS pixels times the device pixel ratio, taken at the
+   * column's nearest row (A10).
    */
   private bakeForThisFrame(renderer: RendererView): void {
     const size = this.wantedSize;
@@ -184,7 +276,7 @@ class GraveRenderer {
     const viewScale = this.viewScaleFor(renderer);
     if (viewScale === null) return;
     const pixelsPerUnit = clamp(
-      viewScale * (globalThis.devicePixelRatio || 1),
+      viewScale * NEAREST_ROW_SCALE * (globalThis.devicePixelRatio || 1),
       BAKE_PIXELS_PER_UNIT.min,
       BAKE_PIXELS_PER_UNIT.max,
     );
@@ -195,15 +287,6 @@ class GraveRenderer {
       last.viewScale === viewScale &&
       last.pixelsPerUnit === pixelsPerUnit;
     if (!stillFits) this.rebuildHole(size, viewScale, pixelsPerUnit);
-    this.stretchArtToSize(size);
-  }
-
-  // The baked art scaled from the size it was baked at to the size now, which is uniform because the grave's width, length and padding all scale with its size.
-  private stretchArtToSize(size: number): void {
-    const bakedAt = this.baked?.size;
-    if (bakedAt === undefined) return;
-    this.pitArt.scale.set(size / bakedAt);
-    this.lipArt.scale.set(size / bakedAt);
   }
 
   /** The hole baked at one size (the prototype's rebuildHole): the pit, then the lip. */
@@ -219,15 +302,18 @@ class GraveRenderer {
       bakeLayer(size, width * BAKE_PADDING.pit, pixelsPerUnit, (ctx) =>
         paintPit(ctx, mouth, size, viewScale),
       ),
+      this.drawn.pit,
     );
     replaceArt(
       this.lipArt,
       bakeLayer(size, width * BAKE_PADDING.lip, pixelsPerUnit, (ctx) =>
         paintLip(ctx, mouth, size, viewScale),
       ),
+      this.drawn.lip,
     );
     this.baked = { size, viewScale, pixelsPerUnit };
   }
 }
 
 export { GraveRenderer };
+export type { ColumnPoint, Corners, GraveCorners };
