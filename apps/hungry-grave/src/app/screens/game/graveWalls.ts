@@ -14,18 +14,19 @@ import {
   TAU,
   tracePolys,
 } from './graveCanvas';
-import { FACE_STEPS, FACE_WASH, GRAVE_VIEW, SOIL } from './graveDrawingValues';
+import { FACE_STEPS, FACE_WASH, SOIL } from './graveDrawingValues';
 import { polyBounds, roughAt } from './graveMouth';
-import type { Spot } from './graveProjection';
+import type { GraveView, Spot } from './graveProjection';
 import { belowGround, lightAtDepth } from './graveProjection';
 
-// One cut face, named by the ground edge it hangs under.
+// One cut face, named by the ground edge it hangs under, with the view it is cut from.
 interface WallFace {
   readonly id: 'far' | 'right' | 'left';
   readonly from: Spot;
   readonly to: Spot;
   readonly span: number;
   readonly seed: number;
+  readonly view: GraveView;
 }
 
 /**
@@ -38,14 +39,15 @@ const belowGroundAt = (
   y: number,
   depth: number,
   size: number,
+  view: GraveView,
 ): Spot => {
-  const spot = belowGround(x / size, y / size, depth / size, GRAVE_VIEW);
+  const spot = belowGround(x / size, y / size, depth / size, view);
   return { x: spot.x * size, y: spot.y * size };
 };
 
 // How much moon reaches a depth in field units, at a size.
-const lightAt = (depth: number, size: number): number =>
-  lightAtDepth(depth / size, GRAVE_VIEW);
+const lightAt = (depth: number, size: number, view: GraveView): number =>
+  lightAtDepth(depth / size, view);
 
 /**
  * The three cut faces the camera can see, each walked so `along` runs 0 to 1
@@ -53,7 +55,7 @@ const lightAt = (depth: number, size: number): number =>
  * them: the camera stands behind the grave, so the whole of that face projects
  * past the near lip and the ground hides it.
  */
-const wallFaces = (size: number): WallFace[] => {
+const wallFaces = (size: number, view: GraveView): WallFace[] => {
   const hw = graveWidth(size) / 2;
   return [
     {
@@ -62,6 +64,7 @@ const wallFaces = (size: number): WallFace[] => {
       to: { x: hw, y: -size },
       span: graveWidth(size),
       seed: 1374496523,
+      view,
     },
     {
       id: 'right',
@@ -69,6 +72,7 @@ const wallFaces = (size: number): WallFace[] => {
       to: { x: hw, y: size },
       span: size * 2,
       seed: 374761393,
+      view,
     },
     {
       id: 'left',
@@ -76,6 +80,7 @@ const wallFaces = (size: number): WallFace[] => {
       to: { x: -hw, y: -size },
       span: size * 2,
       seed: 668265263,
+      view,
     },
   ];
 };
@@ -90,8 +95,9 @@ const facePoint = (
   belowGroundAt(
     lerp(face.from.x, face.to.x, along),
     lerp(face.from.y, face.to.y, along),
-    GRAVE_VIEW.darkDepth * size * down,
+    face.view.darkDepth * size * down,
     size,
+    face.view,
   );
 
 // One layer of the cut, by its place in SOIL.
@@ -221,8 +227,8 @@ const paintStones = (
   random: () => number,
 ): void => {
   const stones = Math.round(clamp(face.span * viewScale * 0.12, 3, 11));
-  const depthOfDark = GRAVE_VIEW.darkDepth * size;
-  const height = GRAVE_VIEW.cameraHeight * size;
+  const depthOfDark = face.view.darkDepth * size;
+  const height = face.view.cameraHeight * size;
   for (let i = 0; i < stones; i++) {
     // Skewed shallow, because a stone below the light is a stone nobody sees.
     const down = lerp(0.1, 0.72, Math.pow(random(), 1.5));
@@ -330,15 +336,15 @@ const paintDepthFade = (
     face.id === 'far'
       ? ctx.createLinearGradient(0, lip.y, 0, deep.y)
       : ctx.createLinearGradient(lip.x, 0, deep.x, 0);
-  const deepest =
-    GRAVE_VIEW.cameraHeight / (GRAVE_VIEW.cameraHeight + GRAVE_VIEW.darkDepth);
+  const { cameraHeight, darkDepth } = face.view;
+  const deepest = cameraHeight / (cameraHeight + darkDepth);
   for (let k = 0; k <= 14; k++) {
     const t = k / 14;
     const shrink = 1 - t * (1 - deepest);
-    const depth = GRAVE_VIEW.cameraHeight * size * (1 / shrink - 1);
+    const depth = cameraHeight * size * (1 / shrink - 1);
     fade.addColorStop(
       t,
-      rgba(PALETTE.graveHole, (1 - lightAt(depth, size)).toFixed(3)),
+      rgba(PALETTE.graveHole, (1 - lightAt(depth, size, face.view)).toFixed(3)),
     );
   }
   traceFaceExtent(ctx, face, size);
@@ -395,17 +401,24 @@ const paintCornerEdges = (
   ctx: GraveCanvas,
   size: number,
   viewScale: number,
+  view: GraveView,
 ): void => {
   const hw = graveWidth(size) / 2;
   const steps = 16;
-  const dark = GRAVE_VIEW.darkDepth * size;
+  const dark = view.darkDepth * size;
   ctx.lineCap = 'round';
   ctx.lineWidth = Math.max(onePx(1, viewScale), size * 0.018);
   for (const side of [-1, 1]) {
     for (let i = 0; i < steps; i++) {
-      const a = belowGroundAt(side * hw, -size, dark * (i / steps), size);
-      const b = belowGroundAt(side * hw, -size, dark * ((i + 1) / steps), size);
-      const light = lightAt(dark * ((i + 0.5) / steps), size);
+      const a = belowGroundAt(side * hw, -size, dark * (i / steps), size, view);
+      const b = belowGroundAt(
+        side * hw,
+        -size,
+        dark * ((i + 1) / steps),
+        size,
+        view,
+      );
+      const light = lightAt(dark * ((i + 0.5) / steps), size, view);
       ctx.strokeStyle = rgba(PALETTE.graveCornerEdge, (0.8 * light).toFixed(3));
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
@@ -416,16 +429,18 @@ const paintCornerEdges = (
 };
 
 /**
- * The cut earth and the dark under it, baked once per size beneath the falls.
- * The grave has no bottom: the black is laid down first, the three faces the
- * camera can see are painted over it, and each one fades into that same black
- * rather than meeting anything.
+ * The cut earth and the dark under it, baked once per size and stance beneath
+ * the falls, cut from the view it is handed (tilted view T4). The grave has no
+ * bottom: the black is laid down first, the three faces the camera can see are
+ * painted over it, and each one fades into that same black rather than meeting
+ * anything.
  */
 const paintPit = (
   ctx: GraveCanvas,
   mouth: Polygon,
   size: number,
   viewScale: number,
+  view: GraveView,
 ): void => {
   const { maxX, maxY } = polyBounds(mouth);
   ctx.save();
@@ -433,8 +448,10 @@ const paintPit = (
   ctx.clip();
   ctx.fillStyle = hex(PALETTE.graveHole);
   ctx.fillRect(-maxX - 4, -maxY - 4, maxX * 2 + 8, maxY * 2 + 8);
-  for (const face of wallFaces(size)) paintFace(ctx, face, size, viewScale);
-  paintCornerEdges(ctx, size, viewScale);
+  for (const face of wallFaces(size, view)) {
+    paintFace(ctx, face, size, viewScale);
+  }
+  paintCornerEdges(ctx, size, viewScale, view);
   ctx.restore();
 };
 

@@ -13,6 +13,7 @@ import { capsFor } from '../../game/caps';
 import { CORPSE_HALF_EXTENT } from '../../game/corpses';
 import type { Execution } from '../../game/execution';
 import { createExecution, executeTick } from '../../game/execution';
+import type { Grave } from '../../game/grave';
 import { graveWidth } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -24,6 +25,7 @@ import { Label } from '../ui/Label';
 import type { Swallowed } from '../../game/events';
 import { FALL_TICKS } from './game/fall';
 import { FallRenderer } from './game/FallRenderer';
+import { holeViewOver } from './game/GraveRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { FieldLayers } from './game/layering';
 
@@ -107,9 +109,12 @@ class FrameBudgetScreen extends Container {
    * This screen builds no grave renderer: a grave's own art would be folded
    * into every row, and what this column is for is the falls' own cost. The
    * renderer takes the container it draws into for exactly that reason (design
-   * record R5).
+   * record R5). With no grave to read a cut from, it is handed the view a hole
+   * over the measured run's grave would be cut with.
    */
-  private readonly falls = new FallRenderer();
+  private readonly falls = new FallRenderer({
+    holeView: () => holeViewOver(this.measuredGrave()),
+  });
 
   private queue: FieldSize[] = [];
   private measured: FrameSpans[] = [];
@@ -229,6 +234,13 @@ class FrameBudgetScreen extends Container {
     for (let born = already; born < through; born++) {
       this.falls.swallowed(measuring.run, overTheRim);
     }
+  }
+
+  // The grave of the run being measured; the falls are synced only while one is, so asking with none is a bug.
+  private measuredGrave(): Grave {
+    const measuring = this.current;
+    if (measuring === null) throw new Error('no field is being measured');
+    return measuring.run.grave;
   }
 
   /** The next field standing and its run fresh, or null once every field is measured. */

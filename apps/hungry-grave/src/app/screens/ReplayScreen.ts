@@ -76,13 +76,17 @@ class ReplayScreen extends Container {
    * other is how a renderer ships unseen, and the lead-in's whole promise is
    * that a replay shows what the run showed (design record R5).
    */
-  private readonly falls = new FallRenderer();
+  private readonly falls = new FallRenderer({
+    holeView: () => this.grave.holeView(),
+  });
   /**
    * The Undertaker's end, wired in here as well as into the live screen. A
    * replay has no way out to hold, so it plays the scene where it stands, on
    * its own frame clock, past the tape's own end (design record R6).
    */
-  private readonly scene = new EndingSceneRenderer();
+  private readonly scene = new EndingSceneRenderer({
+    holeView: () => this.grave.holeView(),
+  });
   private readonly bossRenderer = new BossRenderer();
   private readonly stormRenderer = new StormRenderer();
   private readonly readout = createReplayReadout();
@@ -236,6 +240,9 @@ class ReplayScreen extends Container {
    */
   private syncScreen(run: RunState, events: readonly SimEvent[]): void {
     this.field.visible = true;
+    // Placed before the events, because a replay can open on the Undertaker's
+    // death and the scene it begins is drawn with the hole's view over the grave.
+    this.grave.sync(run.grave);
     for (const event of events) {
       if (event.type === 'swallowed') this.falls.swallowed(run, event);
       if (event.type === 'belched') this.stormRenderer.erupt(run);
@@ -254,7 +261,6 @@ class ReplayScreen extends Container {
         this.stormRenderer.weaponStripped(run, event.lines);
       }
     }
-    this.grave.sync(run.grave);
     this.background.sync(run);
     this.fieldRenderer.sync(run);
     this.falls.sync(run);

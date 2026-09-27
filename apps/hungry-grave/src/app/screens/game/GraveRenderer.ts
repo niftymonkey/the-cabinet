@@ -9,16 +9,25 @@ import {
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
-import { COLUMN, SCENE_CAMERA, groundToColumn, visibleGround } from './camera';
+import {
+  COLUMN,
+  SCENE_CAMERA,
+  groundToColumn,
+  stanceOverGrave,
+  visibleGround,
+} from './camera';
 import type { GraveCanvas } from './graveCanvas';
 import { clamp } from './graveCanvas';
 import {
   BAKE_PADDING,
   BAKE_PIXELS_PER_UNIT,
+  GRAVE_DARK,
   HOLE_REBUILD_STEP,
+  STANCE_REBAKE_STEP,
 } from './graveDrawingValues';
 import { paintLip } from './graveLip';
 import { mouthPolygon } from './graveMouth';
+import type { GraveView } from './graveProjection';
 import { paintPit } from './graveWalls';
 import { lyingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
@@ -101,12 +110,35 @@ const setCornersOf = (art: Container, corners: Corners): void => {
   );
 };
 
-// The view and the texture density the hole was last baked at.
+// Where the grave stood and how big it was, the view, the texture density and the hole's view the hole was last baked from.
 interface Baked {
-  readonly size: number;
+  readonly spot: GraveSpot;
   readonly viewScale: number;
   readonly pixelsPerUnit: number;
+  readonly holeView: GraveView;
 }
+
+/** Where a grave stands and how big it is, which is all its hole's view needs. */
+interface GraveSpot {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+}
+
+/**
+ * The view a hole over this grave is cut with: the scene camera's own stance
+ * over it and the dark under it (tilted view T4, A6). There is no second camera
+ * for the hole, so the fall and the Undertaker's end take their view from here.
+ */
+const holeViewOver = (grave: GraveSpot): GraveView => ({
+  ...stanceOverGrave(SCENE_CAMERA, grave),
+  ...GRAVE_DARK,
+});
+
+// Whether the grave has moved far enough from where it was baked for the walls that show to change (A10).
+const stanceMoved = (baked: GraveSpot, live: GraveSpot): boolean =>
+  Math.abs(live.x - baked.x) > STANCE_REBAKE_STEP ||
+  Math.abs(live.y - baked.y) > STANCE_REBAKE_STEP;
 
 // The 2D context of a canvas Pixi's adapter made, or a loud failure: a bake with no context is a broken environment.
 const contextOf = (canvas: ICanvas): GraveCanvas => {
@@ -188,7 +220,7 @@ class GraveRenderer {
   public readonly falls = new Container();
   private readonly lipArt = new Container();
   private drawn: GraveCorners = { pit: UNPLACED, lip: UNPLACED };
-  private wantedSize: number | null = null;
+  private wanted: GraveSpot | null = null;
   private baked: Baked | null = null;
   private warnedUnmeasured = false;
 
@@ -213,6 +245,19 @@ class GraveRenderer {
     return this.drawn;
   }
 
+  /**
+   * The view the walls were last cut with, so a fall is drawn between the
+   * walls it goes down against; before the first bake, the view the next bake
+   * will cut. A fall drawn before the grave was ever synced is a bug.
+   */
+  public holeView(): GraveView {
+    if (this.baked !== null) return this.baked.holeView;
+    if (this.wanted === null) {
+      throw new Error('the hole has no view: the grave was never synced');
+    }
+    return holeViewOver(this.wanted);
+  }
+
   public detach(): void {
     this.pitArt.removeFromParent();
     this.falls.removeFromParent();
@@ -224,10 +269,11 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * Where it draws is free, and the size is recorded for the next bake.
+   * Where it draws is free, and the size and the place are recorded for the
+   * next bake, because the camera's stance over the grave needs both.
    */
   public sync(grave: Grave): void {
-    this.wantedSize = grave.size;
+    this.wanted = { x: grave.x, y: grave.y, size: grave.size };
     this.drawn = {
       pit: cornersOver(grave, BAKE_PADDING.pit),
       lip: cornersOver(grave, BAKE_PADDING.lip),
@@ -266,13 +312,15 @@ class GraveRenderer {
 
   /**
    * Bakes the hole when the size has moved past the step since the last bake,
-   * or the view has changed under it, at the pixels per unit the prototype
-   * chooses, the view's CSS pixels times the device pixel ratio, taken at the
-   * column's nearest row (A10).
+   * or the grave has moved past its own, or the view has changed under it, at
+   * the pixels per unit the prototype chooses, the view's CSS pixels times the
+   * device pixel ratio, taken at the column's nearest row (A10).
    */
   private bakeForThisFrame(renderer: RendererView): void {
-    const size = this.wantedSize;
-    if (size === null) return;
+    const wanted = this.wanted;
+    if (wanted === null) return;
+    const { size } = wanted;
+    const holeView = holeViewOver(wanted);
     const viewScale = this.viewScaleFor(renderer);
     if (viewScale === null) return;
     const pixelsPerUnit = clamp(
@@ -283,24 +331,29 @@ class GraveRenderer {
     const last = this.baked;
     const stillFits =
       last !== null &&
-      Math.abs(size - last.size) <= HOLE_REBUILD_STEP &&
+      Math.abs(size - last.spot.size) <= HOLE_REBUILD_STEP &&
+      !stanceMoved(last.spot, wanted) &&
       last.viewScale === viewScale &&
       last.pixelsPerUnit === pixelsPerUnit;
-    if (!stillFits) this.rebuildHole(size, viewScale, pixelsPerUnit);
+    if (!stillFits) {
+      this.rebuildHole(wanted, viewScale, pixelsPerUnit, holeView);
+    }
   }
 
-  /** The hole baked at one size (the prototype's rebuildHole): the pit, then the lip. */
+  /** The hole baked at one size from one stance (the prototype's rebuildHole): the pit, then the lip. */
   private rebuildHole(
-    size: number,
+    spot: GraveSpot,
     viewScale: number,
     pixelsPerUnit: number,
+    holeView: GraveView,
   ): void {
+    const { size } = spot;
     const mouth = mouthPolygon(size);
     const width = graveWidth(size);
     replaceArt(
       this.pitArt,
       bakeLayer(size, width * BAKE_PADDING.pit, pixelsPerUnit, (ctx) =>
-        paintPit(ctx, mouth, size, viewScale),
+        paintPit(ctx, mouth, size, viewScale, holeView),
       ),
       this.drawn.pit,
     );
@@ -311,9 +364,9 @@ class GraveRenderer {
       ),
       this.drawn.lip,
     );
-    this.baked = { size, viewScale, pixelsPerUnit };
+    this.baked = { spot, viewScale, pixelsPerUnit, holeView };
   }
 }
 
-export { GraveRenderer };
+export { GraveRenderer, holeViewOver };
 export type { ColumnPoint, Corners, GraveCorners };

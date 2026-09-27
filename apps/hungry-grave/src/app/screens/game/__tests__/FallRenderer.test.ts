@@ -16,6 +16,20 @@ import { createRun } from '../../../../game/run';
 import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
 import { FallRenderer } from '../FallRenderer';
 import { FALL_TICKS } from '../fall';
+import type { GraveView } from '../graveProjection';
+
+/**
+ * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
+ * R4's dark: the view these promises were written against, handed in now that
+ * the painters take the view they are cut with (tilted view T4).
+ */
+const BUILD_7_VIEW: GraveView = {
+  cameraHeight: 4.95,
+  nadirX: 0,
+  nadirY: 1.07,
+  darkDepth: 2.4,
+  darkFalloff: 2.6,
+};
 
 const CAPS = capsFor(DEFAULT_TUNING);
 
@@ -37,7 +51,7 @@ const swallowedAtTheRim = (): Swallowed => ({
 
 const attached = (): { into: Container; renderer: FallRenderer } => {
   const into = new Container();
-  const renderer = new FallRenderer();
+  const renderer = new FallRenderer({ holeView: () => BUILD_7_VIEW });
   renderer.attach(into, CAPS);
   return { into, renderer };
 };

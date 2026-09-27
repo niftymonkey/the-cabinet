@@ -6,6 +6,7 @@ import type { RunState } from '../../../game/run';
 import type { Fall } from './fall';
 import { fallAt, FALL_TICKS } from './fall';
 import { drawFoodBody, greyTint } from './foodSprite';
+import type { GraveView } from './graveProjection';
 
 /**
  * The food on its way into the hole, drawn from the swallow's own event.
@@ -72,8 +73,22 @@ const fill = (falls: Falling[], capacity: number): void => {
   }
 };
 
+/**
+ * What the fall's renderer is handed at construction: the view the hole's walls
+ * were cut with, read each frame, so a body goes down between the walls it is
+ * drawn against (tilted view T4).
+ */
+interface FallRendererPowers {
+  readonly holeView: () => GraveView;
+}
+
 class FallRenderer {
   private readonly falls: Falling[] = [];
+  private readonly powers: FallRendererPowers;
+
+  constructor(powers: FallRendererPowers) {
+    this.powers = powers;
+  }
 
   /**
    * Every sprite into the container the driver names, the pool grown for the
@@ -125,13 +140,14 @@ class FallRenderer {
 
   // Every fall placed for this tick, in the grave's own frame.
   public sync(run: RunState): void {
+    const view = this.powers.holeView();
     for (const falling of this.falls) {
       const age = run.tick - falling.fall.born;
       if (age < 0 || age >= FALL_TICKS) {
         falling.sprite.visible = false;
         continue;
       }
-      const drawn = fallAt(falling.fall, age, run.grave.size);
+      const drawn = fallAt(falling.fall, age, run.grave.size, view);
       falling.sprite.visible = !drawn.gone;
       falling.sprite.position.set(drawn.x, drawn.y);
       falling.sprite.rotation = drawn.turn;
@@ -166,3 +182,4 @@ class FallRenderer {
 }
 
 export { FallRenderer, FALL_RENDERER_TRANSIENT_TICKS };
+export type { FallRendererPowers };

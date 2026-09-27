@@ -9,10 +9,29 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Grave } from '../../../../game/grave';
 import { graveHitbox, graveWidth } from '../../../../game/grave';
 import { SIZE_CEILING, SIZE_FLOOR, SIZE_START } from '../../../../game/tuning';
-import { SCENE_CAMERA, groundToColumn } from '../camera';
-import { BAKE_PADDING } from '../graveDrawingValues';
+import { capsFor } from '../../../../game/caps';
+import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
+import type { Swallowed } from '../../../../game/events';
+import { createRun } from '../../../../game/run';
+import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
+import { FIELD_HEIGHT } from '../../../../game/field';
+import {
+  COLUMN,
+  SCENE_CAMERA,
+  groundToColumn,
+  stanceOverGrave,
+} from '../camera';
+import { fallAt } from '../fall';
+import { FallRenderer } from '../FallRenderer';
+import {
+  BAKE_PADDING,
+  GRAVE_DARK,
+  STANCE_REBAKE_STEP,
+} from '../graveDrawingValues';
+import type { GraveView } from '../graveProjection';
 import type { Corners } from '../GraveRenderer';
 import { GraveRenderer } from '../GraveRenderer';
+import { facePoint, wallFaces } from '../graveWalls';
 import { FieldLayers } from '../layering';
 
 /** The three sizes the grave's art is judged at (design record R4). */
@@ -131,6 +150,32 @@ function frame(layers: FieldLayers, renderer: GraveRenderer, at: Grave): void {
   drawn(layers);
 }
 
+/** A view's camera written out, so two compare at a glance. */
+const viewText = (view: {
+  readonly cameraHeight: number;
+  readonly nadirX: number;
+  readonly nadirY: number;
+}): string =>
+  [view.cameraHeight, view.nadirX, view.nadirY]
+    .map((each) => each.toFixed(9))
+    .join(' ');
+
+/** A corpse swallowed at the right-hand rim of a grave at the start size. */
+const OVER_THE_RIGHT_RIM: Swallowed = {
+  type: 'swallowed',
+  kind: 'corpse',
+  freshness: 1,
+  payout: 1,
+  offsetX: 13.5,
+  offsetY: 0,
+  halfExtent: CORPSE_HALF_EXTENT,
+  vx: 0,
+  vy: 0,
+  graveSize: 27,
+  tier: 'trash',
+  treasureBody: false,
+};
+
 describe('GraveRenderer', () => {
   it('the baked hole lands in the graveMouth layer and nothing at all in the graveRim layer (ADR 0014)', () => {
     // The hole's art sits under whatever is falling into it, and nothing of the
@@ -176,16 +221,17 @@ describe('GraveRenderer', () => {
     // The prototype bakes the hole afresh at each size (rebuildHole), because
     // several of its details are screen pixels wide and must not scale with
     // the grave. It bakes again once the size has moved past its step, and a
-    // move or a fuller reservoir alone never bakes.
+    // fuller reservoir alone never bakes. The grave holds its place, because a
+    // move bakes on the camera's stance (A10), which a test below owns.
     const { layers, renderer } = attached();
     frame(layers, renderer, grave(27));
     const baked = canvasesMade.length;
 
-    frame(layers, renderer, grave(27, 300, 400));
-    frame(layers, renderer, grave(27.3, 300, 400));
+    frame(layers, renderer, grave(27));
+    frame(layers, renderer, grave(27.3));
     expect(canvasesMade.length).toBe(baked);
 
-    frame(layers, renderer, grave(33, 300, 400));
+    frame(layers, renderer, grave(33));
     expect(canvasesMade.length).toBe(baked + 2);
   });
 
@@ -342,18 +388,21 @@ describe('the grave under the tilted camera (tilted view A5, A7, A10)', () => {
     expect(farWidth).toBeLessThan(nearWidth);
   });
 
-  it('moving the grave up and down the column does not bake the hole again', () => {
-    // The hole is baked at the nearest row's density, so a grave moving up and
-    // down the column never needs a sharper bake (A10), and the view it is
-    // baked for is read off the unscaled layer rather than off anything the
-    // camera draws, or every row would ask for a bake of its own.
+  it('moving the grave to another row bakes at the same pixel density', () => {
+    // A10: a move bakes the hole again once the camera's stance over it has
+    // moved, and never for resolution: the hole is baked at the nearest row's
+    // density wherever the grave stands, so a bake on any row is as sharp as a
+    // bake on any other, read off the unscaled layer rather than off anything
+    // the camera draws.
     const { layers, renderer } = attached();
+    const first = canvasesMade.length;
     frame(layers, renderer, grave(SIZE_START, 270, 600));
-    const baked = canvasesMade.length;
-    for (const y of [150, 700, 40, 380]) {
-      frame(layers, renderer, grave(SIZE_START, 270, y));
-    }
-    expect(canvasesMade.length).toBe(baked);
+    const second = canvasesMade.length;
+    frame(layers, renderer, grave(SIZE_START, 270, 150));
+    const atTheStart = canvasesMade[first];
+    const upTheField = canvasesMade[second];
+    expect(upTheField?.width).toBe(atTheStart?.width);
+    expect(upTheField?.height).toBe(atTheStart?.height);
   });
 
   it("the hole is baked at the view's pixels times the nearest row's scale times the device pixel ratio", () => {
@@ -371,5 +420,138 @@ describe('the grave under the tilted camera (tilted view A5, A7, A10)', () => {
     const side =
       graveWidth(SIZE_START) / 2 + graveWidth(SIZE_START) * BAKE_PADDING.pit;
     expect(pit?.width).toBe(Math.ceil(side * 2 * wanted));
+  });
+});
+
+describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
+  it("the hole is cut by the scene camera: over a grave of size 48 the view's camera height is 23.90625 half-lengths, never the scene's 42.5", () => {
+    // A6: the camera stands 1147.5 field units up whatever the grave's size,
+    // so over a grave of size 48 it is 1147.5 / 48 of that grave's half-lengths
+    // up; a camera that rose with the grave would stay at 42.5.
+    const { layers, renderer } = attached();
+    frame(layers, renderer, grave(48));
+    expect(
+      Math.abs(renderer.holeView().cameraHeight - 23.90625),
+    ).toBeLessThanOrEqual(1e-9);
+  });
+
+  it('moving the grave less than a stance step does not bake the hole again, and moving it more does', () => {
+    // A10: where the grave stands decides which walls show, and the hole is
+    // baked again once the grave has moved more than a step, across or along,
+    // from where it was baked.
+    const { layers, renderer } = attached();
+    frame(layers, renderer, grave(27, 270, 600));
+    const baked = canvasesMade.length;
+    frame(layers, renderer, grave(27, 270 + STANCE_REBAKE_STEP / 2, 600));
+    frame(
+      layers,
+      renderer,
+      grave(27, 270 + STANCE_REBAKE_STEP / 2, 600 + STANCE_REBAKE_STEP / 2),
+    );
+    expect(canvasesMade.length).toBe(baked);
+    frame(layers, renderer, grave(27, 270 + STANCE_REBAKE_STEP * 1.5, 600));
+    expect(canvasesMade.length).toBe(baked + 2);
+  });
+
+  it('the fall is handed the view the walls were last cut with', () => {
+    // T4: a body goes down between the walls it is drawn against, so the fall
+    // reads the view of the last bake and not the live stance, which may have
+    // moved by less than a step since. Before the first bake it reads the view
+    // the next bake will cut. Over a grave of size 27 the camera is 42.5
+    // half-lengths up and its nadir sits (270 - x) / 27 across.
+    const { layers, renderer } = attached();
+    const nadirYOver = (y: number): number =>
+      stanceOverGrave(SCENE_CAMERA, { x: 270, y, size: 27 }).nadirY;
+    renderer.sync(grave(27, 243, 600));
+    expect(viewText(renderer.holeView())).toBe(
+      viewText({ cameraHeight: 42.5, nadirX: 1, nadirY: nadirYOver(600) }),
+    );
+    drawn(layers);
+    frame(layers, renderer, grave(27, 243 + STANCE_REBAKE_STEP / 2, 600));
+    expect(viewText(renderer.holeView())).toBe(
+      viewText({ cameraHeight: 42.5, nadirX: 1, nadirY: nadirYOver(600) }),
+    );
+    frame(layers, renderer, grave(27, 297, 600));
+    expect(viewText(renderer.holeView())).toBe(
+      viewText({ cameraHeight: 42.5, nadirX: -1, nadirY: nadirYOver(600) }),
+    );
+
+    // And the hop the screens declare carries it: a fall synced after the grave
+    // has moved under a step is drawn with the baked view.
+    const falls = new FallRenderer({ holeView: () => renderer.holeView() });
+    falls.attach(renderer.falls, capsFor(DEFAULT_TUNING));
+    const run = createRun(1);
+    run.tick = 40;
+    run.grave.size = 27;
+    falls.swallowed({ ...run, tick: 0 }, OVER_THE_RIGHT_RIM);
+    frame(layers, renderer, grave(27, 297 + STANCE_REBAKE_STEP / 2, 600));
+    falls.sync(run);
+    const sprite = renderer.falls.children.find((child) => child.visible);
+    const expected = fallAt(
+      {
+        unitX: 0.5,
+        unitY: 0,
+        unitVx: 0,
+        unitVy: 0,
+        halfExtent: CORPSE_HALF_EXTENT,
+        born: 0,
+      },
+      40,
+      27,
+      {
+        cameraHeight: 42.5,
+        nadirX: -1,
+        nadirY: nadirYOver(600),
+        ...GRAVE_DARK,
+      },
+    );
+    expect(
+      `${sprite?.position.x.toFixed(9)},${sprite?.position.y.toFixed(9)}`,
+    ).toBe(`${expected.x.toFixed(9)},${expected.y.toFixed(9)}`);
+  });
+  it("a centred grave's two side walls, cut from the stalest bake the renderer keeps, differ by under one drawn pixel at the ceiling on a phone", () => {
+    // A10: a bake is kept until the grave has moved a step, so a grave that
+    // drifts back to the middle column can show walls cut for a grave off to
+    // one side. The step is small enough that this never reads: at the
+    // ceiling, on the nearest row a grave can stand on, where the camera draws
+    // it largest, the two side walls of a centred grave from the stalest bake
+    // the renderer keeps differ by under one CSS pixel of the 390-wide phone
+    // column. The stalest bake is found by asking the renderer, so the promise
+    // holds whatever the step is measured in.
+    const size = SIZE_CEILING;
+    const row = FIELD_HEIGHT - size;
+    const cssPerUnit = 390 / COLUMN.width;
+    const drawnReach = (view: GraveView, id: 'left' | 'right'): number => {
+      const face = wallFaces(size, view).find((each) => each.id === id);
+      if (face === undefined) throw new Error(`no ${id} face`);
+      const at = (spot: { x: number; y: number }): number =>
+        groundToColumn(SCENE_CAMERA, 270 + spot.x, row + spot.y).x;
+      const lip = at(facePoint(face, size, 0.5, 0));
+      const deep = at(facePoint(face, size, 0.5, 1));
+      return (id === 'left' ? deep - lip : lip - deep) * cssPerUnit;
+    };
+    const keptAfterDrift = (drift: number): GraveView | null => {
+      const { layers, renderer } = attached();
+      frame(layers, renderer, grave(size, 270 + drift, row));
+      const baked = canvasesMade.length;
+      frame(layers, renderer, grave(size, 270, row));
+      return canvasesMade.length === baked ? renderer.holeView() : null;
+    };
+    for (const side of [1, -1]) {
+      let kept = 0;
+      let baked = side * size;
+      expect(keptAfterDrift(baked)).toBeNull();
+      for (let probe = 0; probe < 40; probe++) {
+        const middle = (kept + baked) / 2;
+        if (keptAfterDrift(middle) === null) baked = middle;
+        else kept = middle;
+      }
+      const view = keptAfterDrift(kept);
+      if (view === null) throw new Error('the stalest kept bake was not kept');
+      const apart = Math.abs(
+        drawnReach(view, 'left') - drawnReach(view, 'right'),
+      );
+      expect(apart).toBeLessThan(1);
+    }
   });
 });

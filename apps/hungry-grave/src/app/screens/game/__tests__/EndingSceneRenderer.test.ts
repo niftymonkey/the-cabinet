@@ -13,8 +13,11 @@ import { createGrave } from '../../../../game/grave';
 import { SIZE_START } from '../../../../game/tuning';
 import { PALETTE } from '../../../palette';
 import { drawBoss } from '../bossSprite';
+import { endingSceneAt, sceneFrom } from '../endingScene';
 import { EndingSceneRenderer } from '../EndingSceneRenderer';
 import { ENDING_BEATS } from '../graveDrawingValues';
+import type { GraveView } from '../graveProjection';
+import { holeViewOver } from '../GraveRenderer';
 import { FieldLayers, LAYER_ORDER } from '../layering';
 
 const KILLED: BossKilled = {
@@ -34,14 +37,14 @@ function parked(): Grave {
   return grave;
 }
 
-function attached(): {
+function attached(holeView: () => GraveView = () => holeViewOver(parked())): {
   layers: FieldLayers;
   falls: Container;
   renderer: EndingSceneRenderer;
 } {
   const layers = new FieldLayers();
   const falls = new PixiContainer();
-  const renderer = new EndingSceneRenderer();
+  const renderer = new EndingSceneRenderer({ holeView });
   renderer.attach(layers, falls);
   return { layers, falls, renderer };
 }
@@ -134,6 +137,36 @@ describe("the Undertaker's ending scene on screen", () => {
     expect(bodyOutline(falling)).toEqual(his);
     expect(falling.visible).toBe(true);
     expect(dragged.visible).toBe(false);
+  });
+
+  it('the falling Undertaker is drawn with the view the walls on screen were cut with, read from the screen each frame', () => {
+    // Tilted view T4: the walls on screen are the grave renderer's last bake,
+    // whose stance can trail the live grave's by up to a step, so he goes down
+    // between those walls only if he is drawn with that same view. The screen
+    // hands it in as it does to the falls, and it is read on every frame
+    // because the hole can be baked again while he falls.
+    const live = holeViewOver(parked());
+    let baked: GraveView = { ...live, nadirX: live.nadirX + 0.4 };
+    const { falls, renderer } = attached(() => baked);
+    const midFall = FALLING + ENDING_BEATS.fall / 2;
+    const scene = sceneFrom(KILLED, parked());
+    const placed = (): string => {
+      const falling = falls.children[0] as Graphics;
+      return `${falling.position.x.toFixed(9)},${falling.position.y.toFixed(9)}`;
+    };
+    const expectedWith = (view: GraveView): string => {
+      const drawn = endingSceneAt(scene, midFall, view);
+      return `${drawn.x.toFixed(9)},${drawn.y.toFixed(9)}`;
+    };
+    expect(expectedWith(baked)).not.toBe(expectedWith(live));
+
+    renderer.begin(KILLED, parked());
+    renderer.show(midFall);
+    expect(placed()).toBe(expectedWith(baked));
+
+    baked = { ...live, nadirX: live.nadirX - 0.4 };
+    renderer.show(midFall);
+    expect(placed()).toBe(expectedWith(baked));
   });
 
   it('a scene that has not begun draws nothing', () => {

@@ -12,6 +12,7 @@ import type { EndingScene, EndingSceneDrawing } from './endingScene';
 import { endingSceneAt, sceneFrom } from './endingScene';
 import { greyTint } from './foodSprite';
 import { ENDING_FURROWS } from './graveDrawingValues';
+import type { GraveView } from './graveProjection';
 import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
 
@@ -37,6 +38,15 @@ const wanderAt = (line: number, point: number): number => {
 };
 
 /**
+ * What the scene's renderer is handed at construction: the view the hole's
+ * walls on screen were cut with, read each frame, so the Undertaker goes down
+ * between the walls he is drawn against (tilted view T4).
+ */
+interface EndingSceneRendererPowers {
+  readonly holeView: () => GraveView;
+}
+
+/**
  * The scene, drawn. A dumb view: it is handed the death's own event and then a
  * progress from nothing to whole, and every read is a function of those two, so
  * a replay of a won run plays the ending the run played (design record R6).
@@ -58,8 +68,10 @@ class EndingSceneRenderer {
    * it: screens are pooled.
    */
   private scene: EndingScene | null = null;
+  private readonly powers: EndingSceneRendererPowers;
 
-  constructor() {
+  constructor(powers: EndingSceneRendererPowers) {
+    this.powers = powers;
     // Invisible until a death begins the scene, because dressField puts this
     // renderer back on every reset and a run opens with frames drawn before
     // anything is ever shown.
@@ -115,7 +127,7 @@ class EndingSceneRenderer {
       this.falling.visible = false;
       return;
     }
-    const drawn = endingSceneAt(scene, progress);
+    const drawn = endingSceneAt(scene, progress, this.powers.holeView());
     this.scrapeFurrows(scene, drawn.furrows);
     this.dragged.visible = !drawn.inTheHole;
     this.falling.visible = drawn.inTheHole && !drawn.gone;
@@ -202,3 +214,4 @@ class EndingSceneRenderer {
 }
 
 export { EndingSceneRenderer };
+export type { EndingSceneRendererPowers };

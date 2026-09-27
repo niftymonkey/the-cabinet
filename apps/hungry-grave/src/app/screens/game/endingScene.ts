@@ -12,7 +12,7 @@ import type { BossKilled } from '../../../game/events';
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
 import type { BossKind } from '../../../game/stage/waves';
-import type { Spot } from './graveProjection';
+import type { GraveView, Spot } from './graveProjection';
 import type { Fall, Hinge } from './fall';
 import { DROP_TICKS, fallAt, rimCrossedAt, TIP_TICKS } from './fall';
 import {
@@ -204,6 +204,7 @@ const fallAgeAt = (progress: number): number => {
 const fallingAt = (
   scene: EndingScene,
   progress: number,
+  view: GraveView,
 ): EndingSceneDrawing => {
   const hinge = rimOf(scene);
   const fall: Fall = {
@@ -214,7 +215,7 @@ const fallingAt = (
     halfExtent: halfExtentIntoTheHole(hinge),
     born: 0,
   };
-  const drawn = fallAt(fall, fallAgeAt(progress), scene.graveSize);
+  const drawn = fallAt(fall, fallAgeAt(progress), scene.graveSize, view);
   const restingAt = Math.atan2(hinge.intoY, hinge.intoX);
   const alongIsHisWidth = hinge.intoX !== 0;
   return {
@@ -232,14 +233,16 @@ const fallingAt = (
 
 /**
  * The scene at this progress: hauled to the rim, held there clawing while the
- * furrows stand, then over the edge and down (design record R6).
+ * furrows stand, then over the edge and down into the hole cut with the view it
+ * is handed (design record R6, tilted view T4).
  */
 const endingSceneAt = (
   scene: EndingScene,
   progress: number,
+  view: GraveView,
 ): EndingSceneDrawing => {
   if (progress < TIP_STARTS) return draggedAt(scene, progress);
-  return fallingAt(scene, progress);
+  return fallingAt(scene, progress, view);
 };
 
 export { endingSceneAt, ENDING_SCENE_MS, sceneFrom };

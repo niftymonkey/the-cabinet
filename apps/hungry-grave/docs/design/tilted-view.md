@@ -149,13 +149,15 @@ Grass: the prototype draws a tuft's blades longer as the camera tilts (`BLADE_LE
 
 To reverse: the ground is one renderer, and the flat tiling sprite is one commit back.
 
-### A10. The hole is baked for the near edge's scale and baked again when the camera's stance over it moves
+### A10. The hole is baked for the near edge's scale and baked again when the grave moves a step
 
-The shared camera's stance over the grave (where it stands, in the grave's half-lengths) moves as the grave moves, and which walls show moves with it. The hole is baked again when the stance moves more than half a half-length, the prototype's own threshold (`keepHoleCurrent`, `index.html:2999-3004`). It is baked at the pixel density of the column's nearest row (scale 1.178), so moving the grave up and down never forces a bake for resolution.
+The shared camera's stance over the grave moves as the grave moves, and which walls show moves with it. The hole is baked again when the grave has moved more than 4.75 field units, across or along, from where it was last baked (`STANCE_REBAKE_STEP`). Growth alone never bakes through this step; the size has its own (`HOLE_REBUILD_STEP`). It is baked at the pixel density of the column's nearest row (scale 1.178), so moving the grave up and down never forces a bake for resolution.
 
-What it costs: a bake is 1.5 ms at the start size and 2.1 ms near the ceiling on a desktop (R7), and a fast drag across the field bakes several times a second. Slice 3 measures it with the frame budget tool.
+Why 4.75: a bake kept over a move of m draws a centred grave's two side walls 2 m D / (H + D) field units apart, with D the dark depth (2.4) and H the camera's height in the grave's half-lengths. The bound is 1 CSS pixel on a 390-wide phone. The worst case is the ceiling (H 17) on the nearest row a grave stands on (y 692.5), where the camera draws it largest: 1 pixel at m = 4.79, so the step sits under it, and a smaller grave has a smaller D / (H + D). The prototype's threshold, half a half-length of stance, drew those walls 7.0 pixels apart at the ceiling, so a centred grave could show one side wall only, and a step in half-lengths re-bakes on growth alone.
 
-To reverse: the threshold is one number; at zero the hole bakes every frame the grave moves.
+What it costs, measured over the seed 1000 run: 7.2 bakes a second of play, 31 in its busiest second, and a bake is 1.5 to 2.3 ms on a desktop in headless Chromium, the start size to the ceiling. A phone is slower, and a sustained fast drag bakes about every other frame.
+
+This is the agent's call. To reverse: the step is one number; raise it to bake less and let a stale bake show more, or measure the stance in half-lengths again, which brings back re-bakes on growth.
 
 ### A11. Steering converts on the glass, around input models that do not change
 
@@ -251,7 +253,7 @@ And a new entry beside it:
 
 ## Values are data
 
-The drawing's values live in one table in the camera module under `src/app/screens/game`: the tilt (32.5 degrees) and the height (42.5 starting half-lengths). The prototype-derived drawing values (the ground grid's 18 by 40 and 0.08 overshoot, the stance threshold 0.5, the blade lean 62 degrees, the nearest share 0.12) live beside the renderer that reads them, each with the prototype line it came from.
+The drawing's values live in one table in the camera module under `src/app/screens/game`: the tilt (32.5 degrees) and the height (42.5 starting half-lengths). The prototype-derived drawing values (the ground grid's 18 by 40 and 0.08 overshoot, the stance step 4.75 field units (A10), the blade lean 62 degrees, the nearest share 0.12) live beside the renderer that reads them, each with the prototype line it came from.
 
 The sim's values: the field's six numbers in `src/game/field.ts`, and the grave's reach share in `src/game/grave.ts`, each pinned to the drawing by a cross test. They are compiled constants, not tuning rows: the field is not tunable (it lived in `field.ts` rather than `tuning.ts` for that reason, `field.ts:4-9`), and a tuning row would travel in the tape header, which A12 argues against.
 
@@ -300,6 +302,7 @@ The numbers, for the 540 by 760 column, worked out independently for slice 1's t
 - Does dodging near the bottom feel slower? Everything coming down speeds up on the screen as it nears while the grave keeps one speed on the glass (A11).
 - Revenants are on the field longer and fire more before they leave (A4): does the fire near the top read as more than before, and does it read fairly?
 - The boss stands a little lower on the screen than today (slice 7): does it crowd the grave?
+- Drag the grave fast across the screen, small and big: does it stutter on the phone? A fast drag re-bakes the hole about every other frame (A10).
 
 ## Outside this step
 

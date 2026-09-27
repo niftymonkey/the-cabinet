@@ -10,24 +10,34 @@
  */
 
 import { PALETTE } from '../../palette';
-import type { GraveView } from './graveProjection';
+import type { GraveDark } from './graveProjection';
 
 /**
- * The camera and the dark, in the grave's own half-lengths (the prototype's
- * build 7, which Mark played to his final values).
+ * The dark under the hole, in the grave's own half-lengths (the prototype's
+ * build 7, which Mark played to his final values, design record R4).
  *
- * The height and the setback are what the walls' shares of the opening come out
- * at: at this pair each side wall is about a seventh of the opening across and
- * the far wall about three tenths of it along, which is what an open grave looks
- * like from nearly overhead. The grave has no bottom, so `darkDepth` is where
- * the moon stops reaching the walls rather than where they end.
+ * The camera the hole is cut with is the scene's own (tilted view T4), so this
+ * is the dark alone. The grave has no bottom, so `darkDepth` is where the moon
+ * stops reaching the walls rather than where they end.
  */
-const GRAVE_VIEW: GraveView = {
-  cameraHeight: 4.95,
-  cameraBehind: 1.07,
+const GRAVE_DARK: GraveDark = {
   darkDepth: 2.4,
   darkFalloff: 2.6,
 };
+
+/**
+ * How far the grave has to move, across or along, from where the hole was last
+ * baked before it is baked again, in field units (tilted view A10). Growth alone
+ * never bakes through it; the size has its own step.
+ *
+ * The move changes the camera's stance over the grave, and so which walls show.
+ * A bake kept over a move of m draws a centred grave's two side walls
+ * 2 m D / (H + D) field units apart, with D the dark depth and H the camera's
+ * height in half-lengths. At the ceiling (H 17, D 2.4), on the nearest row a
+ * grave stands on, that is 1 CSS pixel of a 390-wide phone at m = 4.79; the
+ * step sits under it, and a smaller grave has a smaller D / (H + D).
+ */
+const STANCE_REBAKE_STEP = 4.75;
 
 /**
  * The cut face's layers, each starting a share of the way down to the dark.
@@ -281,10 +291,11 @@ export {
   FALL_SLIP_SHARE,
   FALL_TILT,
   FALL_TIP_SECONDS,
-  GRAVE_VIEW,
+  GRAVE_DARK,
   HOLE_REBUILD_STEP,
   NOTCHES,
   SOIL,
+  STANCE_REBAKE_STEP,
   TEETER_DARKEN,
   TEETER_SHAKE,
   TEETER_START,

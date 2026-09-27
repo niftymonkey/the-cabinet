@@ -16,8 +16,9 @@ import {
   FALL_SLIP_SHARE,
   FALL_TILT,
   FALL_TIP_SECONDS,
-  GRAVE_VIEW,
+  GRAVE_DARK,
 } from './graveDrawingValues';
+import type { GraveView } from './graveProjection';
 import { belowGround, lightAtDepth } from './graveProjection';
 
 /**
@@ -94,7 +95,7 @@ const FALL_TICKS = TIP_TICKS + DROP_TICKS;
  * own time.
  */
 const FALL_GRAVITY =
-  (2 * GRAVE_VIEW.darkDepth) / (FALL_DROP_SECONDS * FALL_DROP_SECONDS);
+  (2 * GRAVE_DARK.darkDepth) / (FALL_DROP_SECONDS * FALL_DROP_SECONDS);
 
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), high);
@@ -248,11 +249,12 @@ const drawnBetween = (
   half: number,
   fold: number,
   graveSize: number,
+  view: GraveView,
 ): FallDrawing => {
-  const there = belowGround(ahead.x, ahead.y, ahead.depth, GRAVE_VIEW);
-  const back = belowGround(behind.x, behind.y, behind.depth, GRAVE_VIEW);
+  const there = belowGround(ahead.x, ahead.y, ahead.depth, view);
+  const back = belowGround(behind.x, behind.y, behind.depth, view);
   const depth = Math.max(0, (ahead.depth + behind.depth) / 2);
-  const shrink = GRAVE_VIEW.cameraHeight / (GRAVE_VIEW.cameraHeight + depth);
+  const shrink = view.cameraHeight / (view.cameraHeight + depth);
   const spanX = there.x - back.x;
   const spanY = there.y - back.y;
   return {
@@ -261,8 +263,8 @@ const drawnBetween = (
     turn: Math.atan2(spanY, spanX),
     along: (Math.sqrt(spanX * spanX + spanY * spanY) / (2 * half)) * fold,
     across: shrink * fold,
-    light: lightAtDepth(depth, GRAVE_VIEW),
-    gone: depth >= GRAVE_VIEW.darkDepth,
+    light: lightAtDepth(depth, view),
+    gone: depth >= view.darkDepth,
   };
 };
 
@@ -282,7 +284,7 @@ const foldAt = (half: number, u: number): number => {
 
 /**
  * Where a falling body draws at this age, from the grave's centre, in field
- * units.
+ * units, down the hole cut with the view it is handed (tilted view T4).
  *
  * The size is read every frame rather than held, because the grave grows on the
  * very tick the food went in: the place is in the grave's proportions and the
@@ -293,7 +295,12 @@ const foldAt = (half: number, u: number): number => {
  * and falls with the shared fall" (design record R6), which is why it takes a
  * half extent and a way rather than reading a corpse.
  */
-const fallAt = (fall: Fall, age: number, graveSize: number): FallDrawing => {
+const fallAt = (
+  fall: Fall,
+  age: number,
+  graveSize: number,
+  view: GraveView,
+): FallDrawing => {
   const half = fall.halfExtent / graveSize;
   const hinge = rimCrossedAt(fall.unitX, fall.unitY);
   const u = clamp(age / TIP_TICKS, 0, 1);
@@ -301,7 +308,8 @@ const fallAt = (fall: Fall, age: number, graveSize: number): FallDrawing => {
     age <= TIP_TICKS
       ? tipEnds(fall, hinge, half, u)
       : dropEnds(fall, hinge, half, (age - TIP_TICKS) / TICK_HZ);
-  const drawing = drawnBetween(ahead, behind, half, foldAt(half, u), graveSize);
+  const fold = foldAt(half, u);
+  const drawing = drawnBetween(ahead, behind, half, fold, graveSize, view);
   if (age < FALL_TICKS) return drawing;
   return { ...drawing, gone: true };
 };

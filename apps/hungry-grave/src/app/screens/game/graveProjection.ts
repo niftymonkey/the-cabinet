@@ -7,12 +7,21 @@
  * with every swallow instead of being rebuilt.
  */
 
-/** The camera and the dark, in the grave's own half-lengths. */
-interface GraveView {
-  readonly cameraHeight: number;
-  readonly cameraBehind: number;
+/** How deep the moon reaches and how it dies, in the grave's own half-lengths. */
+interface GraveDark {
   readonly darkDepth: number;
   readonly darkFalloff: number;
+}
+
+/**
+ * The camera over one grave and the dark under it, in the grave's own
+ * half-lengths: how high the camera stands, and its nadir, the ground point
+ * straight under it, from the grave's centre.
+ */
+interface GraveView extends GraveDark {
+  readonly cameraHeight: number;
+  readonly nadirX: number;
+  readonly nadirY: number;
 }
 
 /** Where something draws, in the grave's own half-lengths. */
@@ -23,13 +32,13 @@ interface Spot {
 
 /**
  * Where a point this far below the ground draws: its own ground position
- * scaled toward the spot the camera stands over.
+ * scaled toward the camera's nadir.
  *
- * So depth moves a point down the field and toward the middle, and that shrink
- * is the only thing that makes a side wall visible at all. Because the camera
- * stands a little behind the grave, everything deep converges on a point past
- * the near lip, which is why the near wall never shows and the deep middle of
- * the opening is wall seen end on, going black.
+ * So depth moves a point toward the nadir, and that shrink is the only thing
+ * that makes a wall visible at all. The nadir lies behind every grave, so
+ * everything deep converges on a point past the near lip, which is why the near
+ * wall never shows; off the middle column it lies to one side as well, so the
+ * wall away from the middle shows more than the one toward it.
  */
 const belowGround = (
   x: number,
@@ -39,8 +48,8 @@ const belowGround = (
 ): Spot => {
   const shrink = view.cameraHeight / (view.cameraHeight + depth);
   return {
-    x: x * shrink,
-    y: view.cameraBehind + (y - view.cameraBehind) * shrink,
+    x: view.nadirX + (x - view.nadirX) * shrink,
+    y: view.nadirY + (y - view.nadirY) * shrink,
   };
 };
 
@@ -58,4 +67,4 @@ const lightAtDepth = (depth: number, view: GraveView): number => {
 };
 
 export { belowGround, lightAtDepth };
-export type { GraveView, Spot };
+export type { GraveDark, GraveView, Spot };

@@ -8,7 +8,21 @@ import { describe, expect, it } from 'vitest';
 import type { GraveCanvas } from '../graveCanvas';
 import { paintLip } from '../graveLip';
 import { mouthPolygon } from '../graveMouth';
+import type { GraveView } from '../graveProjection';
 import { paintPit } from '../graveWalls';
+
+/**
+ * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
+ * R4's dark: the view these promises were written against, handed in now that
+ * the painters take the view they are cut with (tilted view T4).
+ */
+const BUILD_7_VIEW: GraveView = {
+  cameraHeight: 4.95,
+  nadirX: 0,
+  nadirY: 1.07,
+  darkDepth: 2.4,
+  darkFalloff: 2.6,
+};
 
 // The phone's view: 390 CSS pixels over the field's 540 units.
 const PHONE_VIEW = 390 / 540;
@@ -79,7 +93,7 @@ const firstAt = (log: string[], start: string): number =>
 const paintedAt = (size: number): string[] => {
   const { canvas, log } = recordingCanvas();
   const mouth = mouthPolygon(size);
-  paintPit(canvas, mouth, size, PHONE_VIEW);
+  paintPit(canvas, mouth, size, PHONE_VIEW, BUILD_7_VIEW);
   paintLip(canvas, mouth, size, PHONE_VIEW);
   return log;
 };

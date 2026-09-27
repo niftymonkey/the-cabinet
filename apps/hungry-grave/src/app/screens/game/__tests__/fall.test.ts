@@ -9,8 +9,21 @@ import { describe, expect, it } from 'vitest';
 import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
 import type { Fall } from '../fall';
 import { fallAt, FALL_TICKS } from '../fall';
-import { GRAVE_VIEW } from '../graveDrawingValues';
+import type { GraveView } from '../graveProjection';
 import { lightAtDepth } from '../graveProjection';
+
+/**
+ * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
+ * R4's dark: the view these promises were written against, handed in now that
+ * the painters take the view they are cut with (tilted view T4).
+ */
+const BUILD_7_VIEW: GraveView = {
+  cameraHeight: 4.95,
+  nadirX: 0,
+  nadirY: 1.07,
+  darkDepth: 2.4,
+  darkFalloff: 2.6,
+};
 
 /** The size the game starts a grave at, which is what these falls fall into. */
 const SIZE = 27;
@@ -44,7 +57,7 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // falling in". At birth nothing has turned and nothing has slid, so the
     // body draws at the offset the swallow's event carried: half a half-length
     // out, which is 13.5 field units at the start size.
-    const drawn = fallAt(overTheRightRim(), 0, SIZE);
+    const drawn = fallAt(overTheRightRim(), 0, SIZE, BUILD_7_VIEW);
     expect(drawn.x).toBeCloseTo(13.5, 6);
     expect(drawn.y).toBeCloseTo(0, 6);
   });
@@ -55,8 +68,8 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // the size by the frame after, and the body has to be at the same place on
     // the bigger rim rather than in mid-hole.
     const fall = overTheRightRim();
-    expect(fallAt(fall, 0, SIZE).x).toBeCloseTo(13.5, 6);
-    expect(fallAt(fall, 0, SIZE * 2).x).toBeCloseTo(27, 6);
+    expect(fallAt(fall, 0, SIZE, BUILD_7_VIEW).x).toBeCloseTo(13.5, 6);
+    expect(fallAt(fall, 0, SIZE * 2, BUILD_7_VIEW).x).toBeCloseTo(27, 6);
   });
 
   it("keeps a falling body's own size in field units while the grave grows", () => {
@@ -65,9 +78,9 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // any grave size, and it only ever shrinks from there.
     const fall = overTheRightRim();
     for (const size of [SIZE, SIZE * 2]) {
-      expect(fallAt(fall, 0, size).along).toBeCloseTo(1, 6);
-      expect(fallAt(fall, 0, size).across).toBeCloseTo(1, 6);
-      expect(fallAt(fall, 40, size).across).toBeLessThan(1);
+      expect(fallAt(fall, 0, size, BUILD_7_VIEW).along).toBeCloseTo(1, 6);
+      expect(fallAt(fall, 0, size, BUILD_7_VIEW).across).toBeCloseTo(1, 6);
+      expect(fallAt(fall, 40, size, BUILD_7_VIEW).across).toBeLessThan(1);
     }
   });
 
@@ -79,7 +92,7 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // 0.4148 half-lengths past the rim, the other 0.1037 outside it).
     const fall = overTheRightRim();
     const squeezeAt = (age: number): number => {
-      const drawn = fallAt(fall, age, SIZE);
+      const drawn = fallAt(fall, age, SIZE, BUILD_7_VIEW);
       return drawn.along / drawn.across;
     };
     expect(squeezeAt(0)).toBeCloseTo(1, 6);
@@ -101,8 +114,8 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // every tick of the drop draws it smaller than the tick before.
     const fall = overTheRightRim();
     for (const age of ticksOfTheDrop()) {
-      expect(fallAt(fall, age + 1, SIZE).across).toBeLessThan(
-        fallAt(fall, age, SIZE).across,
+      expect(fallAt(fall, age + 1, SIZE, BUILD_7_VIEW).across).toBeLessThan(
+        fallAt(fall, age, SIZE, BUILD_7_VIEW).across,
       );
     }
   });
@@ -114,11 +127,11 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // is left toward the middle, further with every half-length of depth.
     const fall = overTheRightRim();
     for (const age of ticksOfTheDrop()) {
-      expect(fallAt(fall, age + 1, SIZE).x).toBeLessThan(
-        fallAt(fall, age, SIZE).x,
+      expect(fallAt(fall, age + 1, SIZE, BUILD_7_VIEW).x).toBeLessThan(
+        fallAt(fall, age, SIZE, BUILD_7_VIEW).x,
       );
     }
-    expect(fallAt(fall, FALL_TICKS, SIZE).x).toBeGreaterThan(0);
+    expect(fallAt(fall, FALL_TICKS, SIZE, BUILD_7_VIEW).x).toBeGreaterThan(0);
   });
 
   it("leaves a body at the dark depth as dark as the wall beside it, on the walls' own curve", () => {
@@ -127,13 +140,13 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // 2 * 2.4 / 0.75^2, so 22 ticks into the drop it is at 1.3165 half-lengths
     // and the curve gives 1 - (1.3165 / 2.4) ^ 2.6.
     const fall = overTheRightRim();
-    expect(fallAt(fall, 40, SIZE).light).toBeCloseTo(0.79, 2);
-    expect(fallAt(fall, 40, SIZE).light).toBeCloseTo(
-      lightAtDepth(1.3165, GRAVE_VIEW),
+    expect(fallAt(fall, 40, SIZE, BUILD_7_VIEW).light).toBeCloseTo(0.79, 2);
+    expect(fallAt(fall, 40, SIZE, BUILD_7_VIEW).light).toBeCloseTo(
+      lightAtDepth(1.3165, BUILD_7_VIEW),
       3,
     );
-    expect(fallAt(fall, FALL_TICKS, SIZE).light).toBe(
-      lightAtDepth(GRAVE_VIEW.darkDepth, GRAVE_VIEW),
+    expect(fallAt(fall, FALL_TICKS, SIZE, BUILD_7_VIEW).light).toBe(
+      lightAtDepth(BUILD_7_VIEW.darkDepth, BUILD_7_VIEW),
     );
   });
 
@@ -144,8 +157,8 @@ describe('the fall (grave-in-the-ground R5)', () => {
     const crept: Fall = { ...overTheRightRim(), unitX: -0.5 };
     const pulled: Fall = { ...crept, unitVx: 2 };
     const age = TIP_TICKS + 5;
-    expect(fallAt(pulled, age, SIZE).x).toBeGreaterThan(
-      fallAt(crept, age, SIZE).x,
+    expect(fallAt(pulled, age, SIZE, BUILD_7_VIEW).x).toBeGreaterThan(
+      fallAt(crept, age, SIZE, BUILD_7_VIEW).x,
     );
   });
 
@@ -155,14 +168,13 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // units to its own end folds to 18 / 40 of itself and goes in.
     const floor = 18;
     const long: Fall = { ...overTheRightRim(), halfExtent: 40 };
-    const atTheLip = fallAt(long, TIP_TICKS, floor);
+    const atTheLip = fallAt(long, TIP_TICKS, floor, BUILD_7_VIEW);
     expect(atTheLip.across * long.halfExtent).toBeLessThanOrEqual(floor);
     // A body that fits is not folded at all: what is left on it at the end of
     // the tip is the projection's own shrink at 0.1521 half-lengths down.
-    expect(fallAt(overTheRightRim(), TIP_TICKS, SIZE).across).toBeCloseTo(
-      0.97,
-      2,
-    );
+    expect(
+      fallAt(overTheRightRim(), TIP_TICKS, SIZE, BUILD_7_VIEW).across,
+    ).toBeCloseTo(0.97, 2);
   });
 
   it('is over after the tip time and the drop time together, and lands never', () => {
@@ -171,10 +183,117 @@ describe('the fall (grave-in-the-ground R5)', () => {
     // tick the dark has it, so there is no settle and no thud.
     expect(FALL_TICKS).toBe(63);
     const fall = overTheRightRim();
-    expect(fallAt(fall, FALL_TICKS, SIZE).gone).toBe(true);
-    expect(fallAt(fall, 0, SIZE).gone).toBe(false);
-    expect(fallAt(fall, FALL_TICKS, SIZE).across).toBeLessThan(
-      fallAt(fall, FALL_TICKS - 1, SIZE).across,
+    expect(fallAt(fall, FALL_TICKS, SIZE, BUILD_7_VIEW).gone).toBe(true);
+    expect(fallAt(fall, 0, SIZE, BUILD_7_VIEW).gone).toBe(false);
+    expect(fallAt(fall, FALL_TICKS, SIZE, BUILD_7_VIEW).across).toBeLessThan(
+      fallAt(fall, FALL_TICKS - 1, SIZE, BUILD_7_VIEW).across,
     );
+  });
+});
+
+describe('the fall under the scene camera (tilted view T4)', () => {
+  it('a falling body converges on the nadir of the view it is handed', () => {
+    // T4: the fall is drawn through the view the walls were cut with, so it
+    // goes down toward that view's nadir, sideways as well as along. Two views
+    // that differ only in where the nadir lies draw the same body at the same
+    // place at birth, and ever further apart as it falls, toward each nadir and
+    // never past it.
+    const height = 42.5;
+    const toTheRight: GraveView = {
+      ...BUILD_7_VIEW,
+      cameraHeight: height,
+      nadirX: 4,
+      nadirY: 18,
+    };
+    const toTheLeft: GraveView = { ...toTheRight, nadirX: -4, nadirY: 10 };
+    const fall = overTheRightRim();
+    const apart = (age: number): { x: number; y: number } => {
+      const right = fallAt(fall, age, SIZE, toTheRight);
+      const left = fallAt(fall, age, SIZE, toTheLeft);
+      return { x: right.x - left.x, y: right.y - left.y };
+    };
+    expect(Math.abs(apart(0).x)).toBeLessThanOrEqual(1e-9);
+    expect(Math.abs(apart(0).y)).toBeLessThanOrEqual(1e-9);
+    for (const age of ticksOfTheDrop()) {
+      expect(apart(age + 1).x).toBeGreaterThan(apart(age).x);
+      expect(apart(age + 1).y).toBeGreaterThan(apart(age).y);
+    }
+    expect(apart(FALL_TICKS).x).toBeLessThan(8 * SIZE);
+    expect(apart(FALL_TICKS).y).toBeLessThan(8 * SIZE);
+  });
+
+  it('with the old view handed in, a fall draws exactly where it drew before', () => {
+    // Every fall test above keeps its promise with build 7's view handed in, so
+    // the move to a view argument changes nothing on its own. The figures are
+    // the drawing slice 2's fall.ts gave for these two falls at these ages,
+    // printed from that commit's own code.
+    const pulled: Fall = {
+      ...overTheRightRim(),
+      unitX: -0.5,
+      unitY: 0.3,
+      unitVx: 2,
+      unitVy: -1,
+    };
+    const before: readonly [Fall, number, readonly number[], boolean][] = [
+      [
+        overTheRightRim(),
+        9,
+        [
+          10.564849492, 0.216691721, 3.0678999, 0.964175398, 0.992201332,
+          0.999977843,
+        ],
+        false,
+      ],
+      [
+        overTheRightRim(),
+        30,
+        [
+          11.247968337, 3.278007472, 2.570310677, 0.306613474, 0.88471468,
+          0.967164147,
+        ],
+        false,
+      ],
+      [
+        overTheRightRim(),
+        62,
+        [7.314358124, 12.204614558, 2.706649939, 0.167187384, 0.577044366, 0],
+        true,
+      ],
+      [
+        pulled,
+        18,
+        [
+          -12.346005745, 8.6699005, 0.45871582, 0.32414813, 0.970186412,
+          0.999232501,
+        ],
+        false,
+      ],
+      [
+        pulled,
+        45,
+        [
+          1.61682663, 7.983683583, 0.659219402, 0.184750113, 0.739781598,
+          0.565855865,
+        ],
+        false,
+      ],
+    ];
+    for (const [fall, age, figures, gone] of before) {
+      const drawn = fallAt(fall, age, SIZE, BUILD_7_VIEW);
+      const now = [
+        drawn.x,
+        drawn.y,
+        drawn.turn,
+        drawn.along,
+        drawn.across,
+        drawn.light,
+      ];
+      now.forEach((value, at) => {
+        expect(Math.abs(value - (figures[at] ?? NaN))).toBeLessThanOrEqual(
+          1e-8,
+        );
+      });
+      expect(drawn.gone).toBe(gone);
+    }
   });
 });

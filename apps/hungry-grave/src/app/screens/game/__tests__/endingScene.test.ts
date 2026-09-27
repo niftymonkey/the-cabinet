@@ -16,6 +16,20 @@ import { SIZE_START } from '../../../../game/tuning';
 import { endingSceneAt, sceneFrom } from '../endingScene';
 import { DROP_TICKS, fallAt, TIP_TICKS } from '../fall';
 import { ENDING_BEATS, ENDING_DRAG_EASE } from '../graveDrawingValues';
+import type { GraveView } from '../graveProjection';
+
+/**
+ * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
+ * R4's dark: the view these promises were written against, handed in now that
+ * the painters take the view they are cut with (tilted view T4).
+ */
+const BUILD_7_VIEW: GraveView = {
+  cameraHeight: 4.95,
+  nadirX: 0,
+  nadirY: 1.07,
+  darkDepth: 2.4,
+  darkFalloff: 2.6,
+};
 
 /** Where he stood when he died: high in the field, which is where the sim puts a boss. */
 const KILLED: BossKilled = {
@@ -52,7 +66,7 @@ describe("the Undertaker's ending scene", () => {
     // body fell, because killBoss takes the boss off the field before it
     // announces and the renderer has nothing left to read.
     const scene = sceneFrom(KILLED, parked());
-    const opening = endingSceneAt(scene, 0);
+    const opening = endingSceneAt(scene, 0, BUILD_7_VIEW);
 
     expect(scene.boss).toBe('undertaker');
     expect(opening.x).toBe(KILLED.x);
@@ -67,18 +81,18 @@ describe("the Undertaker's ending scene", () => {
     // him at that edge rather than moving him on.
     const scene = sceneFrom(KILLED, parked());
 
-    const arrived = endingSceneAt(scene, CLAW_STARTS);
+    const arrived = endingSceneAt(scene, CLAW_STARTS, BUILD_7_VIEW);
     expect(arrived.x).toBeCloseTo(RIM_X, 10);
     expect(arrived.y).toBeCloseTo(RIM_Y, 10);
     expect(arrived.inTheHole).toBe(false);
 
-    const clawing = endingSceneAt(scene, TIP_STARTS - 0.001);
+    const clawing = endingSceneAt(scene, TIP_STARTS - 0.001, BUILD_7_VIEW);
     expect(clawing.x).toBeCloseTo(RIM_X, 10);
     expect(clawing.y).toBeCloseTo(RIM_Y, 10);
 
     // Halfway through the drag he is short of halfway across, because the
     // drag eases in: the grave takes up the slack and then hauls.
-    const halfway = endingSceneAt(scene, CLAW_STARTS / 2);
+    const halfway = endingSceneAt(scene, CLAW_STARTS / 2, BUILD_7_VIEW);
     const crossed = (halfway.y - KILLED.y) / (RIM_Y - KILLED.y);
     expect(crossed).toBeCloseTo(0.5 ** ENDING_DRAG_EASE, 10);
     expect(crossed).toBeLessThan(0.5);
@@ -115,14 +129,17 @@ describe("the Undertaker's ending scene", () => {
     const scene = sceneFrom(KILLED, parked());
 
     for (const progress of [0.1, 0.25, CLAW_STARTS / 2, CLAW_STARTS * 0.9]) {
-      const drawn = endingSceneAt(scene, progress);
+      const drawn = endingSceneAt(scene, progress, BUILD_7_VIEW);
       const crossed = (drawn.y - KILLED.y) / (RIM_Y - KILLED.y);
       expect(drawn.furrows).toBeCloseTo(crossed, 10);
     }
 
-    expect(endingSceneAt(scene, CLAW_STARTS).furrows).toBeCloseTo(1, 10);
-    expect(endingSceneAt(scene, TIP_STARTS).furrows).toBe(1);
-    expect(endingSceneAt(scene, 1).furrows).toBe(1);
+    expect(endingSceneAt(scene, CLAW_STARTS, BUILD_7_VIEW).furrows).toBeCloseTo(
+      1,
+      10,
+    );
+    expect(endingSceneAt(scene, TIP_STARTS, BUILD_7_VIEW).furrows).toBe(1);
+    expect(endingSceneAt(scene, 1, BUILD_7_VIEW).furrows).toBe(1);
   });
 
   it('he tips about the rim he reached and folds to fit the opening', () => {
@@ -132,7 +149,7 @@ describe("the Undertaker's ending scene", () => {
     const scene = sceneFrom(KILLED, parked());
     const grave = parked();
 
-    const opening = endingSceneAt(scene, TIP_STARTS);
+    const opening = endingSceneAt(scene, TIP_STARTS, BUILD_7_VIEW);
     expect(opening.inTheHole).toBe(true);
     expect(grave.x + opening.x).toBeCloseTo(RIM_X, 10);
     expect(grave.y + opening.y).toBeCloseTo(RIM_Y, 10);
@@ -142,7 +159,7 @@ describe("the Undertaker's ending scene", () => {
 
     // By the end of the tip he has gone over the edge: foreshortened along the
     // way in, folded across it, and carried past the rim he turned about.
-    const over = endingSceneAt(scene, FALL_STARTS);
+    const over = endingSceneAt(scene, FALL_STARTS, BUILD_7_VIEW);
     expect(over.tall).toBeLessThan(0.5);
     expect(over.wide).toBeLessThan(1);
     expect(grave.y + over.y).toBeGreaterThan(RIM_Y);
@@ -154,7 +171,7 @@ describe("the Undertaker's ending scene", () => {
       { type: 'bossKilled', boss: 'undertaker', x: 70, y: 600 },
       parked(),
     );
-    expect(endingSceneAt(sideways, FALL_STARTS).turn).not.toBe(0);
+    expect(endingSceneAt(sideways, FALL_STARTS, BUILD_7_VIEW).turn).not.toBe(0);
   });
 
   it('he falls the way a corpse falls, on the same projection and the same light curve', () => {
@@ -164,7 +181,7 @@ describe("the Undertaker's ending scene", () => {
     // half height because he goes in over the far edge.
     const scene = sceneFrom(KILLED, parked());
     const halfway = (FALL_STARTS + 1) / 2;
-    const drawn = endingSceneAt(scene, halfway);
+    const drawn = endingSceneAt(scene, halfway, BUILD_7_VIEW);
 
     const share = (halfway - FALL_STARTS) / ENDING_BEATS.fall;
     const corpse = fallAt(
@@ -178,6 +195,7 @@ describe("the Undertaker's ending scene", () => {
       },
       TIP_TICKS + share * DROP_TICKS,
       SIZE_START,
+      BUILD_7_VIEW,
     );
 
     expect(drawn.x).toBeCloseTo(corpse.x, 10);
@@ -207,14 +225,16 @@ describe("the Undertaker's ending scene", () => {
 
     // The drag is not over before its own share, and the fall is still
     // deepening on the last frame of the scene.
-    expect(endingSceneAt(scene, CLAW_STARTS * 0.999).furrows).toBeLessThan(1);
-    const late = endingSceneAt(scene, 0.99);
-    const last = endingSceneAt(scene, 1);
+    expect(
+      endingSceneAt(scene, CLAW_STARTS * 0.999, BUILD_7_VIEW).furrows,
+    ).toBeLessThan(1);
+    const late = endingSceneAt(scene, 0.99, BUILD_7_VIEW);
+    const last = endingSceneAt(scene, 1, BUILD_7_VIEW);
     expect(last.y).toBeGreaterThan(late.y);
     expect(last.tall).toBeLessThan(late.tall);
 
     // The dark has him by the end, which is what the grave swallowing him looks like.
     expect(last.gone).toBe(true);
-    expect(endingSceneAt(scene, TIP_STARTS).gone).toBe(false);
+    expect(endingSceneAt(scene, TIP_STARTS, BUILD_7_VIEW).gone).toBe(false);
   });
 });

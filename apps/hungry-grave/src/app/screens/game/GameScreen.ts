@@ -174,16 +174,21 @@ class GameScreen extends Container {
   private readonly stormRenderer = new StormRenderer();
   /**
    * The food on its way into the hole. It draws into the grave's own falls
-   * container, inside the cut and under the turf (design record R5), and this
-   * screen is where that hop is declared.
+   * container, inside the cut and under the turf (design record R5), with the
+   * view the grave's walls were cut with (tilted view T4), and this screen is
+   * where both hops are declared.
    */
-  private readonly falls = new FallRenderer();
+  private readonly falls = new FallRenderer({
+    holeView: () => this.grave.holeView(),
+  });
   /**
    * The Undertaker's end, drawn over the frozen field while the ending holds
    * (design record R6). It draws into the grave's own falls container for its
    * last beat, so this screen declares that hop beside the one above it.
    */
-  private readonly scene = new EndingSceneRenderer();
+  private readonly scene = new EndingSceneRenderer({
+    holeView: () => this.grave.holeView(),
+  });
 
   private readonly hud = createRunHud();
   /**
