@@ -1,5 +1,7 @@
 # Slice 7: the field is exactly what the camera sees (design record T7, T8, A1, A2, A3, A4, A5, A12, A13, A14, A15, A16, A17)
 
+**Dropped, 2026-09-27.** Mark ruled the tilt is drawing only (design record T10): the sim field stays the 540 by 760 rectangle, so the field never becomes the trapezoid. What this entry would have carried is met without a sim change: mobs fill the screen through the play layer (T8, A18), and the grave's hold stays the sim's (A25). Kept as the record of the plan; never dispatch it.
+
 Follow-along row 7: "The playing field becomes exactly the patch of ground the tilted camera sees: wider at the top, narrower at the bottom. Nothing lives off the screen, mobs and food that drift out the sides just leave, and the grave's whole outline always stays on screen."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Your scratch folder is `local/tilt-slice-5/` in the worktree; reuse the capture tool in `local/tilt-shots/` (slice 1). All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read on the tree at `517ee0753e`. Slice 4 changed `src/dev/bot.ts` and added two readings, and slice 6 renamed `FIELD_WIDTH` and `FIELD_HEIGHT` to `VIEW_WIDTH` and `VIEW_HEIGHT` everywhere, so the table below names each reader by its old spelling and its line at `517ee0753e`; follow the name beside a number that has moved.

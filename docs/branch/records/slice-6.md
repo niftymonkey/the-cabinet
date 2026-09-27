@@ -1,5 +1,7 @@
 # Slice 6: the field's width and height renamed for what they are (design record A3)
 
+**Landed, then undone by slice 9 (2026-09-27).** Its reason, the trapezoid, is dropped (design record T10, A26).
+
 Follow-along row 6: "A tidy-up the player never sees: the numbers that set speeds and sizes get a name that says so, so the next step can move the field's edges without touching them."
 
 Read `docs/agents/feature-flow.md`: a rename has no behaviour, so it skips the flow's steps and runs the standing checks alone, and this entry is its plan. Read `docs/branch/records/coder-contract.md`; it binds this slice. Your scratch folder is `local/tilt-slice-6/` in the worktree. Paths are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`.

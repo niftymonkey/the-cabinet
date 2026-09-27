@@ -1,5 +1,7 @@
 # Slice 5: the "before" batch (design record A4, A12)
 
+**Landed, not used (2026-09-27).** Its figures were measured with the harness hand steering on the glass, which slice 14 removes, and against a field change that is dropped (design record T10). Nothing compares against them.
+
 Follow-along row 5: "The test player plays a big batch of runs on today's field, so the next two steps can be measured against it."
 
 Non-coding dispatch: this slice runs the harness and writes one record. It writes no code and no tests, and a Sonnet agent can run it. It is still bound by `docs/branch/records/coder-contract.md` where that contract speaks of where to work, scratch files, never committing, and the anomaly rule. Your scratch folder is `local/tilt-slice-5/`.

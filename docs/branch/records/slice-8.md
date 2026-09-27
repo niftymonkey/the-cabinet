@@ -1,5 +1,7 @@
 # Slice 8: mobs arrive across the whole top of the screen, and a whole run watched (design record T8, A4, and #159's done-when)
 
+**Dropped, 2026-09-27.** Mark ruled the tilt is drawing only (design record T10): spawns stay as authored and the play layer draws the field's full width across the top row (T8, A18). The whole run watched end to end moves to slice 16. Kept as the record of the plan; never dispatch it.
+
 Follow-along row 8: "Mobs arrive across the whole top of the screen, corner to corner, as thick per patch of ground as they are today. Then a whole run is recorded, replayed and watched from the first moment to the end, ready for Mark to play on his phone."
 
 Read `docs/agents/feature-flow.md` and follow it. Read `docs/branch/records/coder-contract.md` before anything else; it binds this slice. Your scratch folder is `local/tilt-slice-6/` in the worktree; reuse the capture tool in `local/tilt-shots/` (slice 1). All paths below are relative to `apps/hungry-grave/` unless they start with `docs/` or `local/`. Line numbers were read on the tree at `517ee0753e`; slice 6 renamed `FIELD_WIDTH` to `VIEW_WIDTH` and slice 7 moved the formations' entry rows, so follow the name beside a number that has moved.

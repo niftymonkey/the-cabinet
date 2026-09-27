@@ -1,5 +1,7 @@
 # The "before" field batch (design record A4, A12)
 
+**Not used (2026-09-27).** These figures measure the harness hand steering on the glass (slice 4), which slice 14 removes, and were taken for a field change that is dropped (design record T10). Nothing compares against them; after slice 14 the harness plays as it did at `517ee0753e`.
+
 Agent output, 2026-09-27, on the untouched tree at `328570e6233f03e2cfe8af91b3358d761e0042ce` (slice 4, steering on the glass). Slices 7 and 8 change the field's shape and the mobs' arrival, and this batch is the "before" the two after-slice batches are compared against. The bot only dodges, so every figure measures the policy too: a size of shift, never a verdict.
 
 ## The commands, from `apps/hungry-grave/` in a detached checkout of that commit

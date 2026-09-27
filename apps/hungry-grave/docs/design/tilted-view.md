@@ -1,6 +1,8 @@
 # The tilted view (#159)
 
-The design record for the one step of the branch `tilted-view-build`. It holds the step's rulings, each with its evidence and how to reverse it. Mark's rulings come from his play of the throwaway prototype for #156 and are numbered T1 to T9 in his own words. The agent's calls are numbered A1 onward, each open to his overrule. No grill ran for this step: his words from the prototype play are the record, and `docs/branch/decision-log.md` carries them as numbered decisions. There is no ADR for this step; Mark ruled on #156 that the tilt is a design ruling and not an ADR.
+The design record for the one step of the branch `tilted-view-build`. It holds the step's rulings, each with its evidence and how to reverse it. Mark's rulings come from his play of the throwaway prototype for #156 and #159 and are numbered T1 to T10 in his own words. The agent's calls are numbered A1 onward, each open to his overrule. No grill ran for this step: his words from the prototype play are the record, and `docs/branch/decision-log.md` carries them as numbered decisions. There is no ADR for this step; Mark ruled on #156 that the tilt is a design ruling and not an ADR.
+
+Every ruling carries a status line: **stands**, **stands, amended** (what changed is named), **superseded** (by what, and what of it stood), or **dropped** (why). The branch planned on 2026-09-27 before Mark's correction is commit `d521b3555e`; the full text of every call dropped here is there.
 
 ## What was wrong
 
@@ -10,254 +12,299 @@ The cause, found while building the prototype: the grave's hole is drawn from a 
 
 ## The reference
 
-The throwaway prototype for #156, built from #148's build 7 through six tilts. Branch `prototype/156-tilted-view` at `63f34824f3`, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`, played at https://claude.ai/artifact/P7dbHNrp61T3d8wqQCSHAH (version 6, readout `TILT 6`). The camera is its `makeCamera`, `placeCamera`, `groundToScreen`, `screenToGround`, `belowGround`, `measureField` and `graveReach`. Coders learn from it and never lift a module out of it (`docs/agents/feature-flow.md`, "The prototype boundary"). Where an entry says a drawing piece is ported line for line, that is named in the entry, as #148's R7 did for the grave.
+The throwaway prototype for #156 and #159, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`, in the worktree `.claude/worktrees/156-tilted-view`. **Tilt 9 is the reference for this step.** It is uncommitted there; tilt 7, which tilt 9 is built on, is kept beside it as `local/tilt9/index-tilt7.html`, and tilt 9's checks and their output are in `local/tilt9/` (`check9.cjs`, `check9-output.txt`: 9 of 9 passing). Tilt 6 is on the branch `prototype/156-tilted-view` at `63f34824f3`. Coders learn from the prototype and never lift a module out of it (`docs/agents/feature-flow.md`, "The prototype boundary").
+
+Tilt 9 is tilt 7 with the play split off the scenery (its whole difference from tilt 7 is 178 lines of diff):
+
+- Scenery (the ground mesh, its dressing, the far markers, the grass) is drawn through tilt 7's pinhole camera, unchanged.
+- The play layer (every body, the grave, anything fired) is placed by `playToScreen` (tilt 9 `index.html:768-772`): across, a field unit is a screen unit at every row, so straight down the field is straight down the glass; down, a thing sits on the pinhole's own row for its ground y on the screen's centre column; its size is the pinhole's size at that row. `screenToPlay` (`:775-778`) is the exact inverse.
+- The hole keeps tilt 7's shared-camera look: its stance is taken from the ground point under the grave's placed point (`aimHoleCamera`, `:1773-1788`), so its side walls change as the grave moves left and right exactly as tilt 7 showed them for a grave at that spot on the glass.
+- Keys move the grave in plain field units (`:3640`); a drag goes through `screenToPlay` (`:3515`, `:3570`), and the grave's on-screen hold is `holdOnScreen` (`:3564`).
 
 What the prototype taught, which the rulings below rest on:
 
 - The hole's projection is the identity at depth zero, so putting the flat field under the grave's own camera draws nothing differently. The tilt has to be one camera for the whole scene.
 - An orthographic lean (tilt 1) is invisible on even-noise ground. Only a real pinhole camera, where far things draw smaller, reads as tilted (tilt 2, Mark: "the ground itself, all of it, should adjust based on the tilt").
-- One camera cannot both show the inside of the hole and give a sane field. Build 7's height pointed at the field is a fisheye; a high camera makes a graveyard but flattens the hole to a dark opening. Mark chose the flat dark hole (T4).
+- One camera cannot both show the inside of the hole and give a sane field. Mark chose the flat dark hole (T4).
 - A camera aimed at the grave swings the whole field as the grave moves. This game's camera is pinned to the screen and the grave moves about inside a still view (tilt 3).
-- A clamp that holds only the opening lets the drawn lip hang off the screen (tilt 4).
-- Under perspective the ground the screen sees is wider at the far edge, so spawning across the old width leaves the top corners empty (tilt 5).
-- A key that moves the grave in ground units drifts sideways toward the vanishing point off the middle column (tilt 6). Keys and drag work on the glass.
+- A pinhole converges lines of constant ground x on a vanishing point, so anything moving straight down the field drifts toward the middle of the screen as it comes near (tilts 5 to 7). Patching steering to hide that (tilt 6, and slice 4 of this branch) pushed the tilt into play.
+- A projection with no vanishing point anywhere (tilt 8) reads flat and loses the side walls' change from left to right (T10).
+- Splitting the play off the scenery (tilt 9, Ikaruga's flat play plane over perspective scenery, which the game design gate named as prior art) keeps tilt 7's look and keeps play straight.
 
 ## Mark's rulings
 
 ### T1. The game goes tilted, in V1, before the phone-first pass (#151)
 
-On tilt 6, 2026-09-26: "This is looking real good. I think this is what we should be using as our guide for how we build the equivalent into the real app." He placed the build in V1 right after the `scripts/roadmap/v1.yaml` fix and before foundations (#152), and before #151, because the tilt touches all the art and #151 is the pass that sets the look.
+**Stands.** On tilt 6, 2026-09-26: "This is looking real good. I think this is what we should be using as our guide for how we build the equivalent into the real app." He placed the build in V1 right after the `scripts/roadmap/v1.yaml` fix and before foundations (#152), and before #151, because the tilt touches all the art and #151 is the pass that sets the look.
 
 ### T2. The tilt is 32.5 degrees off straight down
 
-Read off his phone on 2026-09-27 after 81 swallows.
+**Stands.** Read off his phone on 2026-09-27 after 81 swallows.
 
 ### T3. The camera stands 42.50 grave half-lengths up, measured off the starting grave size, never the live grave
 
-Read off the same screenshot. Measured off the starting size because a camera that rose with the live grave would flatten the view as the grave grows. The grave size of 48.0 in his shot is growth from swallowing, not a ruling.
+**Stands.** Read off the same screenshot. Measured off the starting size because a camera that rose with the live grave would flatten the view as the grave grows. The grave size of 48.0 in his shot is growth from swallowing, not a ruling.
 
 ### T4. The hole is cut by the shared scene camera, so it is a flat dark opening
 
-He chose `shared` over the prototype's `own` camera, which kept build 7's low camera for the hole and showed its walls. The prototype's own words for the pair: the two "agree at the rim because the rim is the target", which is a cheat, and `shared` is the one honest camera.
+**Stands, amended by T10.** He chose `shared` over the prototype's `own` camera, which kept build 7's low camera for the hole and showed its walls. Under T10 the camera's stance is taken over the ground point under the grave's placed point (A23).
 
 ### T5. Every other value stays at build 7's
 
-The pull's reach 24 and strength 125, the tip threshold 0.55, the tip 0.3 s and the drop 0.75 s, and the headstone off. None of them moves in this step.
+**Stands.** The pull's reach 24 and strength 125, the tip threshold 0.55, the tip 0.3 s and the drop 0.75 s, and the headstone off.
 
 ### T6. The view is still and the grave moves inside it
 
-Confirmed by Mark before tilt 3: a still rectangle of world seen at an angle, with the grave moving inside it, is exactly what he wants. On tilt 2 he saw the field swing as he dragged and named the difference from hole.io himself, where the hole is always in the middle.
+**Stands.** Confirmed by Mark before tilt 3: a still rectangle of world seen at an angle, with the grave moving inside it, is exactly what he wants. On tilt 2 he named the difference from hole.io himself, where the hole is always in the middle.
 
 ### T7. The whole grave stays on screen
 
-On tilt 4, which held the drawn lip rather than the opening inside the screen: "Yes this looks good. I like what we're doing here."
+**Superseded in part by T10.** On tilt 4, which held the drawn lip inside the screen: "Yes this looks good. I like what we're doing here." The prototype held it with a screen hold on the grave's movement (`holdOnScreen`, tilt 9 `index.html:3564-3576`). In the real game that hold is the sim's (`containGrave`, `src/game/grave.ts:118-122`, which holds the opening and not the lip), and T10 rules the sim untouched by the tilt. What stands: the sim's own hold, exactly as the flat game has it. What it could not have known: that the hold is physics. What it costs is A25.
 
 ### T8. Mobs fill the whole screen, top and sides
 
-His ask on tilt 4: the tilt pulled build 7's rectangle in from the top and the sides, and mobs must fill the whole viewport. Tilt 5 made the field everything the screen sees and spawned across the full far edge at build 7's density per unit of ground.
+**Stands, carried by T10 without a sim change.** His ask on tilt 4. Under the play layer the fixed 540 by 760 field fills the column: field x 0 to 540 draws across the whole width at every row, and field y 0 draws on the top row (A18). The plan's way of carrying it (the field becomes the trapezoid the camera sees, spawns laid across the far row) is dropped with A2 and A4.
 
 ### T9. A drag and a key both work on the glass
 
-On tilt 5: "almost there", but W moved the grave in ground units, so off the middle column it drifted toward the vanishing point. Tilt 6 made a key a step on the screen, converted back to the ground through the camera's exact inverse, the same as the drag. #159's done-when says it plainly: "a drag moves the grave exactly under the finger and a held key moves it straight up the screen without drifting sideways, at any point on the screen".
+**Stands in its words; its mechanism for the keys is superseded by T10.** On tilt 5: "almost there", because W moved the grave in ground units under a pinhole and drifted toward the vanishing point. #159's done-when: "a drag moves the grave exactly under the finger and a held key moves it straight up the screen without drifting sideways, at any point on the screen". Under the play layer both still hold: a drag goes through the play layer's exact inverse, and a key moves the grave in plain field units, which on the play layer is straight up the screen because across a field unit is a column unit at every row. What changed: a key is no longer a step on the glass converted through the camera (A11 is superseded); its speed on the screen is the flat game's field speed, drawn faster near the bottom as the rows spread.
+
+### T10. The tilt is drawing only (tilt 9)
+
+**New, 2026-09-27.** Mark played slice 4's deploy and corrected the direction:
+
+"The intent of the tilt is that you can see the world and the grave from a more isometric or 3D-ish feel but nothing should have changed about the physics of the game."
+
+"When I shoot my main weapon, that goes straight forward. It now no longer goes straight forward; it goes in the direction of that tilt. The mobs and the weapons should also not be dealing with that tilt."
+
+"there should be nothing happening with regards to the world underneath that is tied to the tilt at all."
+
+"that whole 540 by 760, that's just the viewport... That part should still stay 540 by 760 even though other things might be going on outside of that cutout."
+
+Tilt 8, a projection with no vanishing point anywhere, he rejected: "it's as though we went backwards in time. This just looks like a flat thing again... I don't know why you took away the left and right visibility change of the inside walls... Tilt 7 was way closer. All we need is for the bullets to go straight and the mobs to move straight. That's all... go back to 7 and just make those two things true without changing anything else." Tilt 8 is kept only as `local/tilt8/index-tilt8.html` in the prototype worktree.
+
+Tilt 9 he approved: "yes it is as long as the weapons behave right".
+
+What it rules: the sim is untouched by the tilt. The field stays 540 by 760, no tape, witness or readings version moves, `GOLDEN` holds, and the harness's hand plays in field units. The tilt is how the game is drawn: scenery through the pinhole camera (T2, T3), the play layer as tilt 9 places it (A18 to A21), the hole as tilt 7 cut it (T4, A23). His condition, the weapons behaving right, is proved in slice 15 by measurement and screenshots, and the one place the play layer does not keep a path straight is A28, which is his to rule.
+
+## The correction, and what it replaces
+
+What changed: the plan of `d521b3555e` made the sim field the trapezoid the pinhole camera sees (A2), spread spawns across its far row (A4), held the grave's drawn lip in the sim (A5), and converted keys and the harness hand onto the glass (A11). Slice 4 landed the steering conversion and the deploy of it showed Mark what it did to play: the tilt reached the physics. All of that is withdrawn: nothing in `src/game` or `src/tape` changes on this branch, and slice 4's conversion is taken back out (slice 14).
+
+What stood: the camera and its values (slice 1, T2, T3, A6, A13's placement in drawing code), the ground as a screen-laid mesh (A9), standing and lying (A7) and near over far (A8), the hole cut by the scene camera (T4, slice 3) and its re-bake (A10), the capture tool, and the column: the window stays the 540 by 760 box `fitField` letterboxes (`src/app/layout.ts`), which is the answer to the question the plan asked him in A1.
+
+What the plan could not have known: that "Mobs fill the whole screen" (T8) and "a key on the glass" (T9) were asks about the picture, not the physics, and that a pinhole makes straight motion drift on screen, so any field placed through it drags the tilt into play. Tilt 7 to tilt 9 found the split that keeps his picture and leaves the physics alone.
 
 ## The agent's calls, open to Mark's overrule
 
-### A1. The field is fixed to today's 540 by 760 column for this step, and the column's shape is Mark's to rule before the field slice
+### A1. The column's shape
 
-The agent's recommendation, and a decision Mark makes before slice 7 (the field) starts. The game's screen column is the 540 by 760 box `fitField` letterboxes into any viewport (`fitField`, `src/app/layout.ts:218-257`, through `centred`, `:143-159`: a uniform scale with the aspect kept). No ruling has set that shape for the phone: Mark's phone-first ruling of 2026-09-19 says the phone sets the look and the layout and the desktop shows the phone's design with bars at its sides, and #151 is the pass that sets the phone's layout, including the column. On a 390 by 844 phone today the column draws about 390 by 549 CSS pixels with bars above and below.
+**Answered by T10.** The plan recommended keeping today's 540 by 760 column and asked Mark to rule it. His answer: "that whole 540 by 760, that's just the viewport... That part should still stay 540 by 760." The column is the box `fitField` letterboxes into any viewport (`src/app/layout.ts:218-257`), one fixed shape on every device, which keeps ADR 0003 ("no number anywhere is a device pixel") and ADR 0019's determinism across a phone and a desktop. His camera values are not retuned on it; he tuned them on the phone's own column and the 760 column shows the middle of that view.
 
-What is decided here: the column is one fixed shape on every device, whatever shape that is, so the ground the camera sees is one shape computed once in field units, identical on every build and device, and the sim can run on it without learning the viewport. That keeps ADR 0003's "no number anywhere is a device pixel" and ADR 0019's determinism across a phone and a desktop, which a field measured off each device's own screen, as the prototype's was, would break.
+### A2. The field is the exact patch of ground the column sees
 
-What is recommended, not decided: keep the 540 by 760 column in this step. A phone-tall column makes the field longer, and a longer field lengthens every time on screen: how long a body is in view before it reaches the grave, how long a revenant fires, how far food rides before it rots. That is a balance change across the whole game, and it belongs with #151, which sets the column, and #39, which tunes. The cost is that Mark tuned his values on a taller column: the prototype's column was the whole phone (`#column`, `width: min(100vw, 50vh)`, prototype `index.html:44-50`), 540 by 1169 field units on his 390 by 844 phone (`BUILD_7_FIELD_H = 1169`, `index.html:1835`). With his camera, a 760 column shows the middle of what he saw: the far edge 168 units up the field where his was 370 up, and the near edge 762 down where his was 1129 down. Near the middle of the screen everything draws exactly as he saw it. T2 and T3 are not retuned on this interim column; they are his values as he ruled them.
-
-To reverse or change: the column's shape is one input to the camera (`COLUMN` in slice 1's camera module), and the field's six numbers follow from it. A taller column is a layout change (`fitField`, the HUD row) plus new field numbers, and tapes recorded before it stop at their first diverging checkpoint.
-
-### A2. The field is the exact patch of ground the column sees, a trapezoid, not its bounding rectangle
-
-The prototype's field is the rectangle around what the screen sees: its width is the far row's, so its bottom corners run past the screen (`measureField`, `index.html:1771-1778`, "bodies that drift out there have left the screen and are simply not drawn anywhere it looks"). The real game has mob fire and the prototype had none. A mob alive in a bottom corner is off the screen and can still aim at the grave, and it still counts against the section's live-body ceiling and the caps. So the sim field is the trapezoid itself: a body leaves when it is wholly past a slanted side edge, exactly as it leaves past the bottom today. Every point in the field is on the screen and every point of ground on the screen is in the field.
-
-The trapezoid's sides are straight lines in ground units, because a screen column's edge projects to a straight line on the ground (checked numerically in slice 1). So the shape is six numbers and two straight-line functions, and every sim reader uses add, subtract, multiply and divide only.
-
-On screen, a body that falls straight down near an edge walks off the side of the screen as it comes nearer, because nearer ground draws wider. That is the look of perspective and it is what "bodies leaving the narrower near span just leave" (#159) means.
-
-To reverse: the bounding rectangle is the shape's four outer numbers; the side-line culls go back to the far row's span.
+**Dropped (T10).** It made the sim field a trapezoid and sent bodies off its slanted sides. The field stays today's rectangle.
 
 ### A3. The field keeps its origin, and the old width and height keep every job that is a scale
 
-The camera looks at the ground under the middle of the column, and the column is laid out so one field unit draws as one column unit there. So the column's middle row is still field x 0 to 540 at y 380, and the column itself is still 0 to 540 by 0 to 760 in column units. The layout, the HUD row, the field's clip, the boundary readout and the hit dim all work in column units and do not change.
+**Dropped (T10).** It split `FIELD_WIDTH` and `FIELD_HEIGHT` into a scale and a set of edges, which is why slice 6 renamed them `VIEW_WIDTH` and `VIEW_HEIGHT`. With the field unchanged the two are its edges and its scale, as they always were, and the rename is undone (A26).
 
-`FIELD_WIDTH` and `FIELD_HEIGHT` (`src/game/field.ts:10-11`) are renamed `VIEW_WIDTH` and `VIEW_HEIGHT` and keep their values, in a slice of their own (slice 6) that changes no behaviour. Every reader that uses them as a scale keeps them: the base speed (ADR 0003, "crossing the field's width takes about two seconds", now true of the middle row, `src/game/tuning.ts:18`), the freshness (`tuning.ts:37`), the size ceiling (`tuning.ts:53`), the belch's burst radius (`src/game/belch.ts:38`). Every reader that uses them as an edge moves to the field's shape. The rename is what makes a stale edge reader visible: after slice 7 no reader of `VIEW_*` means an edge.
+### A4. Mobs arrive across the far row at today's density per unit of ground
 
-To reverse: re-origin the field so its far-left corner is zero, which moves every coordinate in the sim and the column mapping with it.
-
-### A4. Mobs arrive across the far row at the density they arrive at today, per unit of ground
-
-"Spawns cover the full far span at build 7's density per unit of ground" (#159). The far row is 656.88 units wide, 1.2164 times the middle row's 540 (`FAR_SHARE`). The rule: anything authored as spread across the field's width is authored against the middle row and is laid across the far row at the same spacing. So a Drip, a Rain and a Wall take `round(count * FAR_SHARE)` bodies across the far row, and the Undertaker's curtain takes `round(clods * FAR_SHARE)` clods across it. A File keeps its count and its lane is drawn across the far row. A V keeps its count and its shape and stays centred. A Pincer keeps its count and its shape and leads from the far row's corners. The mob cap's derivation counts arrivals by the same rule, because a cap that counted the authored numbers would be a bound below what the stage lands. The count stays on the wave (ADR 0047's absorbed 0006: "density tuning never edits a formation"); what changes is the width the count is laid across.
-
-What it does, measured on paper: the screen shows 1.264 times as much ground as today (518,945 square units against 540 by 760), so at held density about a quarter more bodies are on screen at once, smaller at the far end. The near third reads sparser than the far third, which is density per unit of ground under perspective and was the same in the prototype.
-
-What does not scale, and it is for Mark's read: the director's purse charges a card as authored, and the one section live-body ceiling in the stage (28, `src/game/stage/stage.ts:210`) stays as authored, so with more bodies per formation that ceiling binds sooner and the director adds less there.
-
-What the longer field does, which is A2's and not the spawn rule's, and it is named here because it lands in the same batch: the field is 930.6 units long against today's 760, and every speed is held (A3). So everything is on the field longer. A body from the top of the field reaches the grave's starting row about 4.4 seconds later than a body from today's top edge did (168 units at the scroll of 38 a second), against a freshness window of about ten seconds (`FRESHNESS_SECONDS`, `src/game/tuning.ts:37`, which stays tied to half the old height), so food from a top kill arrives staler. With `hasEntered` at the field's top (`src/game/mobs.ts:390-392`), a revenant is armed for longer; the tech gate's arithmetic puts it at about 12.6 seconds longer, about five more shots, and the batch measures it. And the far row's outer quarter walks off the sides before the grave's starting row: at y 608 the field is 491.4 wide against the far row's 656.9, so about 25% of a Drip, Rain or Wall laid across the far row leaves at a side without ever passing the grave's row. None of this is retuned here; the numbers are #39's. Slice 7's and slice 8's batches report each one (mob fire shots, hits from fire, seconds on screen per mob, freshness at the swallow, food lost at a side against at the bottom) so the drift is a figure rather than a guess.
-
-To reverse: `FAR_SHARE` at one keeps today's counts across the wider row, which is the same number of bodies on screen at a lower density per unit of ground.
+**Dropped (T10).** It changed the formations' widths and counts and the mob cap's derivation. T8 is met by the play layer instead (A18), with every formation as authored.
 
 ### A5. The grave's hold covers its whole drawn lip, in field units
 
-T7 in sim numbers: the grave is held so that its opening plus the lip's bake padding lies inside the field's trapezoid. The lip is baked with a padding of 0.3 of the grave's width on every side (`BAKE_PADDING.lip`, `src/app/screens/game/graveDrawingValues.ts:92`), and the bake's canvas is exactly that size (`GraveRenderer.ts:49-80`), so nothing of the lip can draw past it. The sim carries the share as its own named number and a cross test pins the two equal. The grave's pit and lip are drawn as a perspective mesh through the four corners of that ground rectangle (A7), and a projection carries a ground rectangle inside the trapezoid to a quadrilateral inside the column, so the drawn grave stays on the screen exactly, not to first order.
-
-What it costs: a strip at each edge, 0.3 of the grave's width, where the opening cannot reach. A corpse lying in it cannot be swallowed and leaves the field; slice 7 pins that as a test, so it is a known property rather than something for Mark to discover in play. An offer's bodies and a strip's fallen rungs are already held clear of it (A14), and a feast lands at the boss's x, in the middle. If slice 7's or slice 8's batch shows treasure lost at a side, A14's hold extends to it. The prototype had the same strip (tilt 4).
-
-To reverse: hold the opening alone (the share at zero), and the lip hangs off the screen at the edges again.
+**Dropped (T10).** A sim hold; see T7 and A25.
 
 ### A6. The hole's camera is the true scene camera, off the starting size
 
-T4 chose the one honest camera. The prototype's `shared` mode cuts the hole with `holeCamera.height * size` using the live grave's size (`belowGround`, `index.html:776-784`), while its scene camera uses the starting size (`refreshView`, `index.html:1725`). So in the prototype the hole's camera rose with the grave, which is the very thing T3 rules out for the scene. The build cuts the hole from the camera that draws the field: 1147.5 field units up, which is 42.5 half-lengths of the starting grave and 17 half-lengths of a ceiling grave.
-
-What it changes against what Mark played: at the starting size, nothing. At bigger sizes the walls show a little more: a wall's deepest drawn point sits at 0.947 of the rim's distance from the point the walls converge on at every size in the prototype, and at 0.909 at size 48 and 0.876 at the ceiling in the build. It is for his next play.
+**Stands.** The prototype's `shared` mode cut the hole with the live grave's size (`belowGround`, prototype `index.html:776-784` in tilt 6), while its scene camera used the starting size. The build cuts the hole from the camera that draws the ground: 1147.5 field units up, 42.5 half-lengths of the starting grave and 17 of a ceiling grave. At the starting size nothing differs from what Mark played; at size 48 a wall's deepest drawn point sits at 0.909 of the rim's distance from where the walls converge instead of 0.947, and at the ceiling at 0.876.
 
 To reverse: cut the hole with the camera's height in the live grave's half-lengths.
 
 ### A7. What stands and what lies
 
-A lying thing is laid on the ground: drawn at the camera's scale across and at the camera's scale squared times the lean down the screen, which is how fast the ground's own image changes down the screen at that point, so it foreshortens with the ground exactly where it lies (at the grave's starting point, 1.0989 across and 1.0185 down). The grave's pit and lip, which are large enough for the scale to change across them, are drawn as a perspective mesh through the four projected corners of their ground rectangle rather than at one scale. A standing thing is drawn upright at the camera's scale, with no lean, its feet on the near edge of its footprint so it rises from where it stands. The sim's footprint stays the collision box; the sim has no heights.
+**Stands, amended by A19.** A lying thing is laid on the ground: drawn at the camera's scale across and the scale squared times the lean down the screen. The grave's pit and lip are drawn as a perspective mesh through the four projected corners of a ground rectangle. A standing thing is drawn upright at the camera's scale, its feet on the near edge of its footprint. Airborne things (skulls, wisps, mob fire, scatters) draw upright at the camera's scale; mob fire never draws smaller than its hitbox (amended by A21). A lying thing that turns foreshortens along the screen's vertical. An art offset drawn in field units today becomes a column offset at the camera's scale. A heading drawn on a body follows the direction the body moves on the screen.
 
-- Lying: the ground, the grave and its lip, corpses and treasure, Territory's patches, the bell's cones, the belch's eruption, the dressing's eyes and cracks, the Waking's source.
-- Standing: mobs, bosses, the Undertaker in his ending scene until he goes over the rim, and the dressing's statues and cliffs.
-- Airborne things have no height in the sim (skulls, wisps, mob fire, scatters): drawn upright at their ground point at the camera's scale. Mob fire is the one exception to shrinking: a hostile shot draws at the larger of the camera's scale and one, so near the top it keeps today's size and is never drawn smaller than its hitbox, and near the bottom it grows with everything else.
-- A lying thing that turns (a corpse's teeter) foreshortens along the screen's vertical, never along its own axis.
-- An art offset drawn in field units today (a patch's lob arc, a burst's drift) becomes a column offset at the camera's scale at that thing's ground point.
-- A heading drawn on a body (the ghoul's wedge, a wisp) follows the direction the body moves on the screen.
+- Lying: the ground, the grave and its lip, corpses and treasure, the dressing's eyes and cracks, the Waking's source.
+- Standing: mobs, bosses, the Undertaker in his ending scene until he goes over the rim, the dressing's statues and cliffs.
+- Areas of effect whose edge is a sim reach (Territory's patches, the bell's cones, the belch's eruption) are drawn as the image of their sim shape (A20), not as lying art.
 
-"Headstones" in #159's done-when: the grave's own headstone is off (T5, and #148's decision 5), and #148 did not port the prototype's far markers (R8). The standing stone furniture of the real game is the dressing's statues, and they stand.
-
-To reverse: anchor a standing thing at its footprint's centre, which trades rising from the ground for a drawn body centred on its box.
+Under T10 these rules are evaluated at the ground point under a play thing's placed point for everything on the play layer (A19), and at the ground point itself for scenery.
 
 ### A8. Near draws over far inside a layer, and ADR 0014's layer order does not move
 
-Standing things in `mobBodies` are sorted by their ground y, nearer on top. The twelve layers (`src/app/screens/game/layering.ts:16-30`) keep their order, so mob fire still draws over everything and treasure still draws over mobs. No lit scene, so every colour stays declared and ADR 0014's value band is untouched. The boss sorts by depth with its adds, so a nearer add draws over it; this is the agent's call, reversible by lifting the boss into its own layer above the sorted bodies.
-
-To reverse: drop the sort; the layer order was never touched.
+**Stands.** Standing things in `mobBodies` sort by their field y, nearer on top (`FieldRenderer.ts:226`, `:373`). The play layer's rows rise with field y, so the sort needs no change. The boss sorts with its adds.
 
 ### A9. The ground is a screen-laid mesh over today's baked ground, and there is no haze
 
-The prototype's tilt 2 answer: a grid laid on the screen, each vertex asking the camera which ground it stands on, sampling a repeating tile (`buildGroundMesh`, `updateGroundMesh`, `index.html:2012-2026` and `2079-2106`). The build keeps #148's baked ground (R8) as the tile, adds a wrap across its side edges the way R8 added one across its top and bottom, and samples it with repeat on both axes. The prototype's grid (18 columns, 40 rows, 0.08 overshoot, `index.html:1962-1966`) is the starting value. The ground's scroll stays the sim's own scroll, in ground units, so near ground runs faster on the screen than far ground.
-
-No haze: the prototype hazes the ground where it draws below 0.15 of its size (`GROUND_FADE_SCALE`, `index.html:1975`). At his values the smallest scale on the column is 0.822, at the top row, so there is nothing to haze.
-
-Grass: the prototype draws a tuft's blades longer as the camera tilts (`BLADE_LEAN` and `bladeReach`, `index.html:752-761`), because a blade leans back 62 degrees off the vertical and the tilt shows more of it. At 32.5 degrees that is 1.3485 times build 7's length. The ground's tufts take it.
-
-To reverse: the ground is one renderer, and the flat tiling sprite is one commit back.
+**Stands, amended by A22 (its scroll rate).** The prototype's tilt 2 answer, a grid laid on the screen whose vertices ask the camera which ground they show, sampling #148's baked ground with repeat on both axes (`groundMesh.ts`, `BackgroundRenderer.ts`). No haze: the smallest scale on the column is 0.822. Grass blades draw 1.3485 times build 7's length.
 
 ### A10. The hole is baked for the near edge's scale and baked again when the grave moves a step
 
-The shared camera's stance over the grave moves as the grave moves, and which walls show moves with it. The hole is baked again when the grave has moved more than 4.75 field units, across or along, from where it was last baked (`STANCE_REBAKE_STEP`). Growth alone never bakes through this step; the size has its own (`HOLE_REBUILD_STEP`). It is baked at the pixel density of the column's nearest row (scale 1.178), so moving the grave up and down never forces a bake for resolution.
-
-Why 4.75: a bake kept over a move of m draws a centred grave's two side walls 2 m D / (H + D) field units apart, with D the dark depth (2.4) and H the camera's height in the grave's half-lengths. The bound is 1 CSS pixel on a 390-wide phone. The worst case is the ceiling (H 17) on the nearest row a grave stands on (y 692.5), where the camera draws it largest: 1 pixel at m = 4.79, so the step sits under it, and a smaller grave has a smaller D / (H + D). The prototype's threshold, half a half-length of stance, drew those walls 7.0 pixels apart at the ceiling, so a centred grave could show one side wall only, and a step in half-lengths re-bakes on growth alone.
-
-What it costs, measured over the seed 1000 run: 7.2 bakes a second of play, 31 in its busiest second, and a bake is 1.5 to 2.3 ms on a desktop in headless Chromium, the start size to the ceiling. A phone is slower, and a sustained fast drag bakes about every other frame.
-
-This is the agent's call. To reverse: the step is one number; raise it to bake less and let a stale bake show more, or measure the stance in half-lengths again, which brings back re-bakes on growth.
+**Stands, amended by A23 (the step is measured in ground units).** Baked at the nearest row's scale (1.178), so moving up and down never forces a bake for resolution. Baked again when the ground point under the grave has moved more than 4.75 ground units from where it was baked (`STANCE_REBAKE_STEP`), which keeps a stale bake's two side walls within one CSS pixel of each other at the ceiling on the nearest row (the derivation is in `graveDrawingValues.ts`'s JSDoc on the constant).
 
 ### A11. Steering converts on the glass, around input models that do not change
 
-`TouchSteer` and `KeySteer` (`src/input/touch.ts:82-243`, `src/input/keys.ts:88-134`) stay pure and keep their logic. They are handed points in column units and the grave's drawn point, and what they return is a step on the column. The app turns that step into a ground move through the camera at the grave's drawn point (`stepOnColumn`), for a drag and a key alike. The tape records the move the sim consumed, so a replay never recomputes the camera.
+**Superseded by T10.** Keys and the harness hand stepped on the glass through the camera (slice 4). Under T10 a key is a plain field move again and the harness hand plays in field units (slice 14). What stood: the input models work in column points (`ColumnPoint`, `src/input/touch.ts`; `screenToColumn`, `src/app/layout.ts`), because a drag is still a finger on the glass; only the conversion changes, to the play layer's exact inverse (slice 14).
 
-A key moves the grave at one speed on the screen everywhere. In ground units that is faster near the top and slower near the bottom: one column unit across is 1.216 field units at the top row, 1.000 on the middle row, 0.910 at the grave's starting row and 0.849 at the bottom row; one column unit along is 1.754, 1.186, 0.982 and 0.855. ADR 0003's two-second crossing holds across the middle row. The harness's hand moves on the glass the same way (slice 4), so its figures measure the game a player steers.
+### A12. The field change moves no tape version
 
-What the screen-constant speed means on screen, and it stays: everything the scroll carries (bodies, corpses, fire moving down) speeds up on the screen as it comes nearer, from 0.57 of its ground speed at the top row to 1.17 at the bottom row, while the grave keeps one speed on the glass. So near the bottom the grave is slow against what it dodges, compared with today. The game design gate's prior art: Ikaruga keeps its play on a flat plane and uses perspective for the scenery. This build keeps the grave's speed flat on the glass, which is Mark's T9, and puts the question on his next play.
-
-To reverse: hand the input models ground points again, which brings back the sideways drift T9 ruled out.
-
-### A12. The field change moves no tape version; older tapes stop at their first diverging checkpoint
-
-The planning brief called for bumping the tape format and witness versions. ADR 0043 keeps three boundaries apart: the format version is the wire's grammar, the witness version is the fold's definition, and "none of them may ever substitute for another". This step changes neither the bytes nor what the witness folds. A tape recorded before slice 7 replays under the new field, diverges at its first checkpoint after something touches an edge or a spawn lands, and stops there and says so, which is ADR 0019's rule and exactly how #148's slice 1 treated a rule change ("Tapes recorded before this slice stop replaying at their first diverging checkpoint. That is what ADR 0019 intends"). No run is stored for anyone else yet. `GOLDEN` in `src/dev/digest.ts` re-pins wherever its scenario's state moves, with the cause written beside it. If a slice does widen the fold or the wire, that slice moves the version it changed and says why.
-
-To reverse: a precise refusal would record the field's shape in the tape's starting condition, which ADR 0056's amendment argues against for anything pinned to the build.
+**Stands, and is now trivially true.** Nothing in the sim changes, so no version moves, and tapes recorded before this branch replay and verify on it. Slice 16 proves it by replaying tapes recorded at `517ee0753e`.
 
 ### A13. The camera lives in the drawing code, and the sim holds only the field's six numbers
 
-The camera needs cosines and sines, and code under `src/game` may not call them (ADR 0019). So the camera module is drawing code under `src/app/screens/game`, and `src/game/field.ts` carries the trapezoid as six literal numbers. A cross test asserts that the camera's visible ground equals those numbers to 1e-9, so neither can move alone.
-
-To reverse: nothing to reverse; it is where the code lives.
+**Stands in part.** The camera and the play layer live in `src/app/screens/game` (they use cosines and sines, which `src/game` may not call, ADR 0019). The sim holds nothing of either: the six numbers were A2's and are dropped.
 
 ### A14. Food and fallen rungs land where the grave can still reach them
 
-An offer's three bodies and a strip's fallen rungs are shifted whole to stay inside the field (`groupCentre`, `src/game/offer.ts:158-161`). They fall straight, and the field narrows toward the bottom, so a group held inside the far row could walk off the side before it reached the grave. They are held inside the near row's span instead, less the grave's reach, so the whole group stays swallowable all the way down.
-
-If a batch shows other treasure lost at a side (A5), the same hold extends to it.
-
-To reverse: hold them inside the row they land on.
+**Dropped (T10).** It held offers inside the trapezoid's near row. The offer's hold stays the flat game's.
 
 ### A15. The Waking's depth and sweep are read along the field's length
 
-The source opens at a share of the field's height and sweeps by its share down the field (`OPENS_BELOW`, `sweptTo`, `src/game/stage/setPiece.ts:73`, `:93-99`). Both are read as a share of the field's length from its top edge to its bottom edge.
+**Dropped (T10).** The field's length is unchanged.
 
-To reverse: read them against the middle row's height again, which opens the source higher on the screen than before.
+### A16. A mob split by the far row's edge walks in
 
-### A16. A mob split by the far row's edge walks in; inside the field, a mob falls straight
+**Dropped (T10).** There is no far row in the sim.
 
-#76's walk-in (`fall`, `src/game/mobs.ts:475-485`) keeps a body placed outside the field from descending unseen at the edge. It is measured against the far row's span, where every formation places its bodies. Inside the field a faller falls straight and leaves when it is wholly past a side edge (A2). Measuring the walk-in against the slanted edge instead would march every edge faller down the side of the screen.
+### A17. The size floor's stated reason no longer holds at the top of the screen
 
-To reverse: measure the walk-in against the side edge at the mob's own y.
+**Stands as a fact, with no code change on this branch.** `SIZE_FLOOR`'s comment (`src/game/tuning.ts:59-66`) gives its reason as a floor grave being about 13 CSS pixels across on a 390-wide phone. The play layer draws the top row at 0.822, so a floor grave there is about 10.7 CSS pixels across. The comment lives in `src/game`, which this branch does not touch (T10), so the restatement goes to #39, which owns the floor, at the branch close's ticket pass.
 
-### A17. The size floor's stated reason no longer holds at the top of the screen, and its comment says so
+### A18. The play layer spreads the fixed field over the pinhole's rows, top row to bottom row
 
-`SIZE_FLOOR`'s comment (`src/game/tuning.ts:59-66`) gives its reason as a floor grave being about 13 CSS pixels across on a 390-wide phone, "narrower than this and it stops reading as a grave shape". At the top row the camera draws at 0.822, so a floor grave there is about 10.7 CSS pixels across. The floor is not moved (it is #39's), and its comment is restated in slice 7 to say the reason holds on the middle row and what it comes to at the top, so the next reader does not trust a figure the camera broke.
+**New.** Tilt 9 places a thing at screen x = field x and on the pinhole's row for its ground y. In the prototype the field was the ground itself (tilt 9's field on the phone was 540 by 1498 ground units, `check9-output.txt`); the real field is 540 by 760 and the column shows 930.585 ground units along its centre column (ground y -168.081604 under the top row to 762.503300 under the bottom row). So the play layer reads field y as the ground y `-168.081604 + 1.224454 * y` and places the thing on that ground's row: field y 0 draws on the column's top row and field y 760 on its bottom row, and every row in between is a pinhole row. Across, field x is column x.
 
-To reverse: nothing to reverse; it is a comment made true.
+The alternative, reading field y as ground y itself, puts field y 0 on column row 101.3 and leaves the top 13% of the column with no play in it: mobs waiting above the field would draw there before they can be hit, and a skull would vanish at row 98 on its way up. That breaks "the whole 540 by 760 ... is the viewport" (T10) and T8.
 
-## What the build must carry, from #159
+What the stretch costs, measured. A field unit along draws 1.224454 times the rows a ground unit draws at the same row. Drawn at tilt 7's size for its row, the grave would be 0.817 of its hitbox along (`graveHitbox`, `src/game/grave.ts:102-111`, which is the swallow's mouth, the box mob fire and contact hit, and the pull's target), so fire would land 4 CSS pixels short of the drawn rim at the start size and 11 at the ceiling. A29 draws the grave no smaller than its hitbox instead. Other lying things keep tilt 7's size (A19); their sim footprint has no edge a player reads as a hit.
 
-#159's context comment lists what the real build must carry from tilt 6. Each item, and where it lands:
+Everything moving down the screen speeds up as it nears, because the rows spread: a field unit along draws as 0.70 rows at the top, 1.21 at the grave's starting row and 1.43 at the bottom. Mob fire that crosses the column at the flat game's speed arrives at the grave's row 21% faster on the screen than the flat game draws it, where the dodge happens. Tilt 7 did the same on its pinhole rows. It goes with the rows (A28) and is on "For Mark's next play".
 
-- One still perspective camera pinned to the screen, target the ground under the screen's centre, tilt 32.5, height 42.5 starting half-lengths: slice 1 builds it, slice 2 draws with it. Carried.
-- The field is everything the screen sees, far edge under the top, width the far row's, near edge under the bottom: slice 7, as the exact trapezoid (A2). Carried, with the shape changed from the prototype's rectangle and the reason recorded.
-- Spawns cover the full far span at build 7's density per unit of ground: slice 8 (A4). Carried.
-- Bodies leaving the narrower near span just leave: slice 7 (A2, A16). Carried.
-- Standing things rise along the screen vertical and scale with distance; lying things lean with the ground; near draws over far: slice 2 (A7, A8). Carried. Walkers are the placeholder mob silhouettes, which #38 owns; the prototype's topple animation is not carried (outside this step).
-- The hole is cut with the shared scene camera, flat and dark: slice 3 (T4, A6). Carried.
-- Input on the glass, drag and keys as column steps through the exact inverse at the grave's drawn point: slice 4 (A11). Carried.
-- The grave's whole drawn extent held inside the field, then the screen: slice 7 (A5). Carried as one hold, because the field is the screen.
+The mapping is a fraction of two linear functions of field y, so it is exact both ways in closed form. Its numbers are in "Values are data".
 
-What #159's context comment says the prototype does not answer:
+To reverse: read field y as ground y (the stretch at one), which brings back the empty top strip.
 
-- The field staying one size on every device: A1.
-- The glossary's Field entry and ADR 0003's "one fixed 540 by 760 unit field that the renderer scales to any screen": the glossary is edited in slice 7 (below); ADR 0003 is not edited and its stale sentences are on the handoff's "For Mark's read".
-- ADR 0003's ceiling and base speed stated against the field's width: A3, measured on the middle row.
-- The shared camera replacing R4's camera for the hole: "What this replaces" below.
-- Things near the top draw smaller, mob fire included: A7, and on "For Mark's next play".
+### A19. Everything on the play layer draws at tilt 7's size for its row
+
+**New.** A play thing is drawn exactly as tilt 7 drew a thing standing on the ground point under its placed point: at the pinhole's scale there, with A7's standing, lying and airborne rules. So sizes are tilt 7's (0.822 at the top row, 1.084 at the grave's start, 1.178 at the bottom), and the only thing tilt 9 changes about a body is where it is across the screen. Scenery keeps the pinhole's own placement. Two things are drawn no smaller than their hitbox's image, because their edges are where a hit lands: mob fire (A21) and the grave (A29).
+
+To reverse: draw a play thing at scale one across, its sim footprint, which is closer to the flat game and loses the near-larger cue.
+
+### A20. An area of effect is drawn as the exact image of its sim shape
+
+**New.** The belch's eruption fronts, the bell's cones and Territory's patches have edges that are sim reaches: whatever lies inside is pushed, damaged or held. Drawn as lying art at one scale, the belch's 270-unit reach would be an ellipse, while its sim image on the play layer is egg-shaped: around a grave at its starting point it reaches from column row 272.5 at its far edge to past the column's bottom, and the rows per field unit along run from 0.93 at its far edge to 1.43 on the bottom row. So each of these shapes is built in field units and every point of its outline, straight edges included, goes through the play layer at steps of at most 4 field units (`OUTLINE_STEP`), so a body drawn inside the drawn shape is a body the sim counts inside. Stroke widths and the patch's hands keep their look at the pinhole's scale at the shape's centre. The pull is not drawn anywhere (no renderer under `src/app/screens/game` draws it), so it needs nothing.
+
+To reverse: draw them as lying art at the scale at their centre.
+
+### A21. Mob fire draws at the larger of the camera's scale, one, and the play layer's stretch along
+
+**New, amends A7's exception.** A7 drew mob fire at the larger of the scale and one so it is never smaller than its hitbox. On the play layer a hitbox's image is one across and the stretch along, which passes both one and the scale below field y 380 (1.214 at the grave's start, 1.433 at the bottom row). So mob fire takes the largest of the three, and never draws smaller than its hitbox's image on either axis. Near the top it is today's size.
+
+To reverse: the larger of the scale and one, which draws a shot up to 18% shorter than its hitbox's image near the bottom.
+
+### A22. The ground scrolls at the stretch times the sim's scroll
+
+**New, amends A9.** `GROUND_SPEED` is the sim's scroll in ground units (`BackgroundRenderer.ts:71`), so a Territory patch stays on the ground it landed on (Mark's slice 13b ruling, quoted there). On the play layer a field unit along is 1.224454 ground units, so the ground scrolls at 1.224454 times `SCROLL_SPEED` and a lying thing on the centre column stays on its ground all the way down. Off the centre column a lying thing keeps its x while the pinhole's ground spreads outward under it as it nears, which is tilt 9's own behaviour (its check "a lying body scrolls the whole trip at constant screen x"). How far, by the tech gate's arithmetic: a corpse landing near the top at field x 20 to 40 ends 99 to 108 column units (72 to 78 CSS pixels) off the ground it landed on by the bottom row. Slice 15 measures it. The dressing falls with the ground.
+
+To reverse: `GROUND_SPEED` back to `SCROLL_SPEED`, and every patch and corpse slides against the ground.
+
+### A23. The grave draws as tilt 7 drew a grave at its spot on the glass
+
+**New, amends T4 and A10.** The grave's pit and lip are the perspective mesh through the projected corners of a ground rectangle sized to cover the grave's hitbox (A29), centred on the ground point under its placed point; the hole's stance is taken over that same ground point (tilt 9's `aimHoleCamera`); the falls are placed in the grave's frame there (A29). The re-bake step is measured between the ground points under the grave, in ground units, because A10's one-pixel bound is derived in ground units at the stance: measured in field units, a step of 4.75 is up to 5.82 ground units at the top of the column (1 / 0.822 across, 1.224 along), past the bound's 4.79.
+
+To reverse: the grave's ground rectangle and stance at the field point itself, which is the pinhole's placement and puts the grave where the bodies are not.
+
+### A24. A swallowed body and the Undertaker go over the rim from where they were drawn
+
+**New.** A swallowed body's fall is drawn in the grave's own frame from its offset in grave units (`FallRenderer.swallowed`, `FallRenderer.ts:127-138`). On the play layer the body was drawn somewhere else: with the grave's frame of A29, a body at the far corner of a starting grave draws 1.22 column units from where the naive frame offset puts it (5.66 with tilt 7's frame). So the fall starts at the offset in the grave's frame where the frame draws the point the play layer drew, and its velocity is carried through the same local mapping. The fall's own rim rule already hinges a body lying outside the far lip on the far edge (`fall.ts:112-115`), so a start just past the drawn rim is a case it handles.
+
+The Undertaker is hauled to a rim hinge in grave units and then falls about it (`endingScene.ts:120-141`, `:206-230`). His haul ends at the field point the play layer draws exactly where the grave's frame draws that hinge, so the drag and the fall meet at one point.
+
+To reverse: start from the sim's offset, and every swallow jumps by up to about 1.2 column units at the handover.
+
+### A25. The grave's hold stays the sim's, and the drawn opening may pass the side edges low on the screen
+
+**New, supersedes T7 in part.** The sim holds the opening inside the field (`containGrave`, `src/game/grave.ts:118-122`); the lip's padding already hangs past the column's edge in the flat game and the field's clip cuts it (`GameScreen.ts:157-163`, `:261-263`). The grave's mesh (A23, A29) splays toward its near end, so at a side edge on the lowest row it can stand, the drawn opening's near corners pass the column's edge by 6.3 column units at the starting size, 11.0 at size 48 and 15.1 at the ceiling (4.6, 7.9 and 10.9 CSS pixels on a 390-wide phone), while its far corners stay inside; the field's clip cuts what passes. Slice 13 measures it at the near corners. The alternative is a hold computed from the camera, which ties the physics to the tilt (T10).
+
+To reverse: hold the grave's drawn extent in the sim, which moves `GOLDEN` and the bot's lists.
+
+### A26. The rename of slice 6 is undone
+
+**New.** Slice 6 renamed `FIELD_WIDTH` and `FIELD_HEIGHT` to `VIEW_WIDTH` and `VIEW_HEIGHT` so that after the trapezoid no reader of them would mean an edge (A3). The trapezoid is dropped, so the two are the field's edges and its scale again. The glossary's word is Field, and it says to avoid "viewport" (`CONTEXT.md:123`); a public seam carries the glossary's word (`.claude/rules/code-core.md`, Naming). Undoing it is a clean revert scoped to `apps/hungry-grave`: no commit after `7fac05ff88` touches that folder, while the commit's own three doc files have moved on and stay as the record (the unscoped inverse refuses; the scoped one passes `git apply --check`). It takes 75 app files out of the branch's diff against `main`.
+
+To reverse: re-apply `7fac05ff88`.
+
+### A27. The two readings slice 4 added stay
+
+**New.** `mobFireShots` and `timeOnScreen` were added to measure A4's field change. That change is dropped, but both have callers today (`BATCH_READINGS`, `src/dev/batchReport.ts`, and `READING_COMPARISONS`, `src/dev/compareRuns.ts`, which every batch prints and compares), they touch nothing in the sim, and the "before" batch's figures were measured with them. No ticket names them yet. Taking them out is a slice of churn for no behaviour.
+
+To reverse: remove both readings and their declarations, which leaves `READINGS_VERSION` unmoved by that file's own rule.
+
+### A28. How the play layer spaces its rows
+
+**New, and for Mark's ruling after he plays tilt 10.** Tilt 10 of the prototype is tilt 9 plus mobs firing aimed shots, a rows knob (tilt 9's rows or evenly spaced rows) and the column defaulting to 760. He plays it before slice 10 is dispatched, because the answer decides slice 10's row function.
+
+**Tilt 9's rows** (spaced as the camera spaces them) keep anything moving straight up, down or across perfectly straight, and draw things speeding up as they near. Their costs:
+
+- A diagonal path draws with a slight bow, because the rows are spaced like the camera's and the columns are not, which is not a projection of the plane: an aimed shot from a mob at (100, 150) to a grave at its starting point bows 8.5 column units (6.2 CSS pixels on a 390-wide phone), one from (100, 300) 5.6 (4.1 px), a short diagonal of 140 by 200 2.3 (1.7 px), and a path from corner to corner 39.5 (28.5 px). Skulls do not bow; aimed mob fire, a ghoul's chase, a pincer's lead and a wisp's straight runs do. The Banshee's rings draw as eggs, and the gap lane through a ring bows.
+- On-screen vertical speed doubles from the top of the column to the bottom (0.70 to 1.43 rows per field unit), mob fire included (A18).
+- A lying thing stays on its ground only on the middle column; near the edges a corpse drifts sideways off it by up to 99 to 108 column units (72 to 78 CSS pixels) over the trip (A22).
+
+**Evenly spaced rows** keep every motion exactly as the flat game draws it: every path straight, every speed constant, the Banshee's rings round. Their cost: the ground keeps the camera's rows, so a corpse or a patch slides up and down against the ground under it by up to 68 rows (49 CSS pixels) mid-screen and meets it again at the bottom, the slide Mark's slice 13b ruling on patches forbids, now on every lying thing.
+
+No placement gives all three of: verticals straight and parallel, every straight path straight, and lying things staying on the ground, while the ground keeps the camera's rows. The row rule is one function in one pure module, so either answer is a one-function change.
+
+**Deferred, with its trigger:** drawing the ground itself on the play layer's rows (the game design gate's third option) might keep lying things on the ground with even rows. It is untested and changes the scenery Mark approved. Its trigger: Mark rejects both choices on his play of tilt 10.
+
+What the build does until he rules: slice 9 runs; slice 10 waits for his answer.
+
+### A29. The grave is drawn no smaller than its hitbox
+
+**New, from the product and game design gates.** `graveHitbox` (`src/game/grave.ts:102-111`) is the swallow's mouth and the box mob fire and contact hit. Drawn at tilt 7's size for its row (A19), the grave would be 0.817 of that box along (A18), so fire would hit 4 to 11 CSS pixels short of the drawn rim. So the ground rectangle the grave's mesh is drawn through (A23) is widened until its image covers the hitbox's image: its half extents across times the larger of one and one over the camera's scale at its far edge, along times the stretch, 1.224454. Along, the drawn rim then lies exactly on the hitbox's rows; across it is never inside the hitbox's edge. The falls are placed in a frame of the same proportions: across the larger of the scale and one, along the rows per field unit. The hole's stance stays A23's.
+
+What it costs: the pit and the lip read about 22% longer along than tilt 7 drew them (the stretch), and near the top a little wider. It is on "For Mark's next play". As A21 does for mob fire, the readable edge wins over the look.
+
+To reverse: the ground rectangle at the grave's own size (tilt 7's look), and fire lands short of the drawn rim.
+
+## What the build must carry, from #159 and T10
+
+- One still perspective camera pinned to the screen, tilt 32.5, height 42.5 starting half-lengths: slice 1. Carried, for scenery and the hole.
+- The field is everything the screen sees: carried by the play layer over the unchanged field (A18), not by a sim change.
+- Spawns cover the full far span: every formation already spans field x 0 to 540, which the play layer draws across the whole top row (T8, A18).
+- Standing things rise along the screen vertical and scale with distance; lying things lean with the ground; near draws over far: slice 2 (A7, A8), evaluated on the play layer (A19) in slices 11 to 13.
+- The hole is cut with the shared scene camera, flat and dark: slice 3, stance under the placed point in slice 13 (A23).
+- Input: a drag through the exact inverse, keys in field units: slice 14.
+- The whole grave on screen: not carried in full; the sim's hold, with the cost in A25.
+- The weapons behave right: slice 15.
 
 #159's done-when, and the slice each line is proved in:
 
-- The ground leans away and far things draw smaller: slice 2, rendered check.
-- Walkers, headstones and grass stand up: slice 2 (A7, A9).
-- The grave reads as a hole cut into the same leaning ground: slice 3.
-- The view stays still while the grave moves: slice 2 (the camera is a constant) and slice 4 (drag on the glass).
-- A drag moves the grave exactly under the finger; a held key goes straight up the screen without drifting: slice 4, tests and a rendered check; Mark's on-device check after the deploy.
-- The whole grave always stays on screen: slice 7.
-- Mobs arrive across the full width of the top of the screen: slice 8.
-- A run plays from its first night to won or lost, and a replay of it verifies: slice 8, a whole run recorded, replayed and watched.
+- The ground leans away and far things draw smaller: slice 2, and slices 11 to 13 for play things.
+- Walkers, headstones and grass stand up: slice 2 (A7, A9), and slice 11 for walkers on the play layer.
+- The grave reads as a hole cut into the same leaning ground: slices 3 and 13.
+- The view stays still while the grave moves: slice 1 (the camera is a constant) and slice 14 (a drag under the finger).
+- A drag moves the grave exactly under the finger; a held key goes straight up the screen without drifting: slice 14, tests and a rendered check; Mark's on-device check after the deploy.
+- The whole grave always stays on screen: **not carried in full.** The sim's hold keeps the opening inside the field, and at a side edge on its lowest row the drawn opening's near corners pass the column's edge by up to 10.9 CSS pixels at the ceiling (A25). For Mark's read.
+- Mobs arrive across the full width of the top of the screen: slice 11's rendered check.
+- A run plays from its first night to won or lost, and a replay of it verifies: slice 16.
 
 ## What this replaces, and what stood
 
-R4 of `grave-in-the-ground.md` cut the hole with its own camera, 4.95 half-lengths up and 1.07 behind, about 12.2 degrees off straight down, and R7 ported build 7's painters that read it. What changed: the hole is cut by the scene camera (T4), 42.5 starting half-lengths up at 32.5 degrees, standing wherever that camera stands over the grave, so the hole is a flat dark opening with thin walls and which walls show depends on where the grave is on the screen. What stood: the one projection (a point below the ground draws where the camera's ray through it meets the ground), its dark depth 2.4 and falloff 2.6, the three faces, no near wall and no floor, the mouth, the lip and every painter's colours, counts and seeds. What R4 could not have known: that the field would be drawn through a camera too, and that one camera cannot show both the hole's walls and a sane field.
+R4 of `grave-in-the-ground.md` cut the hole with its own camera, 4.95 half-lengths up and 1.07 behind, and R7 ported build 7's painters that read it. What changed: the hole is cut by the scene camera (T4), standing over the ground point under the grave's placed point (A23), so the hole is a flat dark opening with thin walls and which walls show depends on where the grave is on the screen. What stood: the one projection, its dark depth 2.4 and falloff 2.6, the three faces, no near wall and no floor, the mouth, the lip and every painter's colours, counts and seeds. What R4 could not have known: that the field would be drawn through a camera too, and that one camera cannot show both the hole's walls and a sane field.
 
-`FIELD_WIDTH` and `FIELD_HEIGHT` stop being the field's edges (A3). The glossary's Field entry changes with slice 7, in this wording:
+The glossary: the Field entry (`CONTEXT.md:123`) stays true under T10 (the renderer draws the whole field into the column). Two entries are proposed for when the pre-authorization in the charter has Mark's yes, and are otherwise carried to the branch close:
 
-- **Field**: The patch of ground the sim runs on: exactly the ground the camera sees, wider at its far edge than at its near one. Everything in the sim is field units, never device pixels, and the field is one fixed shape on every screen. Its numbers are the camera's to decide and are not vocabulary. _Avoid_: screen, viewport, canvas, arena.
-
-And a new entry beside it:
-
-- **Camera**: The one still eye the whole field is drawn through, tilted off straight down and standing high over the ground, looking at the ground under the middle of the screen. It never moves and never follows the grave, so the grave moves about inside a view that stays put. Near things draw larger than far ones, and the hole is cut by the same camera. _Avoid_: view, lens, projection, zoom.
+- **Camera**: The one still eye the ground, its dressing and the grave's hole are drawn through, tilted off straight down and standing high over the ground, looking at the ground under the middle of the screen. It never moves and never follows the grave. Near ground draws larger than far ground. _Avoid_: view, lens, projection, zoom.
+- **Play layer**: Where everything the sim moves is drawn: every body, the grave and anything fired, straight across the screen at one scale and on the camera's own rows down it, at the camera's size for its row. The tilt changes how the play layer looks and never how anything in it moves. _Avoid_: overlay, HUD, foreground.
 
 ## Values are data
 
-The drawing's values live in one table in the camera module under `src/app/screens/game`: the tilt (32.5 degrees) and the height (42.5 starting half-lengths). The prototype-derived drawing values (the ground grid's 18 by 40 and 0.08 overshoot, the stance step 4.75 field units (A10), the blade lean 62 degrees, the nearest share 0.12) live beside the renderer that reads them, each with the prototype line it came from.
+The camera's two values live in `CAMERA_VALUES` in `src/app/screens/game/camera.ts`: the tilt (32.5 degrees) and the height (42.5 starting half-lengths). The play layer's two numbers follow from the camera and the column and are computed once (`SCENE_PLAY_LAYER`), never typed. `OUTLINE_STEP` (4 field units) lives in the play layer's own data table. The prototype-derived drawing values (the ground grid's 18 by 40 and 0.08 overshoot, the stance step 4.75 ground units, the blade lean 62 degrees, the nearest share 0.12) live beside the renderer that reads them.
 
-The sim's values: the field's six numbers in `src/game/field.ts`, and the grave's reach share in `src/game/grave.ts`, each pinned to the drawing by a cross test. They are compiled constants, not tuning rows: the field is not tunable (it lived in `field.ts` rather than `tuning.ts` for that reason, `field.ts:4-9`), and a tuning row would travel in the tape header, which A12 argues against.
-
-The numbers, for the 540 by 760 column, worked out independently for slice 1's tests:
+The camera, for the 540 by 760 column:
 
 | | Value |
 | --- | --- |
@@ -265,45 +312,62 @@ The numbers, for the 540 by 760 column, worked out independently for slice 1's t
 | Distance to the target along its axis | 1360.578 |
 | Lean (cosine of the tilt) | 0.843391 |
 | Rise (sine of the tilt) | 0.537300 |
-| Field top (under the top row) | -168.0816 |
-| Field bottom (under the bottom row) | 762.5033 |
-| Far row | -58.4389 to 598.4389, 656.878 wide |
-| Near row | 40.7842 to 499.2158, 458.432 wide |
-| `FAR_SHARE` | 1.216440 |
-| Scale at the top row, the middle row, the bottom row | 0.822, 1.000, 1.178 |
-| The camera's foot on the ground | (270, 1111.04), below the screen |
+| Ground under the top row, the bottom row | -168.081604, 762.503300 |
+| Ground under the top row's ends | -58.438897 to 598.438897 |
+| Ground under the bottom row's ends | 40.784202 to 499.215798 |
+| Scale at the top row, the middle row, the bottom row | 0.822071, 1.000000, 1.177929 |
 | The horizon | 2135.7 column units above the middle row, off the column |
-| Ground on screen against today | 1.264 times |
-| Lying things down the screen (scale squared times lean) at the top, middle, start and bottom rows | 0.570, 0.843, 1.019, 1.170 |
-| Field units per column unit across, at the top, middle, start and bottom rows | 1.216, 1.000, 0.910, 0.849 |
-| Field units per column unit along, at the same rows | 1.754, 1.186, 0.982, 0.855 |
+
+The play layer, worked independently in double precision for slice 10's tests:
+
+| Field point | Column point | Scale | Ground under it | Rows per field unit along |
+| --- | --- | --- | --- | --- |
+| (0, 0) | (0, 0) | 0.822071 | (-58.438897, -168.081604) | 0.697895 |
+| (100, 100) | (100, 72.678500) | 0.856101 | (71.425376, -45.636222) | 0.756871 |
+| (270, 380) | (270, 312.386873) | 0.968341 | (270, 297.210848) | 0.968341 |
+| (270, 608), the grave's start | (270, 559.555815) | 1.084074 | (270, 576.386319) | 1.213640 |
+| (0, 608) | (0, 559.555815) | 1.084074 | (20.939582, 576.386319) | 1.213640 |
+| (540, 608) | (540, 559.555815) | 1.084074 | (519.060418, 576.386319) | 1.213640 |
+| (400, 700) | (400, 676.868170) | 1.139004 | (384.134800, 689.036071) | 1.339745 |
+| (540, 760) | (540, 760) | 1.177929 | (499.215798, 762.503300) | 1.432881 |
+
+- The stretch: 1.224454 ground units along per field unit. Scale one falls at field y 447.613.
+- Column (123, 456) is field (123, 518.678147).
+- Mob fire's size (A21) at field y 0, 190, 380, 608 and 760: 1, 1, 1, 1.213640, 1.432881.
+- A lying thing at the grave's start draws at (270, 559.555815), 1.084074 across and 0.991168 down.
+- A standing thing of half-height 11 at (270, 380): feet on column row 323.093772, its centre on row 312.386873, scale 0.973355.
+- A body moving (3, 4) at field y 608 heads 1.017264 radians on the column (atan2 of down over across); straight down is 1.570796.
+- The grave's frame (A29): across the larger of the scale and one, along the rows per field unit. At field y 608: 1.084074 and 1.213640; at field y 100: 1 and 0.756871.
+- The grave's ground rectangle (A29): its half extent across times the larger of one and one over the scale at its far edge (1.191296 for a grave of size 48 at field y 100, 1 for size 27 at 608), along times 1.224454. For a grave of size 27 at (270, 608) its far and near ends draw on rows 527.244788 and 592.794441, which are its hitbox's rows.
+- The grave's frame offset (A24), in grave units, for a grave at (270, 608) of size 27: a body at offset (13.5, -27) is (0.461223, -0.986044); at (0, 27), (0, 1.014357). For a grave at (40, 700) of size 27, offset (13.5, -27): (0.438980, -0.985347). For a grave at (270, 100) of size 48, offset (-24, -48): (-0.5, -0.980517). A velocity of (1, 2) field units per tick at a grave at field y 608 of size 27 is (0.034165, 0.074074) grave units per tick in the frame.
+- The hole's stance (A23) over a grave of size 27 at field (40, 608), (270, 608) and (500, 608): ground (57.837422, 576.386319), (270, 576.386319) and (482.162578, 576.386319), nadir (7.857873, 19.801919), (0, 19.801919) and (-7.857873, 19.801919) half-lengths, height 42.5.
+- A traced circle's largest gap between chord and arc at `OUTLINE_STEP` 4: 0.0625 field units at radius 32, 0.0074 at 270.
 
 ## The finish line of each slice
 
-1. The camera and the pure placement math: its projection both ways, the ground the column sees, where it stands over a grave, a step on the column, where a lying, standing or airborne thing draws, and the ground's grid, all tested against the numbers above. The capture tool that later slices photograph with is proven on today's game. Nothing in the game changes.
-2. The whole field drawn through the camera. The ground leans away and scrolls, far things draw smaller, mobs and statues stand up with the near ones in front, corpses and patches lie on the ground, grass is longer, mob fire never draws smaller than today, and the grave sits in the leaning ground as a perspective mesh with its build 7 hole. The column's frame, clip, HUD and buttons do not move. A replay draws the same way.
-3. The hole cut by the same camera: a flat dark opening whose thin walls change as the grave moves about the screen, and a fall that goes into that same hole.
-4. Steering on the glass: a drag keeps the grave under the finger and a held key moves it straight along the screen at one speed, at the top, the middle and the bottom of the screen. The harness's hand steps on the glass too, and the harness can read mob fire shots and each mob's seconds on screen.
-5. The "before" batch: the harness's figures for today's field, played with the hand that steers on the glass.
-6. The rename: `FIELD_WIDTH` and `FIELD_HEIGHT` become `VIEW_WIDTH` and `VIEW_HEIGHT`, and nothing plays differently.
-7. The field is what the camera sees: nothing lives off the screen, bodies walk off the sides as they come near, a push never throws a body off the slanted sides, the grave's whole drawn lip stays on screen at every edge, food lost at a side is counted apart from food lost at the bottom, and a full stage still plays to won or lost with no fault.
-8. Mobs arrive across the whole top of the screen at today's density per unit of ground, and a whole run is recorded, replayed and watched from its first tick to its end.
+Slices 1 to 6 landed. Slices 7 and 8 of the first plan are dropped (T10). The rest, in the order they run (slice 11 of the first replan was split in two on the tech gate's advice, so the numbers after it moved up by one):
+
+1. The camera and the pure placement math, tested; the capture tool. Landed.
+2. The whole field drawn through the camera. Landed; slices 11 to 13 move the play things onto the play layer.
+3. The hole cut by the same camera. Landed; slice 13 moves its stance.
+4. Steering on the glass, and two readings. Landed; slice 14 takes the conversion back out and keeps the readings (A27).
+5. The "before" batch on today's field. Landed; not used (its figures measure the hand slice 14 removes, and nothing compares against them).
+6. The rename. Landed; undone in slice 9.
+7. The field becomes the trapezoid. Dropped (T10).
+8. Mobs across the far row, and a whole run watched. Dropped (T10); the whole run moves to slice 16.
+9. The rename undone: the inverse of `7fac05ff88` scoped to `apps/hungry-grave`, and nothing plays differently.
+10. The play layer's math, pure and tested against the table above. Nothing on screen changes.
+11. Everything that moves, except the grave, placed on the play layer: mobs, the boss, mob fire and its scatters, corpses and treasure, skulls, wisps, the loss pops, the lob mark, the bursts, the Waking's source; mob fire's size (A21).
+12. Territory's patches, the bell's cones and the belch's fronts drawn as exact images (A20), and the ground's scroll (A22).
+13. The grave on the play layer (A23), drawn no smaller than its hitbox (A29): its mesh and hole at its spot on the glass, the re-bake in ground units, falls and the Undertaker going over the rim from where they were drawn (A24).
+14. Steering back on the field: a key and the harness hand in plain field units, a drag through the play layer's inverse, and the bot's lists back to their values before slice 4, measured.
+15. The weapons behave right: every weapon line's shots and effects, and the two bosses' patterns, measured and photographed at the left edge, the centre and the right edge.
+16. A whole run played end to end in the rendered game, the proof that the sim is untouched, and the deploy for Mark's phone.
 
 ## For Mark's next play
 
-- Does the game now look like it agrees with the grave: does the ground lean the way the hole does?
-- Far things draw at 0.82 of their size at the top of the screen. Does mob fire near the top still read, and does a floor-size grave near the top still read as a grave (about 10.7 CSS pixels across there on a 390-wide phone, against the 13 the size floor was set for)?
-- The flat dark hole at a big grave shows a little more wall than the prototype did (A6): does it still read as the hole he chose?
-- Do the placeholder mobs read as standing on the ground, with the near ones in front?
-- Does the boss still read when a near add draws over it?
-- Is a quarter more on screen at once (A4) a better field or a busier one, and does the sparser near third read as space to move or as empty?
-- Bodies walk off the sides as they come near (A2): does that read as the field or as things escaping?
-- A drag at the top and at the bottom of the screen, and a held key across the screen: does the grave go exactly where he means?
-- Does dodging near the bottom feel slower? Everything coming down speeds up on the screen as it nears while the grave keeps one speed on the glass (A11).
-- Revenants are on the field longer and fire more before they leave (A4): does the fire near the top read as more than before, and does it read fairly?
-- The boss stands a little lower on the screen than today (slice 7): does it crowd the grave?
-- Drag the grave fast across the screen, small and big: does it stutter on the phone? A fast drag re-bakes the hole about every other frame (A10).
+The list is in `docs/branch/handoff.md`, "For Mark's next play".
 
 ## Outside this step
 
-A lit 3D scene (research route A), the hands, real art for standing mobs and the prototype's topple on death (#38 owns the mob art), the grave's headstone and the prototype's far markers (both off by ruling), any colour work (the ground and the grave are his rulings and the tufts' colour waits on his play), the column's shape on a phone and the HUD (#151, unless Mark rules otherwise on A1 before slice 7), haze, camera shake, a camera that follows the grave (T6 rules it out), and the grave's top size (#39).
+A lit 3D scene (research route A), the hands, real art for standing mobs and the prototype's topple on death (#38 owns the mob art), the grave's headstone and the prototype's far markers (both off by ruling), any colour work, the column's shape on a phone and the HUD (#151), haze, camera shake, a camera that follows the grave (T6 rules it out), the grave's top size and the size floor's comment (#39, A17), and any change to the sim.

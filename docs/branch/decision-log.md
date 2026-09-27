@@ -1,6 +1,6 @@
 # Decision log: the tilted view (#159)
 
-No grill ran for this branch. Mark ruled on #156 by playing six builds of a throwaway prototype on his phone, and his words from that play are the record. The prior art for every decision is that prototype (`prototype/156-tilted-view` at `63f34824f3`), built from #148's build 7, plus what is named beside the decision. The design record, `apps/hungry-grave/docs/design/tilted-view.md`, carries the same rulings as T1 to T9 with what each means for the code, and the agent's calls as A1 onward.
+No grill ran for this branch. Mark ruled on #156 by playing six builds of a throwaway prototype on his phone, and his words from that play are the record. The prior art for every decision is that prototype (`prototype/156-tilted-view` at `63f34824f3`), built from #148's build 7, plus what is named beside the decision. The design record, `apps/hungry-grave/docs/design/tilted-view.md`, carries the same rulings as T1 to T10 with what each means for the code, and the agent's calls as A1 onward.
 
 ## Mark's decisions
 
@@ -14,10 +14,11 @@ No grill ran for this branch. Mark ruled on #156 by playing six builds of a thro
 8. Mobs fill the whole screen, top and sides. His ask on tilt 4, built as tilt 5.
 9. A drag and a held key both work on the glass. On tilt 5, "almost there", because W drifted toward the vanishing point off the middle column; built as tilt 6.
 10. This is a design ruling and not an ADR (#156's resolution comment). The build is its own branch, #159.
+11. The tilt is drawing only (2026-09-27, after playing slice 4's deploy): "nothing should have changed about the physics of the game"; shots go straight up and mobs come straight down anywhere on screen; the 540 by 760 "is just the viewport" and stays. He rejected tilt 8 ("This just looks like a flat thing again") and approved tilt 9, "as long as the weapons behave right". This supersedes how 7, 8 and 9 were to be built: 8 is met by the play layer without a sim change, 9 holds in its words with keys in plain field units, and 7 gives way where it would need a sim hold (design record T7, T8, T9, T10, A25).
 
 ## The agent's calls, open to Mark's overrule
 
-The design record holds each with its evidence and how to reverse it: A1 to A17. The one that needs his ruling before the field slice is A1: the field is one fixed shape on every device, and keeping today's 540 by 760 column for this step is the agent's recommendation, not a ruling, since no ruling has set the column's shape on a phone and #151 is the pass that sets it. The one most worth his eye in play is A6: the hole's camera never follows the live grave, so a big grave's hole shows a little more wall than the prototype did.
+The design record holds each with its evidence, how to reverse it and its status after the correction: A1 to A29. A1 is answered by decision 11. The one that needs his ruling is A28, after he plays tilt 10: tilt 9's rows bow diagonal paths and speed things up as they near, and evenly spaced rows keep every motion flat but make lying things slide on the ground.
 
 ## Outside this branch
 

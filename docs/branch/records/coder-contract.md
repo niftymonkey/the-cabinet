@@ -7,7 +7,7 @@ These rules hold for every coder on this step. Your slice entry says what you bu
 1. `docs/agents/feature-flow.md`. You follow it. Your slice entry is its planning half, already done: the definition, the verification steps, the seams, the module boundaries and the test list. If the entry is missing one of those, stop and report. Never fill the gap yourself.
 2. `docs/agents/lessons.md`, and `apps/hungry-grave/docs/lessons.md` for this codebase's own traps.
 3. `.claude/rules/code-core.md` and `.claude/rules/code-typescript.md`. Where a rule leaves the path unclear, read its entry in `docs/agents/code-examples.md`.
-4. The rulings your slice builds, in `apps/hungry-grave/docs/design/tilted-view.md`. The entry names them (T for Mark's, A for the agent's calls). The glossary is `apps/hungry-grave/CONTEXT.md`, and a public seam carries its word. The grave swallows and passes under; it never drives. Camera and Field are the glossary's words for this step (slice 7 writes them in).
+4. The rulings your slice builds, in `apps/hungry-grave/docs/design/tilted-view.md`. The entry names them (T for Mark's, A for the agent's calls). The glossary is `apps/hungry-grave/CONTEXT.md`, and a public seam carries its word. The grave swallows and passes under; it never drives. Field is the glossary's word for the sim's 540 by 760 field. Camera and Play layer are the design record's proposed entries ("What this replaces, and what stood"); use those words in seams, and do not edit the glossary.
 5. For any slice that touches Pixi code, load the `pixijs-skills:pixijs` skill first, and check a claim about Pixi in `node_modules/pixi.js`, never from memory.
 
 ## Where you work
@@ -21,18 +21,19 @@ These rules hold for every coder on this step. Your slice entry says what you bu
 
 ## The prototype
 
-The tilted prototype is on the branch `prototype/156-tilted-view` (worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/156-tilted-view`, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`). Read it to learn what the result looks like and which numbers Mark chose. Never lift a module out of it, never wire it to production code, and never change it. Where your entry names a piece of its drawing code as ported line for line, port exactly that piece and nothing more, and list it in your note. Everything else is built fresh through the feature flow.
+The tilted prototype lives in the worktree `/home/mlo/dev/niftymonkey/the-cabinet/.claude/worktrees/156-tilted-view`, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`. The file in that worktree is tilt 9, uncommitted, the reference Mark approved (design record T10); tilt 7 is beside it as `local/tilt9/index-tilt7.html`, and the branch `prototype/156-tilted-view` holds tilt 6. Read it to learn what the result looks like and which numbers Mark chose. Never lift a module out of it, never wire it to production code, and never change it. Where your entry names a piece of its drawing code as ported line for line, port exactly that piece and nothing more, and list it in your note. Everything else is built fresh through the feature flow.
 
 Build 7, the flat reference, is on `prototype/148-grave-fall` (worktree `.claude/worktrees/148-grave-fall`). Never change it either.
 
 ## Rules that bind every slice
 
-- **The camera is one constant.** Every drawing of the field reads `SCENE_CAMERA` from the camera module (slice 1). Nothing builds a second camera for the field, and nothing reads the live grave's size to place the camera (T3).
+- **The sim is untouched (T10).** No production file under `src/game` or `src/tape` changes on this branch. A slice that finds it must change one is a stop and report. The tapes in `local/tilt-shots/tapes/`, recorded at `517ee0753e`, verify on every slice.
+- **Scenery on the camera, play on the play layer.** The ground, its dressing and the grave's hole (its mesh corners and its stance) are drawn through `SCENE_CAMERA` (slice 1). Everything the sim moves (bodies, the grave's place, anything fired, every area of effect) is placed through `SCENE_PLAY_LAYER` and `playPlacement.ts` (slice 10). Nothing builds a second camera, and nothing reads the live grave's size to place the camera (T3).
 - **Values are data.** A number the design record names lives in the table the record says: the camera's two values in the camera module's table, a drawing value in a data table beside the renderer that reads it, and the field's six numbers and the grave's reach share in `src/game`. No value is compiled into a draw call or a rule as a bare constant.
 - **Exact arithmetic in the rules.** Code under `src/game` uses add, subtract, multiply, divide, min, max, square root, and the `normalize` and `exp` of `src/game/math.ts`. Never `Math.cos`, `Math.sin`, `Math.atan2`, `Math.pow` or any other function that differs between engines (ADR 0019). The camera's trigonometry is drawing code and lives in `src/app`.
 - **The rules never learn the drawing's words.** `src/game` imports nothing from `src/app`, `src/dev` or Pixi (`src/__tests__/boundary.test.ts`). The sim knows the field's shape and the grave's reach; it does not know the camera.
 - **ADR 0014's layer order does not move.** `LAYER_ORDER` (`src/app/screens/game/layering.ts:16-31`) stays exactly as it is. Sorting inside a layer is allowed where your entry says so.
-- **A pin is never moved in silence.** `GOLDEN` in `src/dev/digest.ts`, the bot's seed lists in `src/dev/__tests__/bot.test.ts` (`REACHES_VICTORY_FRESH`, `REACHES_VICTORY_FROM_THE_CEILING`, `REACHES_VICTORY_MAXED` and the rest), `WITNESS_VERSION` (`src/game/witness.ts:235`), `FORMAT_VERSION` (`src/tape/wireCodes.ts:68`) and `READINGS_VERSION` (`src/dev/readingsVersion.ts`) move only where your entry says they may. When one moves, your note says which values moved, from what to what, and why that follows from the ruling, with the evidence. A pin is re-measured, never loosened to pass. If a pin moves that your entry says should hold, stop and report.
+- **A pin is never moved in silence.** `GOLDEN` in `src/dev/digest.ts`, `WITNESS_VERSION` (`src/game/witness.ts:235`), `FORMAT_VERSION` (`src/tape/wireCodes.ts:68`) and `READINGS_VERSION` (`src/dev/readingsVersion.ts`) never move on this branch. The bot's and the harness's seed lists (`src/dev/__tests__/bot.test.ts`, `src/dev/__tests__/harnessPolicy.test.ts`) move only in slice 14, back to their values at `544f0028d4`, measured. When one moves, your note says which values moved, from what to what, and why that follows from the ruling, with the evidence. A pin is re-measured, never loosened to pass. If a pin moves that your entry says should hold, stop and report.
 - **A test is never weakened, skipped or rewritten to reach green.** A failing spec test indicts the code. Where your entry names a test whose premise a ruling changed, replace exactly that test with the tests the entry lists and say so in your note. Any other test you believe is wrong is a stop and report.
 - **The invariants run on every step of every sim test**, as the existing sim tests do (`src/dev/stepping.ts`).
 - **Builds stay free of warnings.** Lint, typecheck and the production build end with no warning and no error. A warning you meet is fixed or reported, never left.
@@ -53,7 +54,7 @@ Mark's play never stands in for a check. A property only a person can judge (fee
 
 ## When the entry is wrong about the code
 
-Your entry cites files and lines, read on the tree at `517ee0753e` or at the slice before yours. A line number that has moved is followed by the name beside it. When the name is not there, or a cited fact is false, or a seam the entry names cannot work, stop and report what you found with the file and the line. Do not repair the plan yourself.
+Your entry cites files and lines, read on the tree at `9b125bbc03` or at the slice before yours. A line number that has moved is followed by the name beside it. When the name is not there, or a cited fact is false, or a seam the entry names cannot work, stop and report what you found with the file and the line. Do not repair the plan yourself.
 
 ## When you are stuck
 

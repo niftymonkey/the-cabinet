@@ -4,7 +4,7 @@ How this branch runs is the `branch-runbook` skill at `.claude/skills/branch-run
 
 ## Goal
 
-The game is seen from one still, tilted viewpoint that the grave, the ground, every body and every shot agree on, with steering that still goes where the finger and the keys say, and the field filled with play right up to the edges of the screen. It builds Mark's ruling from #156 (tilt 32.5 degrees, camera 42.50 starting grave half-lengths up, the shared hole camera) into the real game. The branch covers #159. It is one step with eight slices: six that write code, one harness batch, and one rename.
+The game is seen from one still, tilted viewpoint: the ground and the grave's hole through Mark's pinhole camera (tilt 32.5 degrees, camera 42.50 starting grave half-lengths up, the shared hole camera), and everything that moves on a play layer that is straight across the screen, on the camera's rows down it and at the camera's size for its row, as tilt 9 of the prototype draws it. The tilt is drawing only: nothing about how the game plays changes (Mark, 2026-09-27, design record T10), and the weapons behave right, which is his condition. The branch covers #159. It is one step: six slices landed before the correction, two dropped, and eight after it (the follow-along list).
 
 ## The branch
 
@@ -13,19 +13,19 @@ The game is seen from one still, tilted viewpoint that the grave, the ground, ev
 
 ## The reference
 
-The tilted prototype, on the throwaway branch `prototype/156-tilted-view` at `63f34824f3`, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`, played at https://claude.ai/artifact/P7dbHNrp61T3d8wqQCSHAH (version 6, readout `TILT 6`). Coders learn from it and never lift a module out of it; a drawing piece is ported line for line only where its slice entry names it. It never goes to `main`. Build 7, the flat reference, is on `prototype/148-grave-fall`.
+Tilt 9 of the tilted prototype, uncommitted in the worktree `.claude/worktrees/156-tilted-view`, file `apps/hungry-grave/src/prototypes/tilted-view/index.html`, with tilt 7 beside it as `local/tilt9/index-tilt7.html` and tilt 9's checks in `local/tilt9/`. Tilt 6 is on the throwaway branch `prototype/156-tilted-view` at `63f34824f3`. Coders learn from it and never lift a module out of it. It never goes to `main`. Build 7, the flat reference, is on `prototype/148-grave-fall`.
 
 ## Pre-authorizations (Mark's standing yes for the life of this branch)
 
 - Commit and push after each slice.
 - One CodeRabbit CLI review per code commit.
 - Deploys to https://hungry-grave.vercel.app, which is Mark's own phone-play address and not production (recipe: `apps/hungry-grave/docs/deploy.md`, built from a clean detached checkout as the handoff says).
-- Edits to the glossary (`apps/hungry-grave/CONTEXT.md`) and to this step's design record on this branch. This one is carried from #148's charter and waits on the main session's confirmation with Mark before slice 7, the first slice that edits the glossary.
+- Edits to the glossary (`apps/hungry-grave/CONTEXT.md`) and to this step's design record on this branch. This one is carried from #148's charter and waits on Mark's yes; no slice edits the glossary, and the two proposed entries (Camera, Play layer) go in at the branch close if he says yes.
 
 ## The never-list (needs Mark's yes every time)
 
 - The merge.
-- Any ADR: writing, editing or deleting one. ADR 0003 is not edited on this branch; its stale sentences are on the handoff's "For Mark's read".
+- Any ADR: writing, editing or deleting one. ADR 0003 is not edited on this branch; after the correction it is not stale.
 - Any change to a ticket or a memory file, beyond the ticket pass at the branch close.
 - Anything outward-facing not listed above, anything that costs money, and any upload of a run.
 
