@@ -119,7 +119,7 @@ tally:
   by_state: { kept: 17, part: 10, open: 2 }
   by_primary: { box: 14, s1: 14, s7: 1 }
   adr_failures: 2
-  work_cards: 15
+  work_cards: 14
   fog_items: 12
 
 # The display wording for each state, when an output shows a key or legend.
@@ -802,23 +802,14 @@ when_values: [now, next, after]
 
 work:
 
-  - id: n153
-    ticket: 153
-    theme: foundations
+  - id: n159
+    ticket: 159
+    theme: dress
     when: now
-    title: "Feature flow: the red step must fail"
+    title: "The field tilts to match the grave"
     note: >-
-      the red step has to be the check itself failing, not a stand-in. Rides
-      with #154.
-
-  - id: n154
-    ticket: 154
-    theme: foundations
-    when: now
-    title: "Feature flow: states too short to photograph"
-    note: >-
-      the rendered check and some states pass too fast to screenshot. Must land
-      before branch 2.
+      one tilted camera draws the whole field to match the grave's drawn
+      depth. Building now on tilted-view-build; answers #156.
 
   - id: n86
     ticket: 86
@@ -838,14 +829,14 @@ work:
       replaces the pinned GOLDEN digest with a harness fingerprint, so a later
       branch can prove the sim did not move. With #109, #146.
 
-  - id: n148
-    ticket: 148
-    theme: feel
-    when: next
-    title: "The grave in the ground, and the fall"
+  - id: n150
+    ticket: 150
+    theme: foundations
+    when: now
+    title: "Code debt the V1 reviews found"
     note: >-
-      the swallow becomes a visible hole.io-style fall, for a corpse and for the
-      boss (#106).
+      the code findings from the V1 reviews, paid with the foundations work;
+      #150 tracks them.
 
   - id: n149
     ticket: 149
@@ -906,8 +897,8 @@ work:
     when: after
     title: "The phone-first build"
     note: >-
-      the look, feel and layout get designed on a phone first. With #101,
-      #102, #139, and what stands of #72.
+      the look, feel and layout get designed on a phone first. Needs #159
+      done. With #101, #102, #139, and what stands of #72.
 
   - id: n31
     ticket: 31
@@ -939,10 +930,11 @@ work:
 # picture tidier. `opens` is the reverse of this map and is derived, never
 # written down.
 blocked_by:
-  n148: [n152, n154]
-  n149: [n148]
-  n100: [n66, n148, n149]
+  n152: [n159]
+  n149: [n152, n86, n150]
+  n100: [n66, n149]
   n39b: [n100]
+  n151: [n159]
   n31: [n39b, n151]
   n135: [n100]
   n49: [n100]
@@ -1047,6 +1039,18 @@ built:
       tape format moved to version 5; recordings from before it no longer
       replay.
     source: "PR #147"
+
+  - title: "The grave in the ground, and the fall"
+    note: >-
+      Swallowing draws a real hole in the ground; a corpse and the fallen boss
+      both fall into it, ported line for line from the prototype.
+    source: "tickets #148, #106, PR #158"
+
+  - title: "The feature flow's red step is real, and fast states hold still"
+    note: >-
+      Red now means the actual check failing, compared by test name, and a
+      short-lived state holds in a scenario long enough to screenshot.
+    source: "tickets #153, #154"
 
 # =============================================================================
 # THE FOG: WHAT NOBODY KNOWS YET
@@ -1166,8 +1170,12 @@ fog_groups:
 # =============================================================================
 
 not_on_the_road:
-  - title: "#50 and #51, the pixi bundling warnings."
+  - title: "#50, #51 and #157, the build warnings."
     note: "Held out unless measured evidence points at them."
+  - title: "#155, Territory's countdown has no display."
+    note: >-
+      Off the V1 line unless Mark puts it there. Where it lives is a layout
+      question #151's phone-first pass will answer.
   - title: "#55, the fence counting comments as imports."
     note: "Real bug, full diagnosis, two fixes, neither chosen."
   - title: "#26 and #37, the tracer map and its spec."
