@@ -125,14 +125,14 @@ const graveOnColumn = (grave: FieldPoint): ColumnPoint => {
 };
 
 /**
- * The ground move that makes a move on the column (tilted view T9, A11).
+ * The ground move that makes a drag's move on the column (tilted view T9).
  *
  * A step past the horizon has no ground and comes back still. It cannot
  * happen from inside the column in one tick, because the horizon is 2135
  * column units above the middle row, so one that does is an anomaly and is
  * logged once rather than thrown: a pointer is a live input.
  */
-const groundMoveFor = (
+const dragOnField = (
   steering: Steering,
   grave: FieldPoint,
   onColumn: MoveCommand,
@@ -208,12 +208,13 @@ const commandSource = (steering: Steering): CommandSource => {
     // bought ticks from one that did not.
     const belch = steering.belchRequested;
     steering.belchRequested = false;
-    const onColumn = combineSteer(
+    const move = combineSteer(
       keyCommand,
       steering.touch,
       graveOnColumn(grave),
+      (onColumn) => dragOnField(steering, grave, onColumn),
     );
-    return { move: groundMoveFor(steering, grave, onColumn), belch };
+    return { move, belch };
   };
 };
 

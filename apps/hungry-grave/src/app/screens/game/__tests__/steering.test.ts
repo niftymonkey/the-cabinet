@@ -1,7 +1,7 @@
 /**
- * The run's steering on the glass (tilted view T9, A11): the whole chain from
- * a finger or a held key to the grave, through a real run advanced tick by
- * tick, measured where the grave draws.
+ * The run's steering (tilted view T9, T10): the whole chain from a finger or a
+ * held key to the grave, through a real run advanced tick by tick. A drag is
+ * measured where the grave draws, a held key in field units.
  */
 
 import type { FederatedPointerEvent } from 'pixi.js';
@@ -180,27 +180,27 @@ describe('steering on the glass (tilted view T9, A11)', () => {
     expectDrawnTravel(across, drawn(rig), 0, -100);
   });
 
-  it("a held W moves the grave's drawn point straight up the column, its drawn x unchanged, from near the left edge low on the field", () => {
-    // T9: tilt 5's W drifted toward the vanishing point off the middle column.
-    // A second of W from ground (60, 700), where a ground-unit W would drift
-    // the drawn x by tens of units. The bound is the sim's float32 grid, a
-    // tick at a time, because each tick's move carries a small sideways part.
+  it("a held W hands the sim exactly the key's field move, from a grave near the left edge low on the field", () => {
+    // T10: the tilt is drawing only, so a key is a plain field move, straight
+    // up the field at BASE_SPEED (4.5) a tick, never converted through the
+    // camera. The bound is the sim's float32 grid, a tick at a time.
     const rig = rigAt(60, 700);
-    const start = drawn(rig);
     rig.steering.keys.press('KeyW');
     for (let ticks = 1; ticks <= 60; ticks++) {
       tick(rig);
-      const now = drawn(rig);
-      expect(Math.abs(now.x - start.x), `tick ${ticks}`).toBeLessThan(
-        ticks * GRID_PER_TICK,
-      );
+      expect(rig.run.grave.x, `tick ${ticks}`).toBe(60);
+      expect(
+        Math.abs(rig.run.grave.y - (700 - 4.5 * ticks)),
+        `tick ${ticks}`,
+      ).toBeLessThan(ticks * GRID_PER_TICK);
     }
-    expect(drawn(rig).y).toBeLessThan(start.y - 200);
   });
 
-  it("every held direction moves the grave's drawn point at one speed on the column, BASE_SPEED times the speed setting per tick, at the top, the middle and the bottom", () => {
-    // A11: one speed on the glass. BASE_SPEED is 540 / 120 = 4.5 column units a
-    // tick; the speed setting multiplies it and focus halves it (ADR 0011).
+  it('every held direction moves the grave BASE_SPEED times the speed setting per tick in field units, at the top, the middle and the bottom', () => {
+    // T10: a key moves the grave at the flat game's field speed wherever it
+    // stands. BASE_SPEED is 540 / 120 = 4.5 field units a tick; the speed
+    // setting multiplies it and focus halves it (ADR 0011). The bound is the
+    // sim's float32 grid for one tick.
     const keys = [
       ['KeyW'],
       ['KeyA'],
@@ -223,12 +223,16 @@ describe('steering on the glass (tilted view T9, A11)', () => {
           rig.steering.keys.setMultiplier(setting.multiplier);
           for (const code of held) rig.steering.keys.press(code);
           if (setting.focus) rig.steering.keys.press('ShiftLeft');
-          const before = drawn(rig);
+          const before = { x: rig.run.grave.x, y: rig.run.grave.y };
           tick(rig);
-          const after = drawn(rig);
-          const moved = Math.hypot(after.x - before.x, after.y - before.y);
+          const moved = Math.hypot(
+            rig.run.grave.x - before.x,
+            rig.run.grave.y - before.y,
+          );
           const where = `${held.join('+')} at row ${y}, ${JSON.stringify(setting)}`;
-          expect(Math.abs(moved - setting.speed), where).toBeLessThan(CLOSE);
+          expect(Math.abs(moved - setting.speed), where).toBeLessThan(
+            2 * GRID_PER_TICK,
+          );
         }
       }
     }
@@ -290,15 +294,19 @@ describe('steering on the glass (tilted view T9, A11)', () => {
   });
 
   it("the move the sim is handed is a ground move: the grave's field point after a tick is where stepOnColumn says the step reaches", () => {
-    // A11: the app turns the step on the column into ground through the
-    // camera, so the sim and the tape only ever see ground moves.
+    // A11, for the drag: the app turns the step on the column into ground
+    // through the camera, so the sim and the tape only ever see ground moves.
+    // With DRAG_RATIO 1 a settled drag's step on the column is the finger's
+    // travel in column units.
     const rig = rigAt(100, 200);
-    rig.steering.keys.press('KeyD');
-    rig.steering.keys.press('KeyS');
+    const at = onGlass(100, 200);
+    grip(rig, at.x, at.y + 60);
     const before = { x: rig.run.grave.x, y: rig.run.grave.y };
+    rig.finger = { x: rig.finger.x + 12, y: rig.finger.y + 9 };
+    rig.steering.pointerMove(touchAt(rig.finger.x, rig.finger.y), PHONE);
     tick(rig);
-    const step = 4.5 / Math.SQRT2;
-    const reached = stepOnColumn(SCENE_CAMERA, before, { x: step, y: step });
+    const step = { x: 12 / PHONE.scale, y: 9 / PHONE.scale };
+    const reached = stepOnColumn(SCENE_CAMERA, before, step);
     expect(reached).not.toBeNull();
     expect(Math.abs(rig.run.grave.x - reached!.x)).toBeLessThan(GRID_PER_TICK);
     expect(Math.abs(rig.run.grave.y - reached!.y)).toBeLessThan(GRID_PER_TICK);

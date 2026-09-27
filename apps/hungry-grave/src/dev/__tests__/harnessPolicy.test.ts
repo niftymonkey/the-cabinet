@@ -546,17 +546,8 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * smaller target for the whole of every run and meets each later wave at a
  * different size and a different tick. Which waves a lane passes through is
  * what decides whether it crosses a carrier, and that is every entry above.
- *
- * Re-measured for steering on the glass, and the set emptied: every seed is
- * paid. The mechanism is the hand's speed: it now moves at one speed on the
- * glass, as a player's thumb does (tilted view A11, #159), which in ground
- * units is faster near the top of the field and slower near the bottom, where
- * it spends most of a run near its starting row, so its lane meets every later
- * wave at a different place and a different tick, and 202 now opens one offer
- * and 404 three. Which waves a lane passes through decides whether it crosses a
- * carrier, which is every entry above.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -598,17 +589,8 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [];
  * is exactly the gap the swallow rule had opened, so a body it used to end the
  * tick merely touching is drawn far enough over the mouth to tip. An empty set
  * still has teeth, because it is written as an equality.
- *
- * Re-measured for steering on the glass, and 202 and 303 came in: each opens
- * one offer and takes none of it. The mechanism is the hand's speed: it now
- * moves at one speed on the glass, as a player's thumb does (tilted view A11,
- * #159), which in ground units is faster near the top of the field and slower
- * near the bottom, where it spends most of a run near its starting row. An
- * offer that opens up the field is reached at a speed that is no longer the
- * same everywhere, and on these two lanes it scrolls off before the walk
- * arrives. 303 used to open three offers and take two; 202 was never paid.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 303];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -691,18 +673,8 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [202, 303];
  * paid at all under this hand (the set above), so there is no rung on its lane
  * to catch, and the cause of that is the same smaller grave meeting different
  * waves. 303 still catches and still outlasts the stage's budget.
- *
- * Re-measured for steering on the glass, and the set is 101, 404 and 505, where
- * it was 303. The mechanism is the hand's speed: it now moves at one speed on
- * the glass, as a player's thumb does (tilted view A11, #159), which in ground
- * units is faster near the top of the field and slower near the bottom, where
- * it spends most of a run near its starting row. 101 takes six of seven offers
- * and ends holding wisps and the bell, 404 takes two of three and ends holding
- * Territory, and 505 takes ten of twelve and ends with all four lines above the
- * birthright; all three outlast the stage's budget unsealed. 303 opens one
- * offer and never reaches it (the set above), so it has no rung to keep.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 404, 505];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [303];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(

@@ -47,18 +47,15 @@ import {
   SIZE_CEILING,
 } from '../../game/tuning';
 import { createExecution, executeTick } from '../../game/execution';
-import { groundToColumn, SCENE_CAMERA } from '../../app/screens/game/camera';
 import type { Policy, PolicyRun } from '../bot';
 import {
   belchingPolicy,
   bestMoveToward,
   divingPolicy,
   dodgePolicy,
-  graveAfter,
   hitTakingPolicy,
   LOOKAHEAD_SAMPLES,
   nearestFood,
-  onTheGlass,
   runPolicy,
   unloadedPolicy,
   waitingPolicy,
@@ -217,17 +214,8 @@ const NEVER_FEEDS: number[] = [];
  * later wave at a different size and a different tick. Which waves a lane
  * passes through decides whether it crosses a carrier, which is every entry
  * above.
- *
- * Re-measured for steering on the glass, and 505 came in, so 202 and 505 are
- * never paid. The mechanism is the hand's speed: it now moves at one speed on
- * the glass, as a player's thumb does (tilted view A11, #159), which in ground
- * units is faster near the top of the field and slower near the bottom, where
- * it spends most of a run near its starting row. So a dodging lane is a
- * different lane from its first threat on: 505's fresh run now opens no offer
- * inside the budget where it opened one, and ends in the Banshee's section at
- * 27469 ticks and 95 kills. 202 still opens none.
  */
-const NEVER_PAID: number[] = [202, 505];
+const NEVER_PAID: number[] = [202];
 
 /**
  * Re-measured under the director (ADR 0047, ADR 0056): 303 joined it and 404
@@ -407,18 +395,8 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * mechanism 202 joined by, one tune earlier and from the other direction: what
  * gets a birthright run past her is living long enough for its own stream to
  * finish her. Neither seed wins, which the set below still says.
- *
- * Re-measured for steering on the glass, and the set emptied: 101 and 404 no
- * longer get past her. The mechanism is the hand's speed: it now moves at one
- * speed on the glass, as a player's thumb does (tilted view A11, #159), which
- * in ground units is faster near the top of the field and slower near the
- * bottom, where it spends most of a run near its starting row. A ceiling grave
- * is the widest thing on the field and dodges her rings at a different pace,
- * and both runs are still in her section when the budget ends, at 58 and 57
- * kills against the 118 and 112 that used to carry them into the Crowd. The
- * fight rather than the build decides it, which is every entry above.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [101, 404];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it
@@ -1157,10 +1135,7 @@ function ladderRun(seed: number): { state: RunState; rungs: string[] } {
   const rungs: string[] = [];
   let caused: SimEvent[] = [];
   for (let tick = 0; tick < LADDER_TICKS && state.ending === null; tick++) {
-    const events = executeTick(
-      execution,
-      onTheGlass(state, hitTakingPolicy(state, caused)),
-    );
+    const events = executeTick(execution, hitTakingPolicy(state, caused));
     caused = [...events];
     for (const event of events) {
       if (
@@ -1548,7 +1523,7 @@ describe('the six policies steer on this module’s own look-ahead', () => {
         10,
       );
 
-      executeTick(execution, onTheGlass(state, dodgePolicy(state, [])));
+      executeTick(execution, dodgePolicy(state, []));
       ticks += 1;
     }
     expect(execution.faults).toEqual([]);
@@ -1596,110 +1571,10 @@ describe('the six policies steer on this module’s own look-ahead', () => {
           shortened,
         );
         if (far.x !== near.x || far.y !== near.y) differing += 1;
-        executeTick(execution, onTheGlass(state, dodgePolicy(state, [])));
+        executeTick(execution, dodgePolicy(state, []));
       }
       expect(differing).toBeGreaterThan(0);
     },
     SIX_POLICY_WALKS_MS,
   );
-});
-
-describe("the harness's hand steers on the glass (tilted view A11)", () => {
-  /** A fresh run with its grave stood at a ground point. */
-  const standingAt = (x: number, y: number): RunState => {
-    const state = createRun(SEEDS[0]);
-    state.grave.x = x;
-    state.grave.y = y;
-    return state;
-  };
-
-  it("onTheGlass hands the sim the ground move a player's same command makes on the glass, and leaves a still move and the belch as they are", () => {
-    // A11: from ground (40, 700) a step of (0, -10) on the column lands at
-    // (39.055288, 690.913296), slice 1's pinned landing, so a command of
-    // (0, -10 / 4.5) at a base speed of 4.5 is that landing less the start,
-    // over 4.5, in ground units.
-    const moving = onTheGlass(standingAt(40, 700), {
-      move: { x: 0, y: -10 / 4.5 },
-      belch: true,
-    });
-    expect(Math.abs(moving.move.x - (39.055288 - 40) / 4.5)).toBeLessThan(1e-6);
-    expect(Math.abs(moving.move.y - (690.913296 - 700) / 4.5)).toBeLessThan(
-      1e-6,
-    );
-    expect(moving.belch).toBe(true);
-
-    const still = onTheGlass(standingAt(40, 700), {
-      move: { x: 0, y: 0 },
-      belch: false,
-    });
-    expect(still).toEqual({ move: { x: 0, y: 0 }, belch: false });
-  });
-  /** Rows near the top, on the middle and near the bottom of the field today. */
-  const ROWS = [40, 380, 700];
-  const COLUMNS = [100, 270, 440];
-  const ONE_ROOT_HALF = 1 / Math.SQRT2;
-  const HAND_MOVES = [
-    { x: 1, y: 0 },
-    { x: 0, y: -1 },
-    { x: -1, y: 0 },
-    { x: 0, y: 1 },
-    { x: ONE_ROOT_HALF, y: -ONE_ROOT_HALF },
-  ];
-
-  it("the harness's hand moves the grave's drawn point at BASE_SPEED per tick on the column, at the top, the middle and the bottom, as a player's held key does", () => {
-    // A11: one speed on the glass, 540 / 120 = 4.5 column units a tick, in the
-    // direction the hand asked for, wherever the grave stands.
-    for (const y of ROWS) {
-      for (const x of COLUMNS) {
-        for (const move of HAND_MOVES) {
-          const state = standingAt(x, y);
-          const before = groundToColumn(SCENE_CAMERA, x, y);
-          play(state, () => ({ move, belch: false }), 1);
-          const after = groundToColumn(
-            SCENE_CAMERA,
-            state.grave.x,
-            state.grave.y,
-          );
-          const where = `from (${x}, ${y}) moving (${move.x}, ${move.y})`;
-          expect(
-            Math.abs(after.x - before.x - move.x * 4.5),
-            where,
-          ).toBeLessThan(1e-6);
-          expect(
-            Math.abs(after.y - before.y - move.y * 4.5),
-            where,
-          ).toBeLessThan(1e-6);
-        }
-      }
-    }
-  });
-  it("the hand's prediction of where the grave lands is where it lands", () => {
-    // A11: the dodge judges a move by where it predicts the grave lands, so a
-    // hand whose prediction and whose steering disagree dodges a field it is
-    // not standing in. Read at every look-ahead sample, from starts whose moves
-    // stay clear of the field's edges over the longest one.
-    for (const y of [300, 380, 500]) {
-      for (const x of [220, 270, 320]) {
-        for (const move of HAND_MOVES) {
-          for (const ticks of LOOKAHEAD_SAMPLES) {
-            const predicted = graveAfter(standingAt(x, y), move, ticks, 4.5);
-            const state = standingAt(x, y);
-            play(state, () => ({ move, belch: false }), ticks);
-            const where = `from (${x}, ${y}) moving (${move.x}, ${move.y}) for ${ticks}`;
-            // The sim takes each tick's move on the float32 grid
-            // (execution.ts's quantiseMove), which the prediction does not, so
-            // a tick may land up to one float32 step of a component under 2,
-            // times the base speed, from the exact line.
-            const grid = ticks * 4.5 * 2 * 2 ** -24;
-            expect(Math.abs(predicted.x - state.grave.x), where).toBeLessThan(
-              grid,
-            );
-            expect(Math.abs(predicted.y - state.grave.y), where).toBeLessThan(
-              grid,
-            );
-          }
-        }
-      }
-    }
-  });
 });
