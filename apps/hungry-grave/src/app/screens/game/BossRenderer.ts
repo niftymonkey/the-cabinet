@@ -5,10 +5,12 @@ import { Graphics } from 'pixi.js';
 
 import { BOSS_HALF_HEIGHT } from '../../../game/bosses/phases';
 import type { RunState } from '../../../game/run';
+import { SHORTEST_FIELD } from '../../../game/field';
 import { bossLook, drawBoss } from './bossSprite';
-import { SCENE_CAMERA } from './camera';
 import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 /**
  * The boss, drawn from the one record RunState carries. A dumb view: data in,
@@ -21,6 +23,8 @@ import type { FieldLayers } from './layering';
  * this folder.
  */
 class BossRenderer {
+  // The run's scene, or the shortest field's before any run is handed in (A34).
+  private scene: Scene = sceneFor(SHORTEST_FIELD);
   private readonly body = new Graphics();
   private look = '';
 
@@ -29,6 +33,11 @@ class BossRenderer {
     // are: dressField() puts this back on every reset, and a run opens with
     // frames drawn before the first sync.
     this.body.visible = false;
+  }
+
+  /** The run about to be drawn's scene, whose camera every placement goes through (A34). */
+  public useScene(scene: Scene): void {
+    this.scene = scene;
   }
 
   /**
@@ -53,7 +62,7 @@ class BossRenderer {
       drawBoss(this.body, boss);
     }
     // Standing, its feet on the near edge of its footprint (A7).
-    const at = standingAt(SCENE_CAMERA, boss.x, boss.y, BOSS_HALF_HEIGHT);
+    const at = standingAt(this.scene.camera, boss.x, boss.y, BOSS_HALF_HEIGHT);
     this.body.position.set(at.x, at.y);
     this.body.scale.set(at.scaleX, at.scaleY);
     this.body.zIndex = boss.y + BOSS_HALF_HEIGHT;

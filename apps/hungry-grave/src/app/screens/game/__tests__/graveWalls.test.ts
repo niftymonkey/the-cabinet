@@ -5,13 +5,18 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SCENE_CAMERA, stanceOverGrave } from '../camera';
+import { stanceOverGrave } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { sceneFor } from '../scene';
 import type { GraveCanvas } from '../graveCanvas';
 import { GRAVE_DARK } from '../graveDrawingValues';
 import { mouthPolygon } from '../graveMouth';
 import type { GraveView, Spot } from '../graveProjection';
 import type { WallFace } from '../graveWalls';
 import { facePoint, paintPit, wallFaces } from '../graveWalls';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
 
 /**
  * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
@@ -96,7 +101,7 @@ const firstAt = (log: string[], start: string): number =>
 
 /** The hole's view over a grave standing here at this size: the scene camera's stance and R4's dark. */
 const viewOver = (x: number, y: number, size: number): GraveView => ({
-  ...stanceOverGrave(SCENE_CAMERA, { x, y, size }),
+  ...stanceOverGrave(SHORTEST_CAMERA, { x, y, size }),
   ...GRAVE_DARK,
 });
 

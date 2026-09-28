@@ -9,11 +9,17 @@ import type { SimEvent } from '../../../game/events';
 import type { RunState } from '../../../game/run';
 import { sectionUnderway } from '../../../game/stage/stage';
 import { RESERVOIR_CAPACITY } from '../../../game/tuning';
+import {
+  fieldOfHeight,
+  SHORTEST_FIELD,
+  TALLEST_FIELD_HEIGHT,
+} from '../../../game/field';
 import { DEFAULT_TUNING } from '../../../game/tuningRecord';
 import type { FrameReason } from '../../../tape/tape';
-import type { FieldPlacement, HudRow } from '../../layout';
+import type { FieldPlacement, HudRow, StageBox } from '../../layout';
 import {
   DEGENERATE_PLACEMENT,
+  fieldHeightForBox,
   fitField,
   hudRow,
   READOUT_RESERVE,
@@ -29,7 +35,7 @@ import { BossRenderer } from './BossRenderer';
 import { EndingSceneRenderer } from './EndingSceneRenderer';
 import { FallRenderer } from './FallRenderer';
 import { FieldRenderer } from './FieldRenderer';
-import { boundaryReadout, fieldClip } from './fieldFrame';
+import { drawBoundaryReadout, drawFieldClip } from './fieldFrame';
 import { createFramePolicy } from './framePolicy';
 import { GraveRenderer } from './GraveRenderer';
 import { createLadderHud } from './LadderHud';
@@ -41,6 +47,7 @@ import { createRunEnding, endedIn } from './runEnding';
 import { createRunHud } from './RunHud';
 import { createRunRecording } from './runRecording';
 import { createRunSession } from './runSession';
+import { sceneFor } from './scene';
 import type { RunSteering } from './steering';
 import { createRunSteering } from './steering';
 import { StormRenderer } from './StormRenderer';
@@ -124,6 +131,12 @@ interface GameScreenProps extends ButtonChrome {
   canvas: HTMLCanvasElement | null;
   // What the renderer says about itself, for this run's tape header.
   renderer: RendererIdentity;
+  /**
+   * The stage as the navigation last measured it. prepare() runs before the
+   * navigation's first resize of this screen, so this is where a run starting
+   * reads the shape it keeps (tilted view A35).
+   */
+  stageBox(): StageBox;
 }
 
 /**
@@ -258,10 +271,10 @@ class GameScreen extends Container {
     this.field.interactiveChildren = false;
     this.layers = new FieldLayers();
     this.layers.addTo(this.field);
-    this.clip = fieldClip();
+    this.clip = drawFieldClip(new Graphics(), SHORTEST_FIELD);
     this.field.addChild(this.clip);
     this.field.mask = this.clip;
-    this.frame = boundaryReadout();
+    this.frame = drawBoundaryReadout(new Graphics(), SHORTEST_FIELD);
     this.grave = new GraveRenderer();
     this.dressField();
 
@@ -321,7 +334,9 @@ class GameScreen extends Container {
    * beginDrawing below is for.
    */
   private fieldCaps(): Caps {
-    return capsFor(DEFAULT_TUNING);
+    // The tallest field's, so a pool opened before any run is never short for
+    // the field a run takes from its stage (tilted view A30).
+    return capsFor(DEFAULT_TUNING, fieldOfHeight(TALLEST_FIELD_HEIGHT));
   }
 
   /**
@@ -337,9 +352,29 @@ class GameScreen extends Container {
    * when it dresses.
    */
   private beginDrawing(run: RunState): void {
+    this.drawTheRunsScene(run);
     this.fieldRenderer.attach(this.layers, run.caps);
     this.falls.attach(this.grave.falls, run.caps);
     this.scene.forgetPreviousRun();
+  }
+
+  /**
+   * The run's scene, handed to everything that draws the run or steers it
+   * before its first frame (tilted view A34), and its field's edge and clip.
+   * The screen and its renderers are pooled and built before any run exists,
+   * so this is where a run's shape reaches them.
+   */
+  private drawTheRunsScene(run: RunState): void {
+    const scene = sceneFor(run.field);
+    drawBoundaryReadout(this.frame, run.field);
+    drawFieldClip(this.clip, run.field);
+    this.background.useScene(scene);
+    this.fieldRenderer.useScene(scene);
+    this.bossRenderer.useScene(scene);
+    this.stormRenderer.useScene(scene);
+    this.grave.useScene(scene);
+    this.scene.useScene(scene);
+    this.steering.useScene(scene);
   }
 
   // The field's own furniture, put back after any clear() (see reset).
@@ -380,7 +415,10 @@ class GameScreen extends Container {
     // goes on steering the grave, so the game looks alive and cannot be paused.
     this.interactiveChildren = true;
 
-    const started = this.session.begin();
+    const box = this.props.stageBox();
+    const started = this.session.begin(
+      fieldHeightForBox(box.width, box.height),
+    );
     this.beginDrawing(started.run);
     this.recording.begin(
       started.run,
@@ -582,7 +620,10 @@ class GameScreen extends Container {
   }
 
   public resize(width: number, height: number) {
-    this.placement = fitField(width, height, READOUT_RESERVE);
+    // The run's own field, kept through any resize, so the bars take up what
+    // the new shape does not (tilted view A35).
+    const field = this.session.run?.field ?? SHORTEST_FIELD;
+    this.placement = fitField(width, height, field, READOUT_RESERVE);
     this.field.position.set(this.placement.offsetX, this.placement.offsetY);
     this.field.scale.set(this.placement.scale);
     // The whole stage, so a drag that starts outside the letterboxed field

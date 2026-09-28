@@ -51,7 +51,7 @@ vi.mock('../tapeExport', async (importOriginal) => ({
 
 import { PHASE_HP, spawnBoss } from '../../game/bosses/phases';
 import { TICK_MS } from '../../game/clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import { FIELD_WIDTH, SHORTEST_FIELD_HEIGHT } from '../../game/field';
 import { MOB_TYPES } from '../../game/mobs';
 import { SIZE_FLOOR } from '../../game/tuning';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
@@ -134,6 +134,7 @@ function gameScreen(): GameScreen {
     // The tape header records the renderer's backend and resolution once per
     // run, for its runtime context (ADR 0018).
     renderer: { name: 'webgl', resolution: 2 },
+    stageBox: () => ({ width: 540, height: 760 }),
   });
   return screen;
 }
@@ -1361,7 +1362,7 @@ describe("the field's clip", () => {
     expect(rect.x).toBe(0);
     expect(rect.y).toBe(0);
     expect(rect.width).toBe(FIELD_WIDTH);
-    expect(rect.height).toBe(FIELD_HEIGHT);
+    expect(rect.height).toBe(SHORTEST_FIELD_HEIGHT);
 
     // A mask is not a layer, so clear() cannot reach it, and reset() plus a
     // second prepare() is how a pooled screen would lose one that was dressed

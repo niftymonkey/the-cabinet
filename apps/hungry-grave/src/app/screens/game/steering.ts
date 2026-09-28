@@ -4,6 +4,7 @@ import type { FederatedPointerEvent } from 'pixi.js';
 
 import type { CommandSource, MoveCommand } from '../../../game/command';
 import type { FieldPoint } from '../../../game/field';
+import { SHORTEST_FIELD } from '../../../game/field';
 import { BASE_SPEED } from '../../../game/tuning';
 import { KeySteer } from '../../../input/keys';
 import { combineSteer } from '../../../input/steering';
@@ -12,12 +13,10 @@ import { TouchSteer } from '../../../input/touch';
 import type { FieldPlacement } from '../../layout';
 import { screenToColumn } from '../../layout';
 import { userSettings } from '../../userSettings';
-import {
-  groundMoveOnColumn,
-  groundToColumn,
-  SCENE_CAMERA,
-  stepOnColumn,
-} from './camera';
+import type { Camera } from './camera';
+import { groundMoveOnColumn, groundToColumn, stepOnColumn } from './camera';
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 // The codes the page would otherwise scroll on. Space joins them so the page cannot scroll under a belch.
 const SCROLL_CODES = [
@@ -82,6 +81,8 @@ interface RunSteering {
   readKeyboardSpeed(): void;
   // A lost keyup or a drag interrupted by a popup must not survive into the resumed run.
   goQuiet(): void;
+  // The run about to be steered's scene, whose camera a drag converts through (A34).
+  useScene(scene: Scene): void;
 }
 
 /**
@@ -103,6 +104,8 @@ interface Steering {
   belchRequested: boolean;
   // Whether a move past the horizon has been logged, so a stuck one is reported once rather than every tick.
   pastHorizonLogged: boolean;
+  // The run's scene, or the shortest field's before any run is handed in.
+  scene: Scene;
   readonly powers: SteeringPowers;
 }
 
@@ -119,8 +122,8 @@ const toColumn = (
 };
 
 // Where the grave draws on the column, which is where the input models reason about it (tilted view A11).
-const graveOnColumn = (grave: FieldPoint): ColumnPoint => {
-  const drawn = groundToColumn(SCENE_CAMERA, grave.x, grave.y);
+const graveOnColumn = (camera: Camera, grave: FieldPoint): ColumnPoint => {
+  const drawn = groundToColumn(camera, grave.x, grave.y);
   return { x: drawn.x, y: drawn.y };
 };
 
@@ -137,12 +140,13 @@ const dragOnField = (
   grave: FieldPoint,
   onColumn: MoveCommand,
 ): MoveCommand => {
-  const move = groundMoveOnColumn(SCENE_CAMERA, grave, onColumn, BASE_SPEED);
+  const camera = steering.scene.camera;
+  const move = groundMoveOnColumn(camera, grave, onColumn, BASE_SPEED);
   if (move.x !== 0 || move.y !== 0) return move;
   if (steering.pastHorizonLogged) return move;
   // A still result is also a settled drag's rounding, so only a step the camera finds no ground for is the anomaly.
   const step = { x: onColumn.x * BASE_SPEED, y: onColumn.y * BASE_SPEED };
-  if (stepOnColumn(SCENE_CAMERA, grave, step) === null) {
+  if (stepOnColumn(camera, grave, step) === null) {
     steering.pastHorizonLogged = true;
     console.warn(
       `a move of (${onColumn.x}, ${onColumn.y}) on the column from ground (${grave.x}, ${grave.y}) reaches past the horizon; the grave is held still`,
@@ -211,7 +215,7 @@ const commandSource = (steering: Steering): CommandSource => {
     const move = combineSteer(
       keyCommand,
       steering.touch,
-      graveOnColumn(grave),
+      graveOnColumn(steering.scene.camera, grave),
       (onColumn) => dragOnField(steering, grave, onColumn),
     );
     return { move, belch };
@@ -230,7 +234,7 @@ const pointerDown = (
   steering.touch.down(
     event.pointerId,
     toColumn(placement, event),
-    graveOnColumn(grave),
+    graveOnColumn(steering.scene.camera, grave),
   );
 };
 
@@ -262,6 +266,7 @@ const createRunSteering = (powers: SteeringPowers): RunSteering => {
     touch: new TouchSteer(),
     belchRequested: false,
     pastHorizonLogged: false,
+    scene: sceneFor(SHORTEST_FIELD),
     powers,
   };
   return {
@@ -286,6 +291,9 @@ const createRunSteering = (powers: SteeringPowers): RunSteering => {
       steering.keys.setMultiplier(userSettings.getKeyboardSpeed());
     },
     goQuiet: () => goQuiet(steering),
+    useScene(scene) {
+      steering.scene = scene;
+    },
   };
 };
 

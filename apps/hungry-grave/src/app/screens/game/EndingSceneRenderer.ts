@@ -5,9 +5,10 @@ import { Container, Graphics } from 'pixi.js';
 import { BOSS_HALF_HEIGHT, BOSS_HALF_WIDTH } from '../../../game/bosses/phases';
 import type { BossKilled } from '../../../game/events';
 import type { Grave } from '../../../game/grave';
+import { SHORTEST_FIELD } from '../../../game/field';
 import { PALETTE } from '../../palette';
 import { drawBoss } from './bossSprite';
-import { SCENE_CAMERA, groundToColumn } from './camera';
+import { groundToColumn } from './camera';
 import type { EndingScene, EndingSceneDrawing } from './endingScene';
 import { endingSceneAt, sceneFrom } from './endingScene';
 import { greyTint } from './foodSprite';
@@ -15,6 +16,8 @@ import { ENDING_FURROWS } from './graveDrawingValues';
 import type { GraveView } from './graveProjection';
 import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 /**
  * How many points a furrow is traced through, end to end. One per entry in the
@@ -59,6 +62,8 @@ interface EndingSceneRendererPowers {
  * the inside of the hole exactly as a swallowed corpse does (ADR 0014).
  */
 class EndingSceneRenderer {
+  // The run's scene, or the shortest field's before any run is handed in (A34).
+  private runScene: Scene = sceneFor(SHORTEST_FIELD);
   private readonly furrows = new Graphics();
   private readonly dragged = new Graphics();
   private readonly falling = new Graphics();
@@ -76,6 +81,11 @@ class EndingSceneRenderer {
     // renderer back on every reset and a run opens with frames drawn before
     // anything is ever shown.
     this.forgetPreviousRun();
+  }
+
+  /** The run about to be drawn's scene, whose camera every placement goes through (A34). */
+  public useScene(scene: Scene): void {
+    this.runScene = scene;
   }
 
   public attach(layers: FieldLayers, falls: Container): void {
@@ -142,7 +152,12 @@ class EndingSceneRenderer {
    * A7, A8). His own turn and squash ride inside that uniform scale.
    */
   private placeDragged(drawn: EndingSceneDrawing): void {
-    const at = standingAt(SCENE_CAMERA, drawn.x, drawn.y, BOSS_HALF_HEIGHT);
+    const at = standingAt(
+      this.runScene.camera,
+      drawn.x,
+      drawn.y,
+      BOSS_HALF_HEIGHT,
+    );
     this.dragged.position.set(at.x, at.y);
     this.dragged.rotation = drawn.turn;
     this.dragged.scale.set(drawn.wide * at.scaleX, drawn.tall * at.scaleY);
@@ -203,7 +218,7 @@ class EndingSceneRenderer {
       // The furrows lie in the ground, so each point is where the camera
       // draws that ground (A7).
       const on = groundToColumn(
-        SCENE_CAMERA,
+        this.runScene.camera,
         scene.fromX + toX * walked - alongY * off,
         scene.fromY + toY * walked + alongX * off,
       );

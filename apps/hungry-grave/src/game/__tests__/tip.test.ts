@@ -11,7 +11,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { CORPSE_HALF_EXTENT, POWER_UP_HALF_EXTENT } from '../corpses';
-import { SHORTEST_FIELD_HEIGHT, FIELD_WIDTH, fieldOfHeight } from '../field';
+import {
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+  FIELD_WIDTH,
+  fieldOfHeight,
+} from '../field';
 import { graveWidth } from '../grave';
 import type { Rect } from '../overlap';
 import { shareOverMouth } from '../tip';
@@ -44,16 +49,24 @@ describe('the share of food over the mouth (design record R1)', () => {
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
 
     expect(
-      shareOverMouth(foodAt(MID_X, MID_Y, CORPSE_HALF_EXTENT), mouth),
+      shareOverMouth(
+        foodAt(MID_X, MID_Y, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
     ).toBe(1);
   });
 
   it('is zero when the food does not touch the mouth at all', () => {
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
 
-    expect(shareOverMouth(foodAt(100, MID_Y, CORPSE_HALF_EXTENT), mouth)).toBe(
-      0,
-    );
+    expect(
+      shareOverMouth(
+        foodAt(100, MID_Y, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
+    ).toBe(0);
   });
 
   it('is zero when the food shares only an edge with the mouth', () => {
@@ -65,7 +78,11 @@ describe('the share of food over the mouth (design record R1)', () => {
     const touchingLeftRim = mouth.x - CORPSE_HALF_EXTENT;
 
     expect(
-      shareOverMouth(foodAt(touchingLeftRim, MID_Y, CORPSE_HALF_EXTENT), mouth),
+      shareOverMouth(
+        foodAt(touchingLeftRim, MID_Y, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
     ).toBe(0);
   });
 
@@ -76,7 +93,11 @@ describe('the share of food over the mouth (design record R1)', () => {
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
 
     expect(
-      shareOverMouth(foodAt(mouth.x, MID_Y, CORPSE_HALF_EXTENT), mouth),
+      shareOverMouth(
+        foodAt(mouth.x, MID_Y, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
     ).toBe(0.5);
   });
 
@@ -87,7 +108,11 @@ describe('the share of food over the mouth (design record R1)', () => {
     const mouth = mouthAt(MID_X, MID_Y, SIZE_FLOOR);
 
     expect(
-      shareOverMouth(foodAt(MID_X, MID_Y, POWER_UP_HALF_EXTENT), mouth),
+      shareOverMouth(
+        foodAt(MID_X, MID_Y, POWER_UP_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
     ).toBe(1);
   });
 
@@ -100,7 +125,11 @@ describe('the share of food over the mouth (design record R1)', () => {
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
 
     expect(
-      shareOverMouth(foodAt(MID_X, mouth.y, POWER_UP_HALF_EXTENT), mouth),
+      shareOverMouth(
+        foodAt(MID_X, mouth.y, POWER_UP_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
     ).toBe(0.5);
   });
 
@@ -111,7 +140,13 @@ describe('the share of food over the mouth (design record R1)', () => {
     // swallowed however wide the grave grew.
     const mouth = mouthAt(graveWidth(SIZE_FLOOR) / 2, MID_Y, SIZE_FLOOR);
 
-    expect(shareOverMouth(foodAt(0, MID_Y, CORPSE_HALF_EXTENT), mouth)).toBe(1);
+    expect(
+      shareOverMouth(
+        foodAt(0, MID_Y, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
+    ).toBe(1);
   });
 
   it('is one for a power-up centred on the field side edge over a start-size grave', () => {
@@ -119,9 +154,13 @@ describe('the share of food over the mouth (design record R1)', () => {
     // that is over the mouth, and the most that could be is that same 14 by 28.
     const mouth = mouthAt(graveWidth(SIZE_START) / 2, MID_Y, SIZE_START);
 
-    expect(shareOverMouth(foodAt(0, MID_Y, POWER_UP_HALF_EXTENT), mouth)).toBe(
-      1,
-    );
+    expect(
+      shareOverMouth(
+        foodAt(0, MID_Y, POWER_UP_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
+    ).toBe(1);
   });
 
   it('is one for a corpse centred on the field top edge with the grave flush to it', () => {
@@ -130,7 +169,13 @@ describe('the share of food over the mouth (design record R1)', () => {
     // over the mouth.
     const mouth = mouthAt(MID_X, SIZE_FLOOR, SIZE_FLOOR);
 
-    expect(shareOverMouth(foodAt(MID_X, 0, CORPSE_HALF_EXTENT), mouth)).toBe(1);
+    expect(
+      shareOverMouth(
+        foodAt(MID_X, 0, CORPSE_HALF_EXTENT),
+        mouth,
+        SHORTEST_FIELD,
+      ),
+    ).toBe(1);
   });
 
   it('is zero and finite for food wholly outside the field', () => {
@@ -142,6 +187,7 @@ describe('the share of food over the mouth (design record R1)', () => {
     const offTheLeft = shareOverMouth(
       foodAt(-CORPSE_HALF_EXTENT * 3, MID_Y, CORPSE_HALF_EXTENT),
       mouth,
+      SHORTEST_FIELD,
     );
     const offTheBottom = shareOverMouth(
       foodAt(
@@ -150,6 +196,7 @@ describe('the share of food over the mouth (design record R1)', () => {
         CORPSE_HALF_EXTENT,
       ),
       mouth,
+      SHORTEST_FIELD,
     );
 
     expect(offTheLeft).toBe(0);

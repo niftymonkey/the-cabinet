@@ -38,6 +38,7 @@ import {
 } from '../src/dev/tuningCandidates';
 import type { CandidateName } from '../src/dev/tuningCandidates';
 import { SHORTEST_FIELD_HEIGHT, TALLEST_FIELD_HEIGHT } from '../src/game/field';
+import { readFieldArgument } from './fieldArgument';
 import { SEED_LIMIT } from '../src/game/run';
 import { UNSTAMPED_BUILD } from '../src/tape/buildIdentity';
 import { decodeTape } from '../src/tape/decode';
@@ -128,25 +129,10 @@ const parseCandidate = (raw: string | undefined): CandidateName | null => {
   return raw;
 };
 
-/**
- * The field height the arguments name, or null once it has been refused out
- * loud: a whole number inside the shapes a run may take (design record A30),
- * and the shortest field when none is named, so a bare command plays the batch
- * it played before the field had a height (A31).
- */
+/** The field height the arguments name, or null once it has been refused out loud. */
 const parseFieldHeight = (raw: string | undefined): number | null => {
-  if (raw === undefined) return SHORTEST_FIELD_HEIGHT;
-  const value = wholeNumber(raw);
-  if (
-    value === null ||
-    value < SHORTEST_FIELD_HEIGHT ||
-    value > TALLEST_FIELD_HEIGHT
-  ) {
-    return refuse(
-      `${raw} is not a field height (a whole number from ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT})`,
-    );
-  }
-  return value;
+  const read = readFieldArgument(raw);
+  return 'refusal' in read ? refuse(read.refusal) : read.height;
 };
 
 /** The named configuration, or null once the argument has been refused out loud. */

@@ -41,6 +41,7 @@ import {
 } from '../src/tape/recorder';
 import type { TapeHeader } from '../src/tape/tape';
 import { SCRIPT_POLICY } from '../src/tape/tape';
+import { readFieldArgument } from './fieldArgument';
 
 const USAGE = `usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts <out-file> <seed> <ticks> [${WEAPON_LINES.map(
   (line) => `${line}=N`,
@@ -95,21 +96,13 @@ const parseScore = (raw: string): number | null => {
   return value;
 };
 
-/** The rig row named, or null once the name has been refused out loud. */
-const parseFieldHeight = (raw: string): number | null => {
-  const value = wholeNumber(raw);
-  if (
-    value === null ||
-    value < SHORTEST_FIELD_HEIGHT ||
-    value > TALLEST_FIELD_HEIGHT
-  ) {
-    return refuse(
-      `${raw} is not a field height (a whole number from ${SHORTEST_FIELD_HEIGHT} to ${TALLEST_FIELD_HEIGHT})`,
-    );
-  }
-  return value;
+/** The field height named, or null once the argument has been refused out loud. */
+const parseFieldHeight = (raw: string | undefined): number | null => {
+  const read = readFieldArgument(raw);
+  return 'refusal' in read ? refuse(read.refusal) : read.height;
 };
 
+/** The rig row named, or null once the name has been refused out loud. */
 const parseRigName = (raw: string): RigName | null => {
   if (!isRigName(raw)) {
     return refuse(`${raw} names no rig (the rigs are ${RIG_NAMES.join(', ')})`);
@@ -351,9 +344,7 @@ const conditionsIn = (
   const rigRaw = valueOf(rigArgs, RIG_ARGUMENT);
   const scoreRaw = valueOf(scoreArgs, SCORE_ARGUMENT);
   const fieldRaw = valueOf(fieldArgs, FIELD_ARGUMENT);
-  // The shortest field when none is named, so a bare command records the tape it recorded before the field had a height (A31).
-  const fieldHeight =
-    fieldRaw === undefined ? SHORTEST_FIELD_HEIGHT : parseFieldHeight(fieldRaw);
+  const fieldHeight = parseFieldHeight(fieldRaw);
   if (fieldHeight === null) return null;
   const conditions =
     rigRaw === undefined

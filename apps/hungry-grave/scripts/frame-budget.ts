@@ -2,7 +2,8 @@
  * The frame-budget entry: a synthetic field stood at each of round 0's sizes,
  * driven through the one execution authority with its invariants checked, and
  * printed as the record's own table. Run as
- * `pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts`.
+ * `pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts [field=<height>]`,
+ * on the shortest field unless a field is named (design record A31).
  *
  * This half measures the simulation. There is no renderer in Node, so the
  * render columns say so rather than printing a zero; the same measurement with
@@ -26,10 +27,11 @@ import {
 } from '../src/dev/frameBudget';
 import type { FrameSpans } from '../src/dev/frameBudget';
 import type { FieldSize } from '../src/dev/syntheticField';
+import { readFieldArgument } from './fieldArgument';
 import { sizePoolsFor } from './frameBudgetCaps';
 
 const USAGE =
-  'usage: pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts';
+  'usage: pnpm vite-node --config vite.frame-budget.config.ts scripts/frame-budget.ts [field=<height>]';
 
 /**
  * The seed every row plays from, pinned so two runs of this tool measure the
@@ -80,7 +82,7 @@ interface FieldDriver {
  * the record a run starts under (ADR 0056 as amended), and what decides a
  * pool's size is the sizePoolsFor call before each createRun below.
  */
-const frameDriver = async (): Promise<FieldDriver> => {
+const frameDriver = async (fieldHeight: number): Promise<FieldDriver> => {
   const { createExecution, executeTick } =
     await import('../src/game/execution');
   const { createRun } = await import('../src/game/run');
@@ -95,7 +97,7 @@ const frameDriver = async (): Promise<FieldDriver> => {
    */
   const refuses = (fields: readonly FieldSize[]): FieldSize[] => {
     sizePoolsFor(largestField(ROUND_ZERO_FIELDS));
-    const run = createRun(SEED);
+    const run = createRun(SEED, { fieldHeight });
     return fields.filter(
       (field) =>
         field.mobs > run.mobs.length || field.corpses > run.corpses.length,
@@ -104,7 +106,7 @@ const frameDriver = async (): Promise<FieldDriver> => {
 
   const drive = (size: FieldSize): FrameSpans => {
     sizePoolsFor(size);
-    const run = createRun(SEED);
+    const run = createRun(SEED, { fieldHeight });
     const execution = createExecution(run);
     const sim: number[] = [];
     for (let frame = 0; frame < WARM_UP_FRAMES + TIMED_FRAMES; frame++) {
@@ -147,9 +149,34 @@ const refuse = (fields: readonly FieldSize[]): void => {
   console.error(USAGE);
 };
 
+const FIELD_ARGUMENT = /^field=(.*)$/;
+
+/**
+ * The field height the command line names, or null once it has been refused
+ * out loud. The one argument is field=<height>; anything else is a flaw.
+ */
+const fieldHeightIn = (args: readonly string[]): number | null => {
+  const [first, ...rest] = args;
+  if (rest.length > 0 || (first !== undefined && !FIELD_ARGUMENT.test(first))) {
+    console.error(`${args.join(' ')} is not what this command takes`);
+    console.error(USAGE);
+    return null;
+  }
+  const read = readFieldArgument(first?.replace(FIELD_ARGUMENT, '$1'));
+  if ('height' in read) return read.height;
+  console.error(`${read.refusal}; no measurement was taken`);
+  console.error(USAGE);
+  return null;
+};
+
 const main = async (): Promise<void> => {
+  const fieldHeight = fieldHeightIn(process.argv.slice(2));
+  if (fieldHeight === null) {
+    process.exitCode = 1;
+    return;
+  }
   sizePoolsFor(largestField(ROUND_ZERO_FIELDS));
-  const driver = await frameDriver();
+  const driver = await frameDriver(fieldHeight);
   const refused = driver.refuses(ROUND_ZERO_FIELDS);
   if (refused.length > 0) {
     refuse(refused);
@@ -159,7 +186,9 @@ const main = async (): Promise<void> => {
   const rows = frameBudgetOver(ROUND_ZERO_FIELDS, driver.drive);
   console.log(frameBudgetTable(rows));
   console.log('');
-  console.log(`seed ${SEED}, ${TIMED_FRAMES} timed ticks per field`);
+  console.log(
+    `seed ${SEED}, ${TIMED_FRAMES} timed ticks per field, on a field ${fieldHeight} tall`,
+  );
   for (const line of driver.faults) console.log(line);
 };
 

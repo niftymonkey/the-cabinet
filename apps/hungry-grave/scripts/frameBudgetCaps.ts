@@ -23,7 +23,6 @@
 import type { FieldSize } from '../src/dev/syntheticField';
 import type { Caps, PoolSlot } from '../src/game/caps';
 import type { Field } from '../src/game/field';
-import { SHORTEST_FIELD } from '../src/game/field';
 import {
   corpseCap as shippedCorpseCap,
   createPool,
@@ -65,13 +64,9 @@ const corpseCap = (tuning: TuningRecord, field: Field): number =>
 /**
  * The three caps a run is built at under this bench: the two the field names
  * and the shipped mob-fire cap, which no field row moves. It takes the run's
- * field with the shipped module's own default, because it stands in for that
- * module and src/app's frame-budget screen calls it bare until slice P2.
+ * field, as the shipped module it stands in for does.
  */
-const capsFor = (
-  tuning: TuningRecord,
-  field: Field = SHORTEST_FIELD,
-): Caps => ({
+const capsFor = (tuning: TuningRecord, field: Field): Caps => ({
   mobs: mobCap(tuning, field),
   mobFire: mobFireCap(tuning, field),
   corpses: corpseCap(tuning, field),

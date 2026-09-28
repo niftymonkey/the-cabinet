@@ -17,7 +17,10 @@ import type { Grave } from '../../game/grave';
 import { graveWidth } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
+import { fieldOfHeight, SHORTEST_FIELD } from '../../game/field';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
+import type { StageBox } from '../layout';
+import { fieldHeightForBox } from '../layout';
 import { MENU } from '../palette';
 import type { ButtonChrome } from '../ui/Button';
 import { Button } from '../ui/Button';
@@ -28,6 +31,8 @@ import { FallRenderer } from './game/FallRenderer';
 import { holeViewOver } from './game/GraveRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { FieldLayers } from './game/layering';
+import type { Scene } from './game/scene';
+import { sceneFor } from './game/scene';
 
 /**
  * What this screen was handed: the way out, and the renderer's own pass, which
@@ -36,6 +41,11 @@ import { FieldLayers } from './game/layering';
 interface FrameBudgetScreenProps extends ButtonChrome {
   onBack(): void;
   drawField(field: Container): void;
+  /**
+   * The stage as the navigation last measured it, which names the field the
+   * runs are measured on, so a phone measures a tall field (tilted view A31).
+   */
+  stageBox(): StageBox;
 }
 
 /**
@@ -113,9 +123,12 @@ class FrameBudgetScreen extends Container {
    * over the measured run's grave would be cut with.
    */
   private readonly falls = new FallRenderer({
-    holeView: () => holeViewOver(this.measuredGrave()),
+    holeView: () =>
+      holeViewOver(this.measuredScene.camera, this.measuredGrave()),
   });
 
+  // The scene of the field every run of this showing stands on, read off the stage when it opens.
+  private measuredScene: Scene = sceneFor(SHORTEST_FIELD);
   private queue: FieldSize[] = [];
   private measured: FrameSpans[] = [];
   private current: Measuring | null = null;
@@ -155,9 +168,13 @@ class FrameBudgetScreen extends Container {
   }
 
   public prepare() {
-    // The runs below are all made with no record of their own, so this is what
-    // every one of them derives.
-    const caps = capsFor(DEFAULT_TUNING);
+    const box = this.props.stageBox();
+    const field = fieldOfHeight(fieldHeightForBox(box.width, box.height));
+    this.measuredScene = sceneFor(field);
+    this.fieldRenderer.useScene(this.measuredScene);
+    // The runs below are all made with no record of their own and on this one
+    // field, so this is what every one of them derives.
+    const caps = capsFor(DEFAULT_TUNING, field);
     this.fieldRenderer.attach(this.layers, caps);
     this.falls.attach(this.layers.layer('graveMouth'), caps);
     this.queue = ROUND_ZERO_FIELDS.filter((size) => fits(size, caps));
@@ -247,7 +264,9 @@ class FrameBudgetScreen extends Container {
   private beginNextField(): Measuring | null {
     const size = this.queue[this.measured.length];
     if (size === undefined) return null;
-    const run = createRun(SEED);
+    const run = createRun(SEED, {
+      fieldHeight: this.measuredScene.field.height,
+    });
     this.fieldRenderer.forgetPreviousRun();
     this.falls.forgetPreviousRun();
     return {

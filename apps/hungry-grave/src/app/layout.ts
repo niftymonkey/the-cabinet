@@ -1,7 +1,13 @@
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
+import type { Field } from '../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD_HEIGHT,
+  TALLEST_FIELD_HEIGHT,
+} from '../game/field';
 
 /**
- * The fixed field fitted into any viewport. The only module in the app that
+ * The run's field fitted into any viewport, and the shape a run takes from its
+ * stage (tilted view A30, A35). The only module in the app that
  * knows about the viewport, and nothing in src/game may import it.
  *
  * It knows nothing about device pixels and must never ask for
@@ -34,6 +40,12 @@ import { FIELD_HEIGHT, FIELD_WIDTH } from '../game/field';
  * too thin for the bracket it is being judged in.
  */
 const BOUNDARY_STROKE = 2;
+
+/** The stage's box in stage units, as the navigation last measured it. */
+interface StageBox {
+  readonly width: number;
+  readonly height: number;
+}
 
 interface FieldPlacement {
   readonly scale: number;
@@ -144,29 +156,31 @@ const centred = (
   viewportWidth: number,
   height: number,
   top: number,
+  field: Field,
 ): FieldPlacement => {
-  const scale = Math.min(viewportWidth / FIELD_WIDTH, height / FIELD_HEIGHT);
+  const scale = Math.min(viewportWidth / field.width, height / field.height);
   return {
     scale,
     // The margins are non-negative by construction, and the floor is there
-    // because they are not non-negative in binary64: height / FIELD_HEIGHT
-    // multiplied back by FIELD_HEIGHT overshoots by about 1e-13, which is
-    // enough to put the field's top a hair above the reserve it was just moved
-    // below and fail the non-overlap invariant on a rounding error.
-    offsetX: Math.max(0, (viewportWidth - FIELD_WIDTH * scale) / 2),
-    offsetY: Math.max(top, top + (height - FIELD_HEIGHT * scale) / 2),
+    // because they are not non-negative in binary64: height over the field's
+    // height multiplied back by the field's height overshoots by about 1e-13,
+    // which is enough to put the field's top a hair above the reserve it was
+    // just moved below and fail the non-overlap invariant on a rounding error.
+    offsetX: Math.max(0, (viewportWidth - field.width * scale) / 2),
+    offsetY: Math.max(top, top + (height - field.height * scale) / 2),
   };
 };
 
 // Half-open on both axes, the same convention the sim's own overlap uses, so touching edges do not intersect.
 const intersects = (
   placement: FieldPlacement,
+  field: Field,
   corner: { x: number; width: number; height: number },
 ): boolean => {
   const left = placement.offsetX;
-  const right = left + FIELD_WIDTH * placement.scale;
+  const right = left + field.width * placement.scale;
   const top = placement.offsetY;
-  const bottom = top + FIELD_HEIGHT * placement.scale;
+  const bottom = top + field.height * placement.scale;
   return (
     left < corner.x + corner.width &&
     corner.x < right &&
@@ -178,6 +192,7 @@ const intersects = (
 // Whether either readout corner would sit over the field at this placement.
 const coversAReadout = (
   placement: FieldPlacement,
+  field: Field,
   viewportWidth: number,
   reserve: ReadoutReserve,
 ): boolean => {
@@ -190,7 +205,7 @@ const coversAReadout = (
       height: reserve.height,
     },
   ];
-  return corners.some((corner) => intersects(placement, corner));
+  return corners.some((corner) => intersects(placement, field, corner));
 };
 
 /**
@@ -218,21 +233,22 @@ const coversAReadout = (
 const fitField = (
   viewportWidth: number,
   viewportHeight: number,
+  field: Field,
   reserve: ReadoutReserve = READOUT_RESERVE,
 ): FieldPlacement => {
   if (!isMeasurable(viewportWidth) || !isMeasurable(viewportHeight)) {
     reportDegenerate(viewportWidth, viewportHeight);
     return DEGENERATE_PLACEMENT;
   }
-  const natural = centred(viewportWidth, viewportHeight, 0);
-  if (!coversAReadout(natural, viewportWidth, reserve)) return natural;
+  const natural = centred(viewportWidth, viewportHeight, 0, field);
+  if (!coversAReadout(natural, field, viewportWidth, reserve)) return natural;
 
   const available = viewportHeight - reserve.height;
   // A viewport shorter than the reserve has nothing left to fit into, and a
   // readout over the field beats a field with no height at all.
   if (available <= 0) return natural;
 
-  const lowered = centred(viewportWidth, available, reserve.height);
+  const lowered = centred(viewportWidth, available, reserve.height, field);
   /**
    * The comparison is exact rather than tolerant on purpose. When the lowering
    * is free both scales are the same `viewportWidth / FIELD_WIDTH` expression
@@ -305,7 +321,39 @@ const screenToColumn = (
   };
 };
 
+// Once per session, for the reason reportedDegenerate gives.
+let reportedUnshaped = false;
+
+// Says that a stage could not give a run its shape, because nothing abnormal is silent.
+const reportUnshaped = (width: number, height: number): void => {
+  if (reportedUnshaped) return;
+  reportedUnshaped = true;
+  console.warn(
+    `the stage measured ${width} by ${height}, which gives a run no shape; the run plays the ${SHORTEST_FIELD_HEIGHT}-tall field, and only this first one is reported`,
+  );
+};
+
+/**
+ * How tall a run's field is on a stage of this box, in whole field units
+ * (tilted view A30): 540 across and as tall as the box's shape asks, held to
+ * the shortest and the tallest field a run may play. A box outside that range
+ * plays the nearest bound, and the fit puts bars where the shape differs.
+ *
+ * Whole, because the height is recorded in the tape and read by the sim's
+ * edges, and a whole number is exact in both. A box nobody can measure is a
+ * live input, so it is repaired to the shortest field rather than refused.
+ */
+const fieldHeightForBox = (width: number, height: number): number => {
+  if (!isMeasurable(width) || !isMeasurable(height)) {
+    reportUnshaped(width, height);
+    return SHORTEST_FIELD_HEIGHT;
+  }
+  const asked = Math.round((FIELD_WIDTH * height) / width);
+  return Math.min(TALLEST_FIELD_HEIGHT, Math.max(SHORTEST_FIELD_HEIGHT, asked));
+};
+
 export {
+  fieldHeightForBox,
   fitField,
   hudRow,
   screenToColumn,
@@ -314,4 +362,4 @@ export {
   READOUT_RESERVE,
   DEGENERATE_PLACEMENT,
 };
-export type { FieldPlacement, HudBand, HudRow, ReadoutReserve };
+export type { FieldPlacement, HudBand, HudRow, ReadoutReserve, StageBox };

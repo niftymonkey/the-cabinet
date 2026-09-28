@@ -8,7 +8,7 @@ import type { Container, Renderer, Sprite } from 'pixi.js';
 import { Mesh, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import { FIELD_WIDTH, SHORTEST_FIELD_HEIGHT } from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -24,17 +24,18 @@ import {
   DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
 } from '../BackgroundRenderer';
-import {
-  COLUMN,
-  SCENE_CAMERA,
-  columnToGround,
-  groundToColumn,
-} from '../camera';
+import { columnToGround, groundToColumn } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { sceneFor } from '../scene';
 import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
 import { groundGrid } from '../groundMesh';
 import { lyingAt } from '../groundPlacement';
 import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
+  sceneFor(SHORTEST_FIELD);
 
 /** Pixi's own no-tint, which is what the ground wears now that it is painted. */
 const NO_TINT = 0xffffff;
@@ -59,7 +60,10 @@ function viewing(shown: number): {
     generateTexture: (options: { resolution: number }): Texture => {
       baked.push(options.resolution);
       const texture = new Texture({
-        source: new TextureSource({ width: FIELD_WIDTH, height: FIELD_HEIGHT }),
+        source: new TextureSource({
+          width: FIELD_WIDTH,
+          height: SHORTEST_FIELD_HEIGHT,
+        }),
       });
       const style = texture.source.style;
       style.on('change', () =>
@@ -91,10 +95,10 @@ const RECORD_CLOSE = 1e-3;
 
 /** Where a dressing piece's foot is on the ground, and how wide it is there. */
 function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
-  const foot = columnToGround(SCENE_CAMERA, sprite.x, sprite.y);
+  const foot = columnToGround(SHORTEST_CAMERA, sprite.x, sprite.y);
   if (foot === null)
     throw new Error('a dressing piece stands above the horizon');
-  const { scale } = groundToColumn(SCENE_CAMERA, foot.x, foot.y);
+  const { scale } = groundToColumn(SHORTEST_CAMERA, foot.x, foot.y);
   return { x: foot.x, y: foot.y, half: sprite.width / scale / 2 };
 }
 
@@ -102,7 +106,7 @@ function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
 function groundRowAt(layers: FieldLayers, vertex: number): number {
   const v = groundOf(layers).geometry.uvs[vertex * 2 + 1];
   if (v === undefined) throw new Error(`no ground vertex ${vertex}`);
-  return v * FIELD_HEIGHT;
+  return v * SHORTEST_FIELD_HEIGHT;
 }
 
 /** The renderer's own pass reaching the ground, which is where it meets a renderer. */
@@ -370,7 +374,7 @@ describe('the ground painted from the prototype (design record R4)', () => {
     expect(phone.baked).toEqual([
       groundResolution((390 / FIELD_WIDTH) * 1.177929, 1, {
         width: FIELD_WIDTH,
-        height: FIELD_HEIGHT,
+        height: SHORTEST_FIELD_HEIGHT,
       }),
     ]);
 
@@ -379,9 +383,38 @@ describe('the ground painted from the prototype (design record R4)', () => {
     expect(wide.baked).toEqual([
       groundResolution((1600 / FIELD_WIDTH) * 1.177929, 1, {
         width: FIELD_WIDTH,
-        height: FIELD_HEIGHT,
+        height: SHORTEST_FIELD_HEIGHT,
       }),
     ]);
+  });
+
+  it('a repaint keeps the picture the ground last drew with until a frame has drawn the new one, then frees it', () => {
+    // The ground is the one mesh drawn outside the batcher, through Pixi's
+    // shared mesh shader, whose bind group holds the last texture it drew and
+    // destroys itself when that texture is destroyed; the next ground drawn
+    // through it then throws. So a spent picture is freed at the next repaint,
+    // once a frame has drawn its replacement, and never in the frame that
+    // swaps it. A repaint follows every change of the field's scale, and every
+    // run's scene (tilted view A34, A35), so this is ordinary play.
+    const { layers, renderer } = attached();
+    const phone = viewing(390);
+    frame(layers, renderer, phone.view);
+    frame(layers, renderer, phone.view);
+    const first = groundOf(layers).texture;
+
+    const wide = viewing(1600);
+    frame(layers, renderer, wide.view);
+    frame(layers, renderer, wide.view);
+    const second = groundOf(layers).texture;
+    expect(second).not.toBe(first);
+    expect(first.destroyed).toBe(false);
+
+    const mid = viewing(800);
+    frame(layers, renderer, mid.view);
+    frame(layers, renderer, mid.view);
+    expect(groundOf(layers).texture).not.toBe(second);
+    expect(first.destroyed).toBe(true);
+    expect(second.destroyed).toBe(false);
   });
 
   it("the dressing and the Waking's source still draw over the new ground", () => {
@@ -483,7 +516,7 @@ describe("the Waking's own source", () => {
     // what holds the two ends together.
     expect(source.width).toBeCloseTo(2 * SET_PIECE_HALF_WIDTH, 6);
     // It lies on the ground at its own point (A7).
-    const at = lyingAt(SCENE_CAMERA, 200, 380);
+    const at = lyingAt(SHORTEST_CAMERA, 200, 380);
     expect(source.position.x).toBeCloseTo(at.x, 6);
     expect(source.position.y).toBeCloseTo(at.y, 6);
     expect(source.tint).toBe(PALETTE.standInWaking.hex);
@@ -544,9 +577,9 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     const floor = groundOf(layers);
     expect(floor).toBeInstanceOf(Mesh);
     const grid = groundGrid(
-      SCENE_CAMERA,
-      COLUMN,
-      { width: FIELD_WIDTH, height: FIELD_HEIGHT },
+      SHORTEST_CAMERA,
+      SHORTEST_COLUMN,
+      { width: FIELD_WIDTH, height: SHORTEST_FIELD_HEIGHT },
       0,
     );
     expect([...floor.geometry.positions]).toEqual([...grid.positions]);
@@ -666,7 +699,7 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
 
     const eye = shown('crowd', 'standIn/ground/little-eyes.png');
     const foot = footOnGround(eye);
-    const { scale } = groundToColumn(SCENE_CAMERA, foot.x, foot.y);
+    const { scale } = groundToColumn(SHORTEST_CAMERA, foot.x, foot.y);
     expect(eye.scale.y / eye.scale.x).toBeCloseTo(scale * 0.843391, 5);
   });
 

@@ -8,8 +8,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { COLUMN, SCENE_CAMERA, columnToGround } from '../camera';
+import { columnToGround } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { sceneFor } from '../scene';
 import { groundGrid, groundGridIndices } from '../groundMesh';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
+  sceneFor(SHORTEST_FIELD);
 
 const TILE = { width: 256, height: 320 };
 const COLUMNS = 18;
@@ -34,7 +40,12 @@ describe("the ground's grid (tilted view A9)", () => {
   it('the grid covers the whole column and 0.08 of it past every edge', () => {
     // A9: the prototype's grid, 18 by 40 with 0.08 overshoot, is the starting
     // value; 0.08 of 540 is 43.2 and of 760 is 60.8.
-    const { positions, uvs } = groundGrid(SCENE_CAMERA, COLUMN, TILE, 0);
+    const { positions, uvs } = groundGrid(
+      SHORTEST_CAMERA,
+      SHORTEST_COLUMN,
+      TILE,
+      0,
+    );
     expect(positions.length).toBe(VERTICES * 2);
     expect(uvs.length).toBe(VERTICES * 2);
     const points = pointsOf(positions);
@@ -51,11 +62,16 @@ describe("the ground's grid (tilted view A9)", () => {
   it("each vertex samples the ground the camera shows at that point of the column, over the tile's size", () => {
     // A9: the perspective rides entirely in the texture coordinates. The middle
     // vertex, column (270, 380), shows ground (270, 380) by A3.
-    const { positions, uvs } = groundGrid(SCENE_CAMERA, COLUMN, TILE, 0);
+    const { positions, uvs } = groundGrid(
+      SHORTEST_CAMERA,
+      SHORTEST_COLUMN,
+      TILE,
+      0,
+    );
     const points = pointsOf(positions);
     expect(points.length).toBe(VERTICES);
     points.forEach((point, i) => {
-      const ground = columnToGround(SCENE_CAMERA, point.x, point.y)!;
+      const ground = columnToGround(SHORTEST_CAMERA, point.x, point.y)!;
       expectNear(uvs[2 * i]!, ground.x / TILE.width, 1e-5);
       expectNear(uvs[2 * i + 1]!, ground.y / TILE.height, 1e-5);
     });
@@ -70,8 +86,8 @@ describe("the ground's grid (tilted view A9)", () => {
   it("the scroll moves every texture coordinate by the scrolled distance over the tile's height and moves no vertex", () => {
     // A9: the ground's scroll is the sim's own, in ground units. The ground
     // moves down the field, so each vertex samples the tile that much higher.
-    const still = groundGrid(SCENE_CAMERA, COLUMN, TILE, 0);
-    const scrolled = groundGrid(SCENE_CAMERA, COLUMN, TILE, 48);
+    const still = groundGrid(SHORTEST_CAMERA, SHORTEST_COLUMN, TILE, 0);
+    const scrolled = groundGrid(SHORTEST_CAMERA, SHORTEST_COLUMN, TILE, 48);
     expect(scrolled.positions.length).toBe(VERTICES * 2);
     expect(Array.from(scrolled.positions)).toEqual(Array.from(still.positions));
     for (let i = 0; i < VERTICES; i++) {

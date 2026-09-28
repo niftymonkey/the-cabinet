@@ -80,6 +80,7 @@ function gameScreen(): GameScreen {
     // The tape header records the renderer's backend and resolution once per
     // run, for its runtime context (ADR 0018).
     renderer: { name: 'webgl', resolution: 2 },
+    stageBox: () => ({ width: 540, height: 760 }),
   });
   return screen;
 }

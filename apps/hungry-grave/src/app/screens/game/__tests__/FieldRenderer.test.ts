@@ -9,7 +9,11 @@ import { describe, expect, it } from 'vitest';
 
 import { capsFor } from '../../../../game/caps';
 import { TICK_HZ } from '../../../../game/clock';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+} from '../../../../game/field';
 import {
   CORPSE_HALF_EXTENT,
   POWER_UP_HALF_EXTENT,
@@ -50,7 +54,7 @@ import { SHOT_CORE_OF_HITBOX, SHOT_DRAW_SCALE } from '../mobFireSprite';
 import { tellRadius } from '../mobSprite';
 
 /** The caps every run at this tip derives, which is the default record's. */
-const DEFAULT_CAPS = capsFor(DEFAULT_TUNING);
+const DEFAULT_CAPS = capsFor(DEFAULT_TUNING, SHORTEST_FIELD);
 const MOB_CAP = DEFAULT_CAPS.mobs;
 const MOB_FIRE_CAP = DEFAULT_CAPS.mobFire;
 const CORPSE_CAP = DEFAULT_CAPS.corpses;
@@ -365,7 +369,7 @@ describe('FieldRenderer', () => {
   it('does not scatter for a shot that left the field, which was culled rather than cancelled', () => {
     const { layers, renderer } = attached();
     const state = createRun(1);
-    putShot(state, 200, FIELD_HEIGHT + 40);
+    putShot(state, 200, SHORTEST_FIELD_HEIGHT + 40);
     renderer.sync(state);
     shotSlotZero(state).alive = false;
     renderer.sync(state);

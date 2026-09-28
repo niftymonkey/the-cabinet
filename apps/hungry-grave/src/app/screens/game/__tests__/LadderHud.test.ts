@@ -7,7 +7,11 @@ import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../../../engine/resize/resize';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+} from '../../../../game/field';
 import type { WeaponLine } from '../../../../game/lines/roster';
 import { MAX_LEVEL, WEAPON_LINES } from '../../../../game/lines/roster';
 import { openOffer, resolveOffer } from '../../../../game/offer';
@@ -68,8 +72,17 @@ const VIEWPORTS = [
 
 /** How many CSS pixels one field unit is worth at a viewport. */
 const cssPerFieldUnit = (width: number, height: number): number => {
-  const stage = resize(width, height, FIELD_WIDTH, FIELD_HEIGHT, false);
-  return fitField(stage.width, stage.height).scale * (width / stage.width);
+  const stage = resize(
+    width,
+    height,
+    FIELD_WIDTH,
+    SHORTEST_FIELD_HEIGHT,
+    false,
+  );
+  return (
+    fitField(stage.width, stage.height, SHORTEST_FIELD).scale *
+    (width / stage.width)
+  );
 };
 
 /** An identity as the session writes one, carrying the roster under test. */

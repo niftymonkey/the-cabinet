@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../../game/field';
+import { FIELD_WIDTH, SHORTEST_FIELD_HEIGHT } from '../../../../game/field';
 import { PALETTE } from '../../../palette';
 import type { Field, GroundCanvas } from '../groundPainting';
 import {
@@ -17,7 +17,7 @@ import {
   paintGround,
 } from '../groundPainting';
 
-const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
+const FIELD: Field = { width: FIELD_WIDTH, height: SHORTEST_FIELD_HEIGHT };
 
 /**
  * One drawing call as the recorder keeps it: what was drawn, the arguments that

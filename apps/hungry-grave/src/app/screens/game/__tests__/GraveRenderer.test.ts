@@ -14,13 +14,9 @@ import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
 import type { Swallowed } from '../../../../game/events';
 import { createRun } from '../../../../game/run';
 import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
-import { FIELD_HEIGHT } from '../../../../game/field';
-import {
-  COLUMN,
-  SCENE_CAMERA,
-  groundToColumn,
-  stanceOverGrave,
-} from '../camera';
+import { SHORTEST_FIELD, SHORTEST_FIELD_HEIGHT } from '../../../../game/field';
+import { groundToColumn, stanceOverGrave } from '../camera';
+import { sceneFor } from '../scene';
 import { fallAt } from '../fall';
 import { FallRenderer } from '../FallRenderer';
 import {
@@ -33,6 +29,10 @@ import type { Corners } from '../GraveRenderer';
 import { GraveRenderer } from '../GraveRenderer';
 import { facePoint, wallFaces } from '../graveWalls';
 import { FieldLayers } from '../layering';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
+  sceneFor(SHORTEST_FIELD);
 
 /** The three sizes the grave's art is judged at (design record R4). */
 const EVERY_SIZE = [SIZE_FLOOR, SIZE_START, SIZE_CEILING];
@@ -118,7 +118,7 @@ function projectedRectangle(at: Grave, halfWidth: number, halfLength: number) {
     [at.x + halfWidth, at.y - halfLength],
     [at.x + halfWidth, at.y + halfLength],
     [at.x - halfWidth, at.y + halfLength],
-  ].map(([x, y]) => groundToColumn(SCENE_CAMERA, x ?? NaN, y ?? NaN));
+  ].map(([x, y]) => groundToColumn(SHORTEST_CAMERA, x ?? NaN, y ?? NaN));
 }
 
 /** Corners written out, so two sets compare at a glance. */
@@ -461,7 +461,7 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     // half-lengths up and its nadir sits (270 - x) / 27 across.
     const { layers, renderer } = attached();
     const nadirYOver = (y: number): number =>
-      stanceOverGrave(SCENE_CAMERA, { x: 270, y, size: 27 }).nadirY;
+      stanceOverGrave(SHORTEST_CAMERA, { x: 270, y, size: 27 }).nadirY;
     renderer.sync(grave(27, 243, 600));
     expect(viewText(renderer.holeView())).toBe(
       viewText({ cameraHeight: 42.5, nadirX: 1, nadirY: nadirYOver(600) }),
@@ -479,7 +479,7 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     // And the hop the screens declare carries it: a fall synced after the grave
     // has moved under a step is drawn with the baked view.
     const falls = new FallRenderer({ holeView: () => renderer.holeView() });
-    falls.attach(renderer.falls, capsFor(DEFAULT_TUNING));
+    falls.attach(renderer.falls, capsFor(DEFAULT_TUNING, SHORTEST_FIELD));
     const run = createRun(1);
     run.tick = 40;
     run.grave.size = 27;
@@ -519,13 +519,13 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     // column. The stalest bake is found by asking the renderer, so the promise
     // holds whatever the step is measured in.
     const size = SIZE_CEILING;
-    const row = FIELD_HEIGHT - size;
-    const cssPerUnit = 390 / COLUMN.width;
+    const row = SHORTEST_FIELD_HEIGHT - size;
+    const cssPerUnit = 390 / SHORTEST_COLUMN.width;
     const drawnReach = (view: GraveView, id: 'left' | 'right'): number => {
       const face = wallFaces(size, view).find((each) => each.id === id);
       if (face === undefined) throw new Error(`no ${id} face`);
       const at = (spot: { x: number; y: number }): number =>
-        groundToColumn(SCENE_CAMERA, 270 + spot.x, row + spot.y).x;
+        groundToColumn(SHORTEST_CAMERA, 270 + spot.x, row + spot.y).x;
       const lip = at(facePoint(face, size, 0.5, 0));
       const deep = at(facePoint(face, size, 0.5, 1));
       return (id === 'left' ? deep - lip : lip - deep) * cssPerUnit;

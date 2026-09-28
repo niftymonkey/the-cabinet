@@ -19,6 +19,10 @@ import { EndingSceneRenderer } from '../EndingSceneRenderer';
 import { ENDING_BEATS } from '../graveDrawingValues';
 import type { GraveView } from '../graveProjection';
 import { holeViewOver } from '../GraveRenderer';
+import { sceneFor } from '../scene';
+
+// The scene every renderer draws with before a run hands it one of its own.
+const SHORTEST_SCENE = sceneFor(SHORTEST_FIELD);
 import { FieldLayers, LAYER_ORDER } from '../layering';
 
 const KILLED: BossKilled = {
@@ -38,7 +42,10 @@ function parked(): Grave {
   return grave;
 }
 
-function attached(holeView: () => GraveView = () => holeViewOver(parked())): {
+function attached(
+  holeView: () => GraveView = () =>
+    holeViewOver(SHORTEST_SCENE.camera, parked()),
+): {
   layers: FieldLayers;
   falls: Container;
   renderer: EndingSceneRenderer;
@@ -146,7 +153,7 @@ describe("the Undertaker's ending scene on screen", () => {
     // between those walls only if he is drawn with that same view. The screen
     // hands it in as it does to the falls, and it is read on every frame
     // because the hole can be baked again while he falls.
-    const live = holeViewOver(parked());
+    const live = holeViewOver(SHORTEST_SCENE.camera, parked());
     let baked: GraveView = { ...live, nadirX: live.nadirX + 0.4 };
     const { falls, renderer } = attached(() => baked);
     const midFall = FALLING + ENDING_BEATS.fall / 2;

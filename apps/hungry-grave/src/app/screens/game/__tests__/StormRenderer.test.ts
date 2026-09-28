@@ -21,7 +21,9 @@ import {
   BELCH_SHOVES,
 } from '../../../../game/belch';
 import { SHOVE_TICKS } from '../../../../game/shove';
-import { SCENE_CAMERA, groundToColumn } from '../camera';
+import { groundToColumn } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { sceneFor } from '../scene';
 import { FieldLayers } from '../layering';
 import {
   ERUPTION_TICKS,
@@ -29,6 +31,9 @@ import {
   STORM_RENDERER_TRANSIENT_TICKS,
   StormRenderer,
 } from '../StormRenderer';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
 
 function attached(): { layers: FieldLayers; renderer: StormRenderer } {
   const layers = new FieldLayers();
@@ -559,14 +564,14 @@ describe('the arrival mark', () => {
    */
   function mouth(state: RunState) {
     return groundToColumn(
-      SCENE_CAMERA,
+      SHORTEST_CAMERA,
       state.grave.x,
       state.grave.y - state.grave.size,
     );
   }
 
   /** The camera's point for the ground being claimed. */
-  const patchOnColumn = () => groundToColumn(SCENE_CAMERA, PATCH_X, PATCH_Y);
+  const patchOnColumn = () => groundToColumn(SHORTEST_CAMERA, PATCH_X, PATCH_Y);
 
   /**
    * How far along the line from the mouth to the ground the mark is, on the

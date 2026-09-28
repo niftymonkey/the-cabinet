@@ -1,8 +1,8 @@
 // The playfield's own edge: the boundary readout that draws it and the clip that holds drawing inside it.
 
-import { Graphics } from 'pixi.js';
+import type { Graphics } from 'pixi.js';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import type { Field } from '../../../game/field';
 import { BOUNDARY_STROKE } from '../../layout';
 import { PALETTE } from '../../palette';
 
@@ -13,10 +13,13 @@ import { PALETTE } from '../../palette';
  * makes it a readout
  * and not scenery, which is why it carries a contrast floor of its own and a
  * width the floor depends on. It strokes inward so the whole of it stays inside
- * the field's own 540 by 760.
+ * the run's own field.
+ *
+ * It draws into a Graphics the screen holds, because a pooled screen keeps one
+ * frame across runs and each run's field may be a different height (T12).
  */
-const boundaryReadout = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).stroke({
+const drawBoundaryReadout = (frame: Graphics, field: Field): Graphics => {
+  return frame.clear().rect(0, 0, field.width, field.height).stroke({
     width: BOUNDARY_STROKE,
     color: PALETTE.fieldFrame.hex,
     alignment: 1,
@@ -40,9 +43,12 @@ const boundaryReadout = (): Graphics => {
  * for colour, so naming one here would be a colour that reaches the field's
  * source and means nothing, which is exactly what palette.test.ts's literal
  * scan is there to stop. The bare call takes Pixi's opaque default.
+ *
+ * It draws into the Graphics the screen holds as its mask, for the reason the
+ * frame does.
  */
-const fieldClip = (): Graphics => {
-  return new Graphics().rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT).fill();
+const drawFieldClip = (clip: Graphics, field: Field): Graphics => {
+  return clip.clear().rect(0, 0, field.width, field.height).fill();
 };
 
-export { boundaryReadout, fieldClip };
+export { drawBoundaryReadout, drawFieldClip };

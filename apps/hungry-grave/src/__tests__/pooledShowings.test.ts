@@ -119,6 +119,7 @@ function showing(tag: string, menusOpened: string[]): Showing {
       playButtonSound: () => {},
       canvas: null,
       renderer: { name: 'webgl', resolution: 2 },
+      stageBox: () => ({ width: 540, height: 760 }),
     },
     endRun: () => armed?.(),
   };

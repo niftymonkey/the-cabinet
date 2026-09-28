@@ -28,6 +28,7 @@ import { createExecution, executeTick } from '../../../game/execution';
 import { createRun } from '../../../game/run';
 import type { RunState, StartingConditions } from '../../../game/run';
 import { capsFor } from '../../../game/caps';
+import { fieldOfHeight, TALLEST_FIELD_HEIGHT } from '../../../game/field';
 import { DEFAULT_TUNING } from '../../../game/tuningRecord';
 import { foldWitness, WITNESS_VERSION } from '../../../game/witness';
 import { encodeTape } from '../../../tape/encode';
@@ -339,13 +340,21 @@ describe('the replay screen', () => {
     // requireSlot calls that a bug rather than a case to handle, which is
     // exactly right and is why attach has to grow the pools to the run's caps
     // before the first frame is drawn.
+    // The pools open at the tallest field's caps, so the tape plays the
+    // tallest field too, which is the one field whose caps can sit above them.
     const wider = {
       ...DEFAULT_TUNING,
       stage: { ...DEFAULT_TUNING.stage, quietIntervalMinimumSeconds: 1 },
     };
-    expect(capsFor(wider).mobs).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+    const tallest = fieldOfHeight(TALLEST_FIELD_HEIGHT);
+    expect(capsFor(wider, tallest).mobs).toBeGreaterThan(
+      capsFor(DEFAULT_TUNING, tallest).mobs,
+    );
 
-    const { bytes } = scriptedTape(120, 7, { tuning: wider });
+    const { bytes } = scriptedTape(120, 7, {
+      tuning: wider,
+      fieldHeight: TALLEST_FIELD_HEIGHT,
+    });
     serveTape(bytes);
 
     fakeLocation.hash = '#/replay?tape=blob%3Atape&at=60';
@@ -354,13 +363,46 @@ describe('the replay screen', () => {
     return settled(screen).then(() => {
       expect(() => driveTo(screen, 'playing')).not.toThrow();
       expect(screen['session'].playback!.run.caps.mobs).toBe(
-        capsFor(wider).mobs,
+        capsFor(wider, tallest).mobs,
       );
       // Grown to the replayed run's own pool, not this build's default.
       expect(
         screen['layers'].layer('mobBodies').children.length,
-      ).toBeGreaterThanOrEqual(capsFor(wider).mobs);
+      ).toBeGreaterThanOrEqual(capsFor(wider, tallest).mobs);
       screen.reset();
     });
+  });
+});
+
+describe("a replay's shape (tilted view T12, A35)", () => {
+  beforeEach(() => {
+    fakeLocation.search = '';
+    fakeLocation.hash = '';
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("draws the tape's own field, fitted into whatever stage shows it", async () => {
+    // T12 and A35: a phone's tall run replayed on a desktop is a tall
+    // portrait column between side bars. The stage is measured before the
+    // tape has arrived, so the fit has to follow the run once it does. A 1168
+    // field in a 1440 by 900 stage fills the height at 900 / 1168 = 0.770548,
+    // with bars of (1440 - 540 * 900 / 1168) / 2 = 511.952055 at each side.
+    const { bytes } = scriptedTape(120, 7, { fieldHeight: 1168 });
+    serveTape(bytes);
+    fakeLocation.hash = '#/replay?tape=blob%3Atape&at=60';
+    const screen = replayScreen();
+    screen.prepare();
+    screen.resize(1440, 900);
+    await settled(screen);
+
+    driveTo(screen, 'playing');
+
+    expect(screen['session'].playback!.run.field.height).toBe(1168);
+    expect(screen['field'].scale.x).toBeCloseTo(0.770548, 6);
+    expect(screen['field'].position.x).toBeCloseTo(511.952055, 5);
+    expect(screen['field'].position.y).toBeCloseTo(0, 9);
+    screen.reset();
   });
 });

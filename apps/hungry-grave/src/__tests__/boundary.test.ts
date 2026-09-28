@@ -198,6 +198,17 @@ const BOUNDARIES: Boundary[] = [
     mayReachInTests: [],
     mayImport: [],
   },
+  /**
+   * A run's scene (tilted view A34): the camera over the run's own column,
+   * pure for the camera's reason, so its tests run without a renderer.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/scene.ts'],
+    mayReach: ['app/screens/game/camera', 'game/field', 'game/tuning'],
+    mayReachInTests: [],
+    mayImport: [],
+  },
 ];
 
 // Packages any test file may import, whatever side of a boundary it is on.
@@ -1007,13 +1018,11 @@ describe('the tape codec parses a header without the director', () => {
 });
 
 /**
- * Where the old fixed height may still be read until slice P2 deletes it: src/app
- * alone. The rules, the tape, the dev tools and the scripts read the run's own
- * field or a named bound (design record A32).
+ * The old fixed height is gone from the whole tree (design record A32): a
+ * constant called the field's height that is not the run's field's height is
+ * the trap A3 named, so the rules, the tape, the dev tools, the scripts and the
+ * drawing all read the run's own field or a named bound.
  */
-const FIELD_HEIGHT_FREE = ['game', 'tape', 'dev'].map((folder) =>
-  join(SRC, folder),
-);
 const SCRIPTS = resolve(SRC, '..', 'scripts');
 const FIELD_MODULE = join(SRC, 'game', 'field');
 
@@ -1030,23 +1039,63 @@ const importsFieldHeight = (file: string, source: string): boolean =>
       /\bFIELD_HEIGHT\b/.test(requireDefined(match[1], 'no imported names')),
   );
 
-describe('the old fixed height stays in src/app (design record A32)', () => {
-  it('no file under src/game, src/tape, src/dev or scripts imports FIELD_HEIGHT', () => {
-    // The detector first, on a source that does import it, so the absence
-    // below is one it could have seen.
-    const sample = join(SRC, 'dev', 'readings', 'anyReading.ts');
+/** Whether this source declares or exports a FIELD_HEIGHT, comments aside. */
+const declaresFieldHeight = (source: string): boolean =>
+  /\bFIELD_HEIGHT\b/.test(
+    source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, ''),
+  );
+
+describe("the run's scene stays pure (tilted view A34)", () => {
+  it('the scene reaches the camera, the field and the tuning and imports no package', () => {
+    // A34: the scene is the camera's geometry over a run's column, pure for
+    // the camera's own reason, so its tests run without a renderer. Its rule
+    // has the camera's shape: the field and the starting size, and no package.
+    const file = join(SRC, 'app', 'screens', 'game', 'scene.ts');
+    const scene = BOUNDARIES.find((boundary) =>
+      boundary.only?.includes('screens/game/scene.ts'),
+    );
+    expect(scene).toBeDefined();
+    if (scene === undefined) return;
+    expect(scene.root).toBe('app');
+    expect(violationsIn(file, scene)).toEqual([]);
+    expect(
+      violationsInSource(file, "import { Container } from 'pixi.js';", scene),
+    ).toHaveLength(1);
+    expect(
+      violationsInSource(
+        file,
+        "import { createRun } from '../../../game/run';",
+        scene,
+      ),
+    ).toHaveLength(1);
+  });
+  it('nothing in the tree exports or imports FIELD_HEIGHT', () => {
+    // A32: FIELD_HEIGHT is deleted, and this fence is P1's widened to the
+    // whole tree now that nothing may read it. The detectors first, on sources
+    // that do import and export it, so the absences below are ones they could
+    // have seen.
+    const sample = join(SRC, 'app', 'screens', 'game', 'anyRenderer.ts');
     expect(
       importsFieldHeight(
         sample,
-        "import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';",
+        "import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';",
       ),
     ).toBe(true);
+    expect(declaresFieldHeight('export { FIELD_WIDTH, FIELD_HEIGHT };')).toBe(
+      true,
+    );
+    expect(declaresFieldHeight('// FIELD_HEIGHT was the old height.')).toBe(
+      false,
+    );
 
-    const files = [...FIELD_HEIGHT_FREE, SCRIPTS].flatMap(typescriptFilesUnder);
+    const files = [SRC, SCRIPTS].flatMap(typescriptFilesUnder);
     const importing = files.filter((file) =>
       importsFieldHeight(file, readFileSync(file, 'utf8')),
     );
     expect(files.length).toBeGreaterThan(0);
     expect(importing.map((file) => relative(SRC, file))).toEqual([]);
+    expect(
+      declaresFieldHeight(readFileSync(`${FIELD_MODULE}.ts`, 'utf8')),
+    ).toBe(false);
   });
 });

@@ -5,8 +5,14 @@ import type { Caps } from '../../game/caps';
 import { capsFor } from '../../game/caps';
 import type { SimEvent } from '../../game/events';
 import type { RunState } from '../../game/run';
+import type { Field } from '../../game/field';
+import {
+  fieldOfHeight,
+  SHORTEST_FIELD,
+  TALLEST_FIELD_HEIGHT,
+} from '../../game/field';
 import { DEFAULT_TUNING } from '../../game/tuningRecord';
-import type { FieldPlacement } from '../layout';
+import type { FieldPlacement, StageBox } from '../layout';
 import { DEGENERATE_PLACEMENT, fitField, READOUT_RESERVE } from '../layout';
 import { atFromUrl, tapeFromUrl } from '../seedFromUrl';
 import type { ButtonChrome } from '../ui/Button';
@@ -15,11 +21,12 @@ import { BackgroundRenderer } from './game/BackgroundRenderer';
 import { BossRenderer } from './game/BossRenderer';
 import { ENDING_SCENE_MS } from './game/endingScene';
 import { EndingSceneRenderer } from './game/EndingSceneRenderer';
-import { boundaryReadout, fieldClip } from './game/fieldFrame';
+import { drawBoundaryReadout, drawFieldClip } from './game/fieldFrame';
 import { FallRenderer } from './game/FallRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { GraveRenderer } from './game/GraveRenderer';
 import { FieldLayers } from './game/layering';
+import { sceneFor } from './game/scene';
 import { StormRenderer } from './game/StormRenderer';
 import { createReplayReadout } from './replayReadout';
 import { createTapePlaybackSession } from './tapePlaybackSession';
@@ -95,6 +102,13 @@ class ReplayScreen extends Container {
 
   private placement: FieldPlacement = DEGENERATE_PLACEMENT;
   /**
+   * The stage as it was last measured, held because the tape's run arrives
+   * after the navigation's resize and is fitted then (tilted view A35).
+   */
+  private stage: StageBox = { width: 0, height: 0 };
+  // The field being drawn: the tape's own, or the shortest while no run is held.
+  private drawnField: Field = SHORTEST_FIELD;
+  /**
    * How much of the ending scene this showing has played, in milliseconds, or
    * null while no death has begun one. It is this screen's own two-line clock
    * rather than a shared one: the live screen's hold is a way out being held
@@ -114,10 +128,10 @@ class ReplayScreen extends Container {
     this.field.interactiveChildren = false;
     this.layers = new FieldLayers();
     this.layers.addTo(this.field);
-    this.clip = fieldClip();
+    this.clip = drawFieldClip(new Graphics(), SHORTEST_FIELD);
     this.field.addChild(this.clip);
     this.field.mask = this.clip;
-    this.frame = boundaryReadout();
+    this.frame = drawBoundaryReadout(new Graphics(), SHORTEST_FIELD);
     this.dressField();
 
     this.backButton = new Button({
@@ -143,7 +157,9 @@ class ReplayScreen extends Container {
    * one place they grow.
    */
   private fieldCaps(): Caps {
-    return capsFor(DEFAULT_TUNING);
+    // The tallest field's, so a pool opened before any run is never short for
+    // the field a run takes from its stage (tilted view A30).
+    return capsFor(DEFAULT_TUNING, fieldOfHeight(TALLEST_FIELD_HEIGHT));
   }
 
   // The field's own furniture, put back after any clear() (see reset).
@@ -223,6 +239,7 @@ class ReplayScreen extends Container {
    * walk in the first sync finds a sprite for every entity the run can hold.
    */
   private beginDrawing(run: RunState | null): void {
+    this.drawTheField(run?.field ?? SHORTEST_FIELD);
     if (run === null) this.fieldRenderer.forgetPreviousRun();
     else this.fieldRenderer.attach(this.layers, run.caps);
     if (run === null) this.falls.forgetPreviousRun();
@@ -230,6 +247,37 @@ class ReplayScreen extends Container {
     this.stormRenderer.forgetPreviousRun();
     this.scene.forgetPreviousRun();
     this.sceneMs = null;
+  }
+
+  /**
+   * The tape's field, drawn in its own shape: its scene handed to every
+   * renderer (tilted view A34), its edge and clip drawn, and the field fitted
+   * into the stage as it was last measured (A35).
+   */
+  private drawTheField(field: Field): void {
+    this.drawnField = field;
+    const scene = sceneFor(field);
+    drawBoundaryReadout(this.frame, field);
+    drawFieldClip(this.clip, field);
+    this.background.useScene(scene);
+    this.fieldRenderer.useScene(scene);
+    this.bossRenderer.useScene(scene);
+    this.stormRenderer.useScene(scene);
+    this.grave.useScene(scene);
+    this.scene.useScene(scene);
+    this.fitTheDrawnField();
+  }
+
+  // The field being drawn, fitted into the stage as it was last measured, with bars where their shapes differ.
+  private fitTheDrawnField(): void {
+    this.placement = fitField(
+      this.stage.width,
+      this.stage.height,
+      this.drawnField,
+      READOUT_RESERVE,
+    );
+    this.field.position.set(this.placement.offsetX, this.placement.offsetY);
+    this.field.scale.set(this.placement.scale);
   }
 
   /**
@@ -269,9 +317,8 @@ class ReplayScreen extends Container {
   }
 
   public resize(width: number, height: number): void {
-    this.placement = fitField(width, height, READOUT_RESERVE);
-    this.field.position.set(this.placement.offsetX, this.placement.offsetY);
-    this.field.scale.set(this.placement.scale);
+    this.stage = { width, height };
+    this.fitTheDrawnField();
     this.readout.resize(width, height);
     this.backButton.position.set(
       width - READOUT_RESERVE.margin - BACK_WIDTH / 2,

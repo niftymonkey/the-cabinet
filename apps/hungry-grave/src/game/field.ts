@@ -21,15 +21,6 @@ const FIELD_WIDTH = 540;
 const SHORTEST_FIELD_HEIGHT = 760;
 const TALLEST_FIELD_HEIGHT = 1260;
 
-/**
- * Today's field height, kept for src/app alone, which reads it until slice P2
- * draws the run's own field and deletes it. No file under src/game, src/tape,
- * src/dev or scripts may import it (src/__tests__/boundary.test.ts): a
- * constant called the field's height that is not the run's field's height is
- * the trap design record A32 names.
- */
-const FIELD_HEIGHT = SHORTEST_FIELD_HEIGHT;
-
 // The field one run plays on: 540 wide, and the height its starting condition names.
 interface Field {
   readonly width: number;
@@ -71,7 +62,6 @@ interface FieldPoint {
 
 export {
   FIELD_WIDTH,
-  FIELD_HEIGHT,
   SHORTEST_FIELD_HEIGHT,
   TALLEST_FIELD_HEIGHT,
   SHORTEST_FIELD,

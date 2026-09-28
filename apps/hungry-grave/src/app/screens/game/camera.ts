@@ -6,12 +6,7 @@
  */
 
 import type { MoveCommand } from '../../../game/command';
-import {
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  type FieldPoint,
-} from '../../../game/field';
-import { SIZE_START } from '../../../game/tuning';
+import type { FieldPoint } from '../../../game/field';
 
 interface Camera {
   readonly tilt: number;
@@ -71,12 +66,6 @@ const CAMERA_VALUES = {
 };
 
 /**
- * The screen column the field is drawn into (A1): one fixed shape on every
- * device, so the ground the camera sees is one shape in field units.
- */
-const COLUMN: Column = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
-
-/**
  * How near the camera's own feet a point may get before its scale is held,
  * from the prototype's `NEAREST_SHARE` (tilted-view `index.html:696`). Past it
  * the ground is beside or behind the camera and its scale runs to infinity.
@@ -124,14 +113,6 @@ const makeCamera = (
     target: { x: column.width / 2, y: column.height / 2 },
   };
 };
-
-/** Every drawing of the field reads this camera and no other (T6). */
-const SCENE_CAMERA: Camera = makeCamera(
-  CAMERA_VALUES.tiltDegrees,
-  CAMERA_VALUES.heightInStartingHalfLengths,
-  SIZE_START,
-  COLUMN,
-);
 
 /** How many column units one field unit draws as at a ground row. */
 const scaleAtGroundRow = (camera: Camera, y: number): number => {
@@ -254,8 +235,6 @@ const bladeReach = (camera: Camera): number => {
 
 export {
   CAMERA_VALUES,
-  COLUMN,
-  SCENE_CAMERA,
   bladeReach,
   columnToGround,
   groundMoveOnColumn,

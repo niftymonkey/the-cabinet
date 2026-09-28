@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { capsFor } from '../caps';
+import { SHORTEST_FIELD } from '../field';
 import { STARTING_DIRECTOR } from '../director';
 import type { WeaponLine } from '../lines/roster';
 import { BIRTHRIGHT, MAX_LEVEL, WEAPON_LINES } from '../lines/roster';
@@ -18,7 +19,7 @@ import { DEFAULT_TUNING } from '../tuningRecord';
 import type { TuningRecord } from '../tuningRecord';
 
 // The caps every run at this tip derives, which is the default record's.
-const DEFAULT_CAPS = capsFor(DEFAULT_TUNING);
+const DEFAULT_CAPS = capsFor(DEFAULT_TUNING, SHORTEST_FIELD);
 
 /** The default record with the director's shortest wait moved, and nothing else. */
 function quietMinimumOf(seconds: number): TuningRecord {
@@ -98,7 +99,9 @@ describe('createRun', () => {
     // as amended).
     expect(createRun(1).caps).toEqual(DEFAULT_CAPS);
     const quick = quietMinimumOf(1);
-    expect(createRun(1, { tuning: quick }).caps).toEqual(capsFor(quick));
+    expect(createRun(1, { tuning: quick }).caps).toEqual(
+      capsFor(quick, SHORTEST_FIELD),
+    );
   });
 
   it('builds every pool at the caps the run derived, whatever record it started under', () => {
@@ -302,7 +305,7 @@ describe("a run's starting conditions", () => {
       fieldHeight: 760,
     });
     expect(exceptTuning(run.conditions)).toEqual(conditionsOn(run));
-    expect(run.caps).toEqual(capsFor(run.conditions.tuning));
+    expect(run.caps).toEqual(capsFor(run.conditions.tuning, run.field));
   });
 
   it('resolves every field a partial leaves out to the default a bare run resolves', () => {

@@ -7,8 +7,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  COLUMN,
-  SCENE_CAMERA,
   bladeReach,
   columnToGround,
   groundMoveOnColumn,
@@ -18,6 +16,12 @@ import {
   stepOnColumn,
   visibleGround,
 } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { sceneFor } from '../scene';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
+  sceneFor(SHORTEST_FIELD);
 
 const CLOSE = 1e-6;
 const EXACT = 1e-9;
@@ -33,18 +37,18 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
   it('the scene camera stands 1147.5 field units up, at 32.5 degrees, looking at the column centre', () => {
     // T2 is the tilt and T3 the height: 42.5 half-lengths of the starting grave
     // of 27. T6 and A1: it looks at the ground under the column's centre.
-    expectNear(SCENE_CAMERA.height, 1147.5, CLOSE);
-    expectNear(SCENE_CAMERA.tilt, (32.5 * Math.PI) / 180, CLOSE);
-    expectNear(SCENE_CAMERA.distance, 1360.5781819307, CLOSE);
-    expectNear(SCENE_CAMERA.lean, 0.8433914458, CLOSE);
-    expectNear(SCENE_CAMERA.rise, 0.5372996083, CLOSE);
-    expectNear(SCENE_CAMERA.target.x, 270, CLOSE);
-    expectNear(SCENE_CAMERA.target.y, 380, CLOSE);
+    expectNear(SHORTEST_CAMERA.height, 1147.5, CLOSE);
+    expectNear(SHORTEST_CAMERA.tilt, (32.5 * Math.PI) / 180, CLOSE);
+    expectNear(SHORTEST_CAMERA.distance, 1360.5781819307, CLOSE);
+    expectNear(SHORTEST_CAMERA.lean, 0.8433914458, CLOSE);
+    expectNear(SHORTEST_CAMERA.rise, 0.5372996083, CLOSE);
+    expectNear(SHORTEST_CAMERA.target.x, 270, CLOSE);
+    expectNear(SHORTEST_CAMERA.target.y, 380, CLOSE);
   });
 
   it('the ground under the column centre draws at the centre at scale one', () => {
     // A3: one field unit draws as one column unit at the target.
-    const at = groundToColumn(SCENE_CAMERA, 270, 380);
+    const at = groundToColumn(SHORTEST_CAMERA, 270, 380);
     expectNear(at.x, 270, CLOSE);
     expectNear(at.y, 380, CLOSE);
     expectNear(at.scale, 1, CLOSE);
@@ -52,7 +56,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('the middle row keeps its x: ground (0, 380) draws at (0, 380) at scale one', () => {
     // A3: the column's middle row is still field x 0 to 540 at y 380.
-    const at = groundToColumn(SCENE_CAMERA, 0, 380);
+    const at = groundToColumn(SHORTEST_CAMERA, 0, 380);
     expectNear(at.x, 0, CLOSE);
     expectNear(at.y, 380, CLOSE);
     expectNear(at.scale, 1, CLOSE);
@@ -60,7 +64,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it("the grave's starting point, ground (270, 608), draws at (270, 591.320185) at scale 1.098947", () => {
     // Design record "Values are data": nearer ground draws larger.
-    const at = groundToColumn(SCENE_CAMERA, 270, 608);
+    const at = groundToColumn(SHORTEST_CAMERA, 270, 608);
     expectNear(at.x, 270, CLOSE);
     expectNear(at.y, 591.320185, CLOSE);
     expectNear(at.scale, 1.098947, CLOSE);
@@ -68,7 +72,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('a far point, ground (100, 100), draws at (116.925935, 167.362471) at scale 0.900436', () => {
     // T2: far things draw smaller and toward the middle.
-    const at = groundToColumn(SCENE_CAMERA, 100, 100);
+    const at = groundToColumn(SHORTEST_CAMERA, 100, 100);
     expectNear(at.x, 116.925935, CLOSE);
     expectNear(at.y, 167.362471, CLOSE);
     expectNear(at.scale, 0.900436, CLOSE);
@@ -76,7 +80,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('a near point, ground (400, 700), draws at (418.804365, 688.923885) at scale 1.144649', () => {
     // T2: near things draw larger and away from the middle.
-    const at = groundToColumn(SCENE_CAMERA, 400, 700);
+    const at = groundToColumn(SHORTEST_CAMERA, 400, 700);
     expectNear(at.x, 418.804365, CLOSE);
     expectNear(at.y, 688.923885, CLOSE);
     expectNear(at.scale, 1.144649, CLOSE);
@@ -86,7 +90,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     // Tilt 2's lesson: only a pinhole camera, where far draws smaller, reads as tilted.
     let previous = -Infinity;
     for (let y = -168; y <= 762; y += 10) {
-      const { scale } = groundToColumn(SCENE_CAMERA, 270, y);
+      const { scale } = groundToColumn(SHORTEST_CAMERA, 270, y);
       expect(scale).toBeGreaterThan(previous);
       previous = scale;
     }
@@ -96,11 +100,11 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     // T9 and A11: steering converts through the camera's exact inverse.
     for (let i = 0; i < 9; i++) {
       for (let j = 0; j < 9; j++) {
-        const x = (COLUMN.width * i) / 8;
-        const y = (COLUMN.height * j) / 8;
-        const ground = columnToGround(SCENE_CAMERA, x, y);
+        const x = (SHORTEST_COLUMN.width * i) / 8;
+        const y = (SHORTEST_COLUMN.height * j) / 8;
+        const ground = columnToGround(SHORTEST_CAMERA, x, y);
         expect(ground).not.toBeNull();
-        const back = groundToColumn(SCENE_CAMERA, ground!.x, ground!.y);
+        const back = groundToColumn(SHORTEST_CAMERA, ground!.x, ground!.y);
         expectNear(back.x, x, EXACT);
         expectNear(back.y, y, EXACT);
       }
@@ -116,7 +120,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
       [540, 760, 499.215798, 762.5033],
     ] as const;
     for (const [cx, cy, gx, gy] of corners) {
-      const ground = columnToGround(SCENE_CAMERA, cx, cy);
+      const ground = columnToGround(SHORTEST_CAMERA, cx, cy);
       expect(ground).not.toBeNull();
       expectNear(ground!.x, gx, CLOSE);
       expectNear(ground!.y, gy, CLOSE);
@@ -125,13 +129,13 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('a column point above the horizon shows no ground: column (270, -1756) is null, column (270, -1755) is not', () => {
     // The horizon is 2135.7 column units above the middle row (design record table).
-    expect(columnToGround(SCENE_CAMERA, 270, -1756)).toBeNull();
-    expect(columnToGround(SCENE_CAMERA, 270, -1755)).not.toBeNull();
+    expect(columnToGround(SHORTEST_CAMERA, 270, -1756)).toBeNull();
+    expect(columnToGround(SHORTEST_CAMERA, 270, -1755)).not.toBeNull();
   });
 
   it('the ground the 540 by 760 column shows is the trapezoid top -168.081604, bottom 762.503300, far row -58.438897 to 598.438897, near row 40.784202 to 499.215798', () => {
     // A2 and A13: these six numbers are the field slice 7 writes into src/game.
-    const ground = visibleGround(SCENE_CAMERA, COLUMN);
+    const ground = visibleGround(SHORTEST_CAMERA, SHORTEST_COLUMN);
     expectNear(ground.top, -168.081604, CLOSE);
     expectNear(ground.bottom, 762.5033, CLOSE);
     expectNear(ground.farLeft, -58.438897, CLOSE);
@@ -144,7 +148,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     // A2: a screen column's edge projects to a straight line on the ground, so
     // the sim's field is six numbers and two straight lines.
     const rows = [0, 190, 380, 570, 760];
-    const points = rows.map((row) => columnToGround(SCENE_CAMERA, 0, row)!);
+    const points = rows.map((row) => columnToGround(SHORTEST_CAMERA, 0, row)!);
     const first = points[0]!;
     const last = points[points.length - 1]!;
     for (const point of points) {
@@ -155,7 +159,11 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('the camera over the starting grave, (270, 608) at size 27, stands 42.5 half-lengths up and 18.631042 half-lengths toward the bottom, straight behind', () => {
     // A6: the hole is cut from the scene camera, in the grave's half-lengths.
-    const stance = stanceOverGrave(SCENE_CAMERA, { x: 270, y: 608, size: 27 });
+    const stance = stanceOverGrave(SHORTEST_CAMERA, {
+      x: 270,
+      y: 608,
+      size: 27,
+    });
     expectNear(stance.cameraHeight, 42.5, CLOSE);
     expectNear(stance.nadirX, 0, CLOSE);
     expectNear(stance.nadirY, 18.631042, CLOSE);
@@ -163,7 +171,11 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it('the camera over a grave at (100, 200) at size 27 stands 6.296296 half-lengths to its right and 33.742153 toward the bottom', () => {
     // A6: away from the middle, the scene camera stands off to one side too.
-    const stance = stanceOverGrave(SCENE_CAMERA, { x: 100, y: 200, size: 27 });
+    const stance = stanceOverGrave(SHORTEST_CAMERA, {
+      x: 100,
+      y: 200,
+      size: 27,
+    });
     expectNear(stance.cameraHeight, 42.5, CLOSE);
     expectNear(stance.nadirX, 6.296296, CLOSE);
     expectNear(stance.nadirY, 33.742153, CLOSE);
@@ -172,12 +184,13 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
   it("the camera's height never follows the live grave: over a grave of size 48 it is 23.90625 half-lengths up, and over a ceiling grave of 67.5 it is 17", () => {
     // T3 and A6: 1147.5 field units whatever the grave's size.
     expectNear(
-      stanceOverGrave(SCENE_CAMERA, { x: 270, y: 608, size: 48 }).cameraHeight,
+      stanceOverGrave(SHORTEST_CAMERA, { x: 270, y: 608, size: 48 })
+        .cameraHeight,
       23.90625,
       CLOSE,
     );
     expectNear(
-      stanceOverGrave(SCENE_CAMERA, { x: 270, y: 608, size: 67.5 })
+      stanceOverGrave(SHORTEST_CAMERA, { x: 270, y: 608, size: 67.5 })
         .cameraHeight,
       17,
       CLOSE,
@@ -192,10 +205,10 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
       { x: 500, y: -100 },
     ];
     for (const from of starts) {
-      const drawn = groundToColumn(SCENE_CAMERA, from.x, from.y);
-      const landed = stepOnColumn(SCENE_CAMERA, from, { x: 12, y: -7 });
+      const drawn = groundToColumn(SHORTEST_CAMERA, from.x, from.y);
+      const landed = stepOnColumn(SHORTEST_CAMERA, from, { x: 12, y: -7 });
       expect(landed).not.toBeNull();
-      const drawnAfter = groundToColumn(SCENE_CAMERA, landed!.x, landed!.y);
+      const drawnAfter = groundToColumn(SHORTEST_CAMERA, landed!.x, landed!.y);
       expectNear(drawnAfter.x, drawn.x + 12, EXACT);
       expectNear(drawnAfter.y, drawn.y - 7, EXACT);
     }
@@ -204,7 +217,7 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
   it("a straight-up step never moves the drawn point sideways: from ground (40, 700), a step of (0, -10) lands at ground (39.055288, 690.913296), which draws at x 6.730739, the start's own x", () => {
     // T9 and A11: tilt 5's drift toward the vanishing point is what this rules out.
     const landed = stepOnColumn(
-      SCENE_CAMERA,
+      SHORTEST_CAMERA,
       { x: 40, y: 700 },
       { x: 0, y: -10 },
     );
@@ -212,31 +225,39 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     expectNear(landed!.x, 39.055288, CLOSE);
     expectNear(landed!.y, 690.913296, CLOSE);
     expectNear(
-      groundToColumn(SCENE_CAMERA, landed!.x, landed!.y).x,
+      groundToColumn(SHORTEST_CAMERA, landed!.x, landed!.y).x,
       6.730739,
       CLOSE,
     );
-    expectNear(groundToColumn(SCENE_CAMERA, 40, 700).x, 6.730739, CLOSE);
+    expectNear(groundToColumn(SHORTEST_CAMERA, 40, 700).x, 6.730739, CLOSE);
   });
 
   it('a step past the horizon has no ground: from ground (270, 380), a step of (0, -2200) is null', () => {
     // The horizon is 2135.7 column units above the middle row.
     expect(
-      stepOnColumn(SCENE_CAMERA, { x: 270, y: 380 }, { x: 0, y: -2200 }),
+      stepOnColumn(SHORTEST_CAMERA, { x: 270, y: 380 }, { x: 0, y: -2200 }),
     ).toBeNull();
   });
 
   it("ground beyond the camera's nearest share is held there and never draws at an infinite size: ground y 2700 and ground y 1e9 both draw at scale 1 / 0.12", () => {
     // The prototype's NEAREST_SHARE guard: ground at or behind the camera's
     // feet is held, so nothing is ever handed an infinity to draw with.
-    expectNear(groundToColumn(SCENE_CAMERA, 270, 2700).scale, 1 / 0.12, CLOSE);
-    expectNear(groundToColumn(SCENE_CAMERA, 270, 1e9).scale, 1 / 0.12, CLOSE);
+    expectNear(
+      groundToColumn(SHORTEST_CAMERA, 270, 2700).scale,
+      1 / 0.12,
+      CLOSE,
+    );
+    expectNear(
+      groundToColumn(SHORTEST_CAMERA, 270, 1e9).scale,
+      1 / 0.12,
+      CLOSE,
+    );
   });
 
   it('at a tilt of zero the camera looks straight down: lean one, rise zero, and ground (100, 100) draws at (100, 100) at scale one', () => {
     // The tilt is the only thing that makes the ground lean: straight down, the
     // column is the field.
-    const straightDown = makeCamera(0, 42.5, 27, COLUMN);
+    const straightDown = makeCamera(0, 42.5, 27, SHORTEST_COLUMN);
     expectNear(straightDown.lean, 1, EXACT);
     expectNear(straightDown.rise, 0, EXACT);
     const at = groundToColumn(straightDown, 100, 100);
@@ -247,8 +268,12 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
 
   it("a grass blade at 32.5 degrees draws 1.348502 times as long as build 7's, and at build 7's own angle, 12.197480 degrees, exactly as long", () => {
     // A9: a blade leans back 62 degrees, and the tilt shows more of it.
-    expectNear(bladeReach(SCENE_CAMERA), 1.348502, CLOSE);
-    expectNear(bladeReach(makeCamera(12.19748, 42.5, 27, COLUMN)), 1, CLOSE);
+    expectNear(bladeReach(SHORTEST_CAMERA), 1.348502, CLOSE);
+    expectNear(
+      bladeReach(makeCamera(12.19748, 42.5, 27, SHORTEST_COLUMN)),
+      1,
+      CLOSE,
+    );
   });
 });
 
@@ -259,7 +284,7 @@ describe('a move on the glass becomes a ground move (tilted view T9, A11)', () =
     // (39.055288, 690.913296), slice 1's pinned landing. The ground move is
     // that landing less the start, over the base speed.
     const moved = groundMoveOnColumn(
-      SCENE_CAMERA,
+      SHORTEST_CAMERA,
       { x: 40, y: 700 },
       { x: 0, y: -10 / 4.5 },
       4.5,
@@ -269,13 +294,18 @@ describe('a move on the glass becomes a ground move (tilted view T9, A11)', () =
 
     // A still move is exactly still, never a round trip's rounding.
     expect(
-      groundMoveOnColumn(SCENE_CAMERA, { x: 40, y: 700 }, { x: 0, y: 0 }, 4.5),
+      groundMoveOnColumn(
+        SHORTEST_CAMERA,
+        { x: 40, y: 700 },
+        { x: 0, y: 0 },
+        4.5,
+      ),
     ).toEqual({ x: 0, y: 0 });
 
     // A step past the horizon has no ground to reach, so the move is still.
     expect(
       groundMoveOnColumn(
-        SCENE_CAMERA,
+        SHORTEST_CAMERA,
         { x: 270, y: 380 },
         { x: 0, y: -2200 / 4.5 },
         4.5,

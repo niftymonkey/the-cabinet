@@ -104,8 +104,8 @@ interface RunSession {
   readonly execution: Execution | null;
   readonly clock: Clock;
   readonly readout: RunReadout;
-  // Starts the run the URL asks for and hands it to the screen around it.
-  begin(): StartedRun;
+  // Starts the run the URL asks for, on a field this tall, and hands it to the screen around it.
+  begin(fieldHeight: number): StartedRun;
   // One frame's elapsed time, already spent by the frame policy, turned into whole ticks.
   advanceFrame(elapsedMs: number, source: CommandSource): FrameAdvance;
   end(): void;
@@ -149,7 +149,7 @@ const NO_LEVELS: Readonly<Record<WeaponLine, number>> = uniformLevels(0);
  * it that changes size at all. The levels go in the same door, so the run is
  * born with them and the tape's header records what it was born with.
  */
-const begin = (session: Session): StartedRun => {
+const begin = (session: Session, fieldHeight: number): StartedRun => {
   const search = window.location.search;
   const hash = window.location.hash;
   const seed = seedFromUrl(search, hash);
@@ -171,6 +171,9 @@ const begin = (session: Session): StartedRun => {
     startingLevels: levels === null ? undefined : uniformLevels(levels),
     signalLock: signalLock ?? undefined,
     tuning: tuning ?? undefined,
+    // The shape the screen read off its stage (tilted view A30), a starting
+    // condition like the rest, so the header records it (A33).
+    fieldHeight,
   });
   const execution = startExecution(run);
   session.run = run;
@@ -260,7 +263,7 @@ const createRunSession = (): RunSession => {
         faults: session.execution?.faults ?? NO_FAULTS,
       };
     },
-    begin: () => begin(session),
+    begin: (fieldHeight) => begin(session, fieldHeight),
     advanceFrame: (elapsedMs, source) =>
       advanceFrame(session, elapsedMs, source),
     end: () => end(session),

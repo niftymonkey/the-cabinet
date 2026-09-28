@@ -12,9 +12,14 @@ import { createExecution, executeTick } from '../../../../game/execution';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { fitField, READOUT_RESERVE } from '../../../layout';
-import { groundToColumn, SCENE_CAMERA, stepOnColumn } from '../camera';
+import { SHORTEST_FIELD } from '../../../../game/field';
+import { groundToColumn, stepOnColumn } from '../camera';
+import { sceneFor } from '../scene';
 import type { RunSteering } from '../steering';
 import { createRunSteering } from '../steering';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
 
 // The run steering reads its persisted keyboard speed on construction.
 Object.defineProperty(globalThis, 'localStorage', {
@@ -25,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 const SEED = 20260927;
 
 // A 390 by 844 phone, the shape the verification's rendered check uses.
-const PHONE = fitField(390, 844, READOUT_RESERVE);
+const PHONE = fitField(390, 844, SHORTEST_FIELD, READOUT_RESERVE);
 
 const CLOSE = 1e-6;
 
@@ -77,7 +82,7 @@ const tick = (rig: Rig): void => {
 
 /** Where the grave draws on the column now. */
 const drawn = (rig: Rig): { x: number; y: number } =>
-  groundToColumn(SCENE_CAMERA, rig.run.grave.x, rig.run.grave.y);
+  groundToColumn(SHORTEST_CAMERA, rig.run.grave.x, rig.run.grave.y);
 
 /**
  * A finger put down on the glass and moved past the slop, so the drag is
@@ -125,7 +130,7 @@ const expectDrawnTravel = (
 
 /** Where on the glass a ground point draws, in CSS pixels. */
 const onGlass = (x: number, y: number): { x: number; y: number } => {
-  const column = groundToColumn(SCENE_CAMERA, x, y);
+  const column = groundToColumn(SHORTEST_CAMERA, x, y);
   return {
     x: PHONE.offsetX + column.x * PHONE.scale,
     y: PHONE.offsetY + column.y * PHONE.scale,
@@ -306,7 +311,7 @@ describe('steering on the glass (tilted view T9, A11)', () => {
     rig.steering.pointerMove(touchAt(rig.finger.x, rig.finger.y), PHONE);
     tick(rig);
     const step = { x: 12 / PHONE.scale, y: 9 / PHONE.scale };
-    const reached = stepOnColumn(SCENE_CAMERA, before, step);
+    const reached = stepOnColumn(SHORTEST_CAMERA, before, step);
     expect(reached).not.toBeNull();
     expect(Math.abs(rig.run.grave.x - reached!.x)).toBeLessThan(GRID_PER_TICK);
     expect(Math.abs(rig.run.grave.y - reached!.y)).toBeLessThan(GRID_PER_TICK);

@@ -11,19 +11,18 @@ import {
   Texture,
 } from 'pixi.js';
 
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import {
+  fieldOfHeight,
+  SHORTEST_FIELD,
+  TALLEST_FIELD_HEIGHT,
+} from '../../../game/field';
 import type { RunState } from '../../../game/run';
 import type { SetPiece } from '../../../game/stage/setPiece';
 import { SECTIONS } from '../../../game/stage/stage';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import {
-  COLUMN,
-  SCENE_CAMERA,
-  bladeReach,
-  groundToColumn,
-  visibleGround,
-} from './camera';
+import type { Camera, VisibleGround } from './camera';
+import { bladeReach, visibleGround } from './camera';
 import type { DressingSetName, Stance, StandInArt } from './groundDressing';
 import {
   acrossAt,
@@ -34,29 +33,14 @@ import {
   SOURCE_AWAKE,
   SOURCE_DORMANT,
 } from './groundDressing';
-import type { Field } from './groundPainting';
 import type { GroundGrid } from './groundMesh';
 import { groundGrid, groundGridIndices } from './groundMesh';
 import { groundResolution, paintGround } from './groundPainting';
 import type { Placement } from './groundPlacement';
 import { lyingAt, standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
-
-/** The field the ground is painted across, which ADR 0003 fixes. */
-const FIELD: Field = { width: FIELD_WIDTH, height: FIELD_HEIGHT };
-
-/** The patch of ground the camera shows the column (A2), which the dressing is laid across. */
-const SEEN = visibleGround(SCENE_CAMERA, COLUMN);
-
-/**
- * The camera's scale at the column's nearest row, 1.178, so the near ground is
- * baked as sharp as it draws (A10's rule, applied to the ground).
- */
-const NEAREST_ROW_SCALE = groundToColumn(
-  SCENE_CAMERA,
-  COLUMN.width / 2,
-  SEEN.bottom,
-).scale;
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 /**
  * How fast the ground runs against the field: the field's own scroll, so what
@@ -95,16 +79,26 @@ const DRESSING_SCALE = 1.875;
 const TALLEST_DRESSING_PIXELS = 112;
 
 /**
- * How long a piece of dressing takes to fall from the top row of the ground
- * the camera sees to clear of its bottom row. It is the drift window: at a
+ * How long a piece of dressing takes to fall from the top row of the ground a
+ * scene's camera sees to clear of its bottom row. It is the drift window: at a
  * boundary the outgoing set stops being placed and the incoming starts, and
  * both are on screen until the last of the old leaves the bottom edge
  * (decision 22's amendment, Einhänder's answer). No fade, no cut, no card.
  */
-const DRIFT_WINDOW_TICKS = Math.ceil(
-  (SEEN.bottom - SEEN.top + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) /
-    GROUND_SPEED,
-);
+const crossingTicks = (scene: Scene): number => {
+  const seen = visibleGround(scene.camera, scene.column);
+  return Math.ceil(
+    (seen.bottom - seen.top + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) /
+      GROUND_SPEED,
+  );
+};
+
+/**
+ * The drift window on the shortest field, where the dressing's density was
+ * authored. A taller field's column shows more ground at the same interval, so
+ * it carries more pieces at the same density per unit of ground (A34).
+ */
+const DRIFT_WINDOW_TICKS = crossingTicks(sceneFor(SHORTEST_FIELD));
 
 /**
  * How many placements are in flight at once, which is the density the ground is
@@ -124,19 +118,29 @@ const DRESSING_INTERVAL_TICKS = Math.round(
   DRIFT_WINDOW_TICKS / DRESSING_ON_SCREEN,
 );
 
-/** One sprite per placement that can be on screen at once, plus the one arriving. */
+/**
+ * One sprite per placement that can be on screen at once, plus the one
+ * arriving, on the tallest field's crossing, so the pool is never short for
+ * any run's scene and one built before any run exists never grows.
+ */
 const DRESSING_SLOTS =
-  Math.ceil(DRIFT_WINDOW_TICKS / DRESSING_INTERVAL_TICKS) + 1;
+  Math.ceil(
+    crossingTicks(sceneFor(fieldOfHeight(TALLEST_FIELD_HEIGHT))) /
+      DRESSING_INTERVAL_TICKS,
+  ) + 1;
 
 /**
  * Where a piece of dressing draws with its foot at this ground point. Every
  * piece is anchored at its foot, so a standing one rises from it and a lying
  * one reaches up the ground from it.
  */
-const placementOf = (stance: Stance, x: number, y: number): Placement =>
-  stance === 'standing'
-    ? standingAt(SCENE_CAMERA, x, y, 0)
-    : lyingAt(SCENE_CAMERA, x, y);
+const placementOf = (
+  camera: Camera,
+  stance: Stance,
+  x: number,
+  y: number,
+): Placement =>
+  stance === 'standing' ? standingAt(camera, x, y, 0) : lyingAt(camera, x, y);
 
 /** How far the source's dark companion stands out past its body, in field units. */
 const SOURCE_RIM = 3;
@@ -193,8 +197,23 @@ const groundMeshOver = (grid: GroundGrid): Mesh => {
 };
 
 class BackgroundRenderer {
+  /**
+   * The run's scene, or the shortest field's before any run is handed in. The
+   * ground, the dressing and the source are all drawn through it (A34).
+   */
+  private scene: Scene = sceneFor(SHORTEST_FIELD);
+  /** The patch of ground the scene's camera shows its column (A2), which the dressing is laid across. */
+  private seen: VisibleGround = visibleGround(
+    this.scene.camera,
+    this.scene.column,
+  );
   /** The grid unscrolled, which every frame's texture rows are read from. */
-  private readonly grid = groundGrid(SCENE_CAMERA, COLUMN, FIELD, 0);
+  private grid = groundGrid(
+    this.scene.camera,
+    this.scene.column,
+    this.scene.field,
+    0,
+  );
   private readonly ground = groundMeshOver({
     positions: this.grid.positions,
     uvs: this.grid.uvs.slice(),
@@ -206,6 +225,13 @@ class BackgroundRenderer {
   private readonly props: BackgroundProps;
   private built = false;
   private bakedAt: number | null = null;
+  /**
+   * The picture the last repaint replaced, freed at the next one. The ground
+   * draws through Pixi's shared mesh shader, whose bind group holds the last
+   * texture it drew and destroys itself when that texture is destroyed, so a
+   * picture freed in the frame that swaps it breaks the next ground drawn.
+   */
+  private retired: Texture | null = null;
   private wanted: { view: GroundView; resolution: number } | null = null;
   private warnedUnmeasured = false;
 
@@ -233,6 +259,20 @@ class BackgroundRenderer {
     ground.addChild(this.ground);
     for (const sprite of this.dressing) ground.addChild(sprite);
     ground.addChild(this.sourceRim, this.source);
+  }
+
+  /**
+   * The run about to be drawn's scene. The grid is laid again on its column,
+   * and the ground is painted again for its field on the next frame, because
+   * the picture is one field tall.
+   */
+  public useScene(scene: Scene): void {
+    this.scene = scene;
+    this.seen = visibleGround(scene.camera, scene.column);
+    this.grid = groundGrid(scene.camera, scene.column, scene.field, 0);
+    this.ground.geometry.positions = this.grid.positions;
+    this.ground.geometry.uvs = this.grid.uvs.slice();
+    this.bakedAt = null;
   }
 
   // The dressing pool, allocated once, so a placement never allocates.
@@ -266,7 +306,8 @@ class BackgroundRenderer {
    * precision on a long run.
    */
   private syncGround(tick: number): void {
-    const scrolled = ((tick * GROUND_SPEED) % FIELD.height) / FIELD.height;
+    const height = this.scene.field.height;
+    const scrolled = ((tick * GROUND_SPEED) % height) / height;
     const rows = this.ground.geometry.uvs;
     const unscrolled = this.grid.uvs;
     for (let at = 1; at < rows.length; at += 2) {
@@ -311,9 +352,9 @@ class BackgroundRenderer {
     const viewScale = this.viewScaleFor(renderer);
     if (viewScale === null) return;
     const resolution = groundResolution(
-      viewScale * NEAREST_ROW_SCALE,
+      viewScale * this.scene.nearestScale,
       globalThis.devicePixelRatio || 1,
-      FIELD,
+      this.scene.field,
     );
     if (this.bakedAt === resolution) return;
     this.wanted = { view: renderer, resolution };
@@ -344,10 +385,11 @@ class BackgroundRenderer {
    */
   private bakeGround(renderer: GroundView, resolution: number): void {
     const art = new Graphics();
-    paintGround(art, FIELD, bladeReach(SCENE_CAMERA));
+    const field = this.scene.field;
+    paintGround(art, field, bladeReach(this.scene.camera));
     const texture = renderer.generateTexture({
       target: art,
-      frame: new Rectangle(0, 0, FIELD.width, FIELD.height),
+      frame: new Rectangle(0, 0, field.width, field.height),
       resolution,
       antialias: true,
     });
@@ -357,10 +399,11 @@ class BackgroundRenderer {
     // (the prototype's own fix, tilted-view index.html:1957-1963).
     texture.source.style.addressMode = 'repeat';
     texture.source.style.update();
+    this.retired?.destroy(true);
     const spent = this.ground.texture;
+    this.retired = spent === Texture.EMPTY ? null : spent;
     this.ground.texture = texture;
     art.destroy(true);
-    if (spent !== Texture.EMPTY) spent.destroy(true);
   }
 
   /**
@@ -389,17 +432,19 @@ class BackgroundRenderer {
     }
     const width = texture.frame.width * DRESSING_SCALE;
     const height = texture.frame.height * DRESSING_SCALE;
-    sprite.visible = fallen - height <= SEEN.bottom - SEEN.top;
+    const seen = this.seen;
+    sprite.visible = fallen - height <= seen.bottom - seen.top;
     if (!sprite.visible) return;
     if (sprite.texture !== texture) sprite.texture = texture;
     sprite.tint = set.tint.hex;
     // Laid across the far row, where it is placed, so the far corners the
     // camera sees are dressed too (A4's rule for anything spread across).
-    const farWidth = SEEN.farRight - SEEN.farLeft;
+    const farWidth = seen.farRight - seen.farLeft;
     const at = placementOf(
+      this.scene.camera,
       art.stance,
-      SEEN.farLeft + width / 2 + acrossAt(index) * (farWidth - width),
-      SEEN.top + fallen,
+      seen.farLeft + width / 2 + acrossAt(index) * (farWidth - width),
+      seen.top + fallen,
     );
     sprite.setSize(width * at.scaleX, height * at.scaleY);
     sprite.position.set(at.x, at.y);
@@ -438,7 +483,7 @@ class BackgroundRenderer {
     if (this.source.texture !== texture) this.source.texture = texture;
     if (this.sourceRim.texture !== texture) this.sourceRim.texture = texture;
     // The source lies on the ground at the set piece's point (A7).
-    const at = lyingAt(SCENE_CAMERA, setPiece.x, setPiece.y);
+    const at = lyingAt(this.scene.camera, setPiece.x, setPiece.y);
     this.source.setSize(width * at.scaleX, height * at.scaleY);
     this.sourceRim.setSize(
       (width + 2 * SOURCE_RIM) * at.scaleX,

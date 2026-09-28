@@ -2,7 +2,7 @@
 
 import { TICK_HZ } from './clock';
 import type { Field } from './field';
-import { FIELD_WIDTH, SHORTEST_FIELD } from './field';
+import { FIELD_WIDTH } from './field';
 import { BODY, MAX_ENTRY_DEPTH } from './stage/formations';
 import type { FirePhase, ShotPattern } from './stage/waves';
 import {
@@ -277,15 +277,8 @@ const corpseCap = (tuning: TuningRecord, field: Field): number =>
  * all three in the same call and a reader takes them off the run afterwards
  * (ADR 0056 as amended). All three grow with the run's field (design record
  * A32).
- *
- * The field defaults to the shortest only for src/app's three callers, which
- * slice P2 hands the run's own field and which removes the default. Every
- * caller in the rules passes the run's field.
  */
-const capsFor = (
-  tuning: TuningRecord,
-  field: Field = SHORTEST_FIELD,
-): Caps => ({
+const capsFor = (tuning: TuningRecord, field: Field): Caps => ({
   mobs: mobCap(tuning, field),
   mobFire: mobFireCap(tuning, field),
   corpses: corpseCap(tuning, field),

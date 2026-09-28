@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fitField } from '../app/layout';
+import { SHORTEST_FIELD } from '../game/field';
 import { playFor } from '../app/sound';
 import { userSettings } from '../app/userSettings';
 import { dodgePolicy, belchingPolicy, runPolicy } from '../dev/bot';
@@ -54,7 +55,7 @@ describe('a normal boot', () => {
     // The four sites a boot walks through, in the order a boot reaches them.
     expect(getResolution()).toBe(2);
     expect(userSettings.getKeyboardSpeed()).toBe(1);
-    fitField(1440, 900);
+    fitField(1440, 900, SHORTEST_FIELD);
     playFor(workingSound, {
       type: 'chimed',
       kind: 'corpse',
@@ -68,7 +69,7 @@ describe('a normal boot', () => {
   });
 
   it('a phone-shaped viewport and a settings round trip stay quiet too', () => {
-    fitField(390, 844);
+    fitField(390, 844, SHORTEST_FIELD);
     userSettings.setKeyboardSpeed(1.35);
 
     expect(userSettings.getKeyboardSpeed()).toBeCloseTo(1.35, 12);

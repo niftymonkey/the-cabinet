@@ -41,6 +41,11 @@ vi.mock('../seedFromUrl', async (importOriginal) => {
 });
 
 import { capsFor } from '../../game/caps';
+import {
+  fieldOfHeight,
+  SHORTEST_FIELD,
+  TALLEST_FIELD_HEIGHT,
+} from '../../game/field';
 import { TICK_MS } from '../../game/clock';
 import { DEFAULT_TUNING, resolveTuning } from '../../game/tuningRecord';
 import { GameScreen } from '../screens/game/GameScreen';
@@ -62,9 +67,10 @@ function frame(elapsedMS: number): Ticker {
 }
 
 /** A game screen holding faked powers, the way navigation hands them in. */
-function gameScreen(): GameScreen {
+function gameScreen(stage = { width: 540, height: 760 }): GameScreen {
   const screen = new GameScreen();
   screen.init({
+    stageBox: () => stage,
     openMenu: async () => {},
     closeMenu: async () => {},
     menuShowing: () => false,
@@ -88,11 +94,16 @@ describe('the screen a run plays on', () => {
     // leaves room for, so the first sync would walk slots the pools never had:
     // requireSlot calls that a bug rather than a case to handle, which is why
     // attach has to grow the pools to the started run's caps first.
+    // The pools open at the tallest field's caps, so the run plays the
+    // tallest field too, which is the one stage whose caps can sit above them.
     const wider = resolveTuning({ stage: { quietIntervalMinimumSeconds: 1 } });
-    expect(capsFor(wider).mobs).toBeGreaterThan(capsFor(DEFAULT_TUNING).mobs);
+    const tallest = fieldOfHeight(TALLEST_FIELD_HEIGHT);
+    expect(capsFor(wider, tallest).mobs).toBeGreaterThan(
+      capsFor(DEFAULT_TUNING, tallest).mobs,
+    );
     named.record = wider;
 
-    const screen = gameScreen();
+    const screen = gameScreen({ width: 540, height: 1260 });
 
     expect(() => screen.prepare()).not.toThrow();
     for (let drawn = 0; drawn < 5; drawn++) {
@@ -101,7 +112,7 @@ describe('the screen a run plays on', () => {
     // Grown to the started run's own pool, not this build's default.
     expect(
       screen['layers'].layer('mobBodies').children.length,
-    ).toBeGreaterThanOrEqual(capsFor(wider).mobs);
+    ).toBeGreaterThanOrEqual(capsFor(wider, tallest).mobs);
     screen.reset();
   });
 
@@ -116,7 +127,42 @@ describe('the screen a run plays on', () => {
     expect(() => screen.update(frame(TICK_MS))).not.toThrow();
     expect(
       screen['layers'].layer('mobBodies').children.length,
-    ).toBeGreaterThanOrEqual(capsFor(DEFAULT_TUNING).mobs);
+    ).toBeGreaterThanOrEqual(capsFor(DEFAULT_TUNING, SHORTEST_FIELD).mobs);
+    screen.reset();
+  });
+});
+
+describe("the run's shape (tilted view T12, A35)", () => {
+  it('begins a run on the field its stage asks for', () => {
+    // T12: a run takes its shape from the stage the navigation last measured,
+    // when it starts. An iPhone 15's stage at a small viewport of 660 is 540
+    // by 906 (show-what-you-have.md section 3.1), so its run is 906 tall.
+    named.record = null;
+    const screen = gameScreen({ width: 540, height: 906 });
+
+    screen.prepare();
+
+    expect(screen['session'].run?.field.height).toBe(906);
+    screen.reset();
+  });
+
+  it("keeps the run's field through a resize mid-run, fitted with bars", () => {
+    // A35: a window resized mid-run refits the same field and never changes
+    // it, so the sim and the tape keep one shape. A 906 field in a 540 by 600
+    // stage fills the height at 600 / 906 = 0.662252, and the bars are the
+    // sides, (540 - 540 * 600 / 906) / 2 = 91.192053 each.
+    named.record = null;
+    const screen = gameScreen({ width: 540, height: 906 });
+    screen.prepare();
+    screen.resize(540, 906);
+    screen.update(frame(TICK_MS));
+
+    screen.resize(540, 600);
+
+    expect(screen['session'].run?.field.height).toBe(906);
+    expect(screen['field'].scale.x).toBeCloseTo(0.662252, 6);
+    expect(screen['field'].position.x).toBeCloseTo(91.192053, 5);
+    expect(screen['field'].position.y).toBeCloseTo(0, 9);
     screen.reset();
   });
 });

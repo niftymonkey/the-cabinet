@@ -22,6 +22,11 @@ function levelIn(header: TapeHeader, line: string): number | undefined {
   )?.value;
 }
 
+/** A row of a header's block, read by name. */
+function rowIn(header: TapeHeader, name: string): number | undefined {
+  return header.startingCondition.find((entry) => entry.name === name)?.value;
+}
+
 const APP = resolve(import.meta.dirname, '..', '..');
 const VITE_NODE = join(APP, 'node_modules', '.bin', 'vite-node');
 const SEED = 20260831;
@@ -198,5 +203,57 @@ describe('the record-conditioned tool', () => {
       expect(result.stderr).not.toMatch(/^\s+at /m);
     },
     SUBPROCESS_BUDGET_MS,
+  );
+
+  it(
+    'records on the field it names, records 760 when it names none, and refuses a field it cannot play',
+    () => {
+      // A31: a conditioned tape takes field=<height> so evidence can be
+      // recorded on a tall phone's field, and the header names the height the
+      // run resolved to (A33). With none named it records the shortest field,
+      // the tape it recorded before the field had a height.
+      const tall = pathWithNoFile('tall.tape');
+      const tallResult = runRecord(
+        tall,
+        String(SEED),
+        String(TICKS),
+        'rig=birthright',
+        'field=1168',
+      );
+      expect(tallResult.status).toBe(0);
+      const tallTape = decodeTape(new Uint8Array(readFileSync(tall)));
+      expect(rowIn(tallTape.tape.header, 'fieldHeight')).toBe(1168);
+      const tallMeasured = measure(tallTape);
+      expect(tallMeasured.outcome).toBe('verified');
+      if (tallMeasured.outcome !== 'verified') return;
+      expect(tallMeasured.provenance.fieldHeight).toBe(1168);
+
+      const plain = pathWithNoFile('plain.tape');
+      expect(
+        runRecord(plain, String(SEED), String(TICKS), 'rig=birthright').status,
+      ).toBe(0);
+      const plainTape = decodeTape(new Uint8Array(readFileSync(plain)));
+      expect(rowIn(plainTape.tape.header, 'fieldHeight')).toBe(760);
+
+      for (const flawed of ['field=700', 'field=abc']) {
+        const out = pathWithNoFile('refused.tape');
+        const refused = runRecord(
+          out,
+          String(SEED),
+          String(TICKS),
+          'rig=birthright',
+          flawed,
+        );
+        expect(refused.status).toBe(1);
+        expect(refused.stdout).toBe('');
+        expect(refused.stderr).toContain(flawed.slice('field='.length));
+        expect(refused.stderr).toContain('is not a field height');
+        expect(refused.stderr).toContain(
+          'usage: pnpm vite-node --config vite.headless.config.ts scripts/record-conditioned.ts',
+        );
+        expect(existsSync(out)).toBe(false);
+      }
+    },
+    SUBPROCESS_BUDGET_MS * 4,
   );
 });

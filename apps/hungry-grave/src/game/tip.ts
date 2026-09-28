@@ -1,7 +1,7 @@
 // The tip: how much of a piece of food is over the grave's mouth.
 
 import type { Field } from './field';
-import { FIELD_WIDTH, SHORTEST_FIELD } from './field';
+import { FIELD_WIDTH } from './field';
 import type { Rect } from './overlap';
 
 /**
@@ -62,16 +62,8 @@ const insideTheField = (box: Rect, field: Field): Rect => {
  *
  * Plain arithmetic only, so a tape replays the same on a phone and a computer
  * (ADR 0015).
- *
- * The field defaults to the shortest only for src/app's FieldRenderer, which
- * slice P2 hands the run's own field and which removes the default. Every
- * caller in the rules passes the run's field.
  */
-const shareOverMouth = (
-  food: Rect,
-  mouth: Rect,
-  field: Field = SHORTEST_FIELD,
-): number => {
+const shareOverMouth = (food: Rect, mouth: Rect, field: Field): number => {
   const inField = insideTheField(food, field);
   if (inField.width <= 0 || inField.height <= 0) return 0;
   const most =

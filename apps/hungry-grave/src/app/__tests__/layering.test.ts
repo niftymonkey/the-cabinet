@@ -7,7 +7,11 @@ import { Container, Graphics } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resize } from '../../engine/resize/resize';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+} from '../../game/field';
 import type { FaultRecord } from '../../game/execution';
 import type { FaultIdentity } from '../../game/faults';
 import { FAULT_IDENTITIES, FAULT_SEVERITY } from '../../game/faults';
@@ -63,6 +67,7 @@ function gameScreen(): GameScreen {
     playButtonSound: () => {},
     canvas: null,
     renderer: { name: 'webgl', resolution: 2 },
+    stageBox: () => ({ width: 540, height: 760 }),
   });
   return screen;
 }
@@ -215,7 +220,7 @@ describe("the game screen's field container", () => {
       const screen = gameScreen();
       screen.resize(width, height);
 
-      const placement = fitField(width, height);
+      const placement = fitField(width, height, SHORTEST_FIELD);
       const field: Container = screen['field'];
       expect(field.position.x).toBe(placement.offsetX);
       expect(field.position.y).toBe(placement.offsetY);
@@ -322,7 +327,7 @@ function stageOf(viewport: { width: number; height: number }) {
     viewport.width,
     viewport.height,
     FIELD_WIDTH,
-    FIELD_HEIGHT,
+    SHORTEST_FIELD_HEIGHT,
     false,
   );
 }
@@ -391,7 +396,7 @@ describe("the frame's three regimes (record R10)", () => {
       const screen = gameScreen();
       screen.resize(stage.width, stage.height);
 
-      const placement = fitField(stage.width, stage.height);
+      const placement = fitField(stage.width, stage.height, SHORTEST_FIELD);
       const field: Container = screen['field'];
       expect(`${regime.name} ${field.position.y} ${field.scale.x}`).toBe(
         `${regime.name} ${placement.offsetY} ${placement.scale}`,
@@ -437,7 +442,7 @@ describe("the frame's three regimes (record R10)", () => {
     // no viewport breakpoint (record R1).
     for (const regime of REGIMES) {
       const stage = stageOf(regime);
-      const placement = fitField(stage.width, stage.height);
+      const placement = fitField(stage.width, stage.height, SHORTEST_FIELD);
       const row = hudRow(placement);
       const fieldTop = placement.offsetY;
       const outside = fieldTop >= row.height;
@@ -489,7 +494,7 @@ describe("the frame's three regimes (record R10)", () => {
     // below.
     const crossed = REGIMES.map((regime) => {
       const stage = stageOf(regime);
-      const row = hudRow(fitField(stage.width, stage.height));
+      const row = hudRow(fitField(stage.width, stage.height, SHORTEST_FIELD));
       return `${regime.name}: ${crossedBy(row, reservedCorners(stage.width))}`;
     });
     expect(crossed).toEqual([
@@ -511,7 +516,7 @@ describe("the frame's three regimes (record R10)", () => {
     // the clearance that replaced it.
     const crossed = REGIMES.map((regime) => {
       const stage = stageOf(regime);
-      const row = hudRow(fitField(stage.width, stage.height));
+      const row = hudRow(fitField(stage.width, stage.height, SHORTEST_FIELD));
       const screen = gameScreen();
       screen.resize(stage.width, stage.height);
       const pause = {
@@ -534,7 +539,7 @@ describe("the frame's three regimes (record R10)", () => {
       const stage = stageOf(regime);
       const screen = gameScreen();
       screen.resize(stage.width, stage.height);
-      const row = hudRow(fitField(stage.width, stage.height));
+      const row = hudRow(fitField(stage.width, stage.height, SHORTEST_FIELD));
       const pause = centredOn(screen['pauseButton'].position, 132, 68);
       const below = pause.top >= row.top + row.height;
       return `${regime.name}: top ${pause.top} below the row ${below}`;

@@ -3,7 +3,7 @@ import { Assets, BlurFilter, Cache, Texture } from 'pixi.js';
 import { createFpsMeter } from './app/FpsMeter';
 import { FpsSampler } from './app/FpsSampler';
 import { setEngine } from './app/getEngine';
-import { FIELD_HEIGHT, FIELD_WIDTH } from './game/field';
+import { FIELD_WIDTH, SHORTEST_FIELD_HEIGHT } from './game/field';
 import { PALETTE } from './app/palette';
 import { PausePopup } from './app/popups/PausePopup';
 import { SettingsPopup } from './app/popups/SettingsPopup';
@@ -19,6 +19,7 @@ import { GameScreen } from './app/screens/game/GameScreen';
 import { LoadScreen } from './app/screens/LoadScreen';
 import { PrototypesScreen } from './app/screens/PrototypesScreen';
 import { TitleScreen } from './app/screens/TitleScreen';
+import type { StageBox } from './app/layout';
 import type { MusicOutput } from './app/sound';
 import { MUSIC_BUNDLE, playFor, playMusicFor } from './app/sound';
 import { userSettings } from './app/userSettings';
@@ -75,10 +76,11 @@ const initEngine = async (): Promise<CreationEngine> => {
     background: PALETTE.night.hex,
     // The stage's floor is the field's own unit space, never device pixels
     // (ADR 0003). The two were the same numbers written twice, and nothing
-    // noticed if one of them moved.
+    // noticed if one of them moved. The height is the shortest field's, the
+    // most any run's field needs the stage to hold (tilted view A30).
     resizeOptions: {
       minWidth: FIELD_WIDTH,
-      minHeight: FIELD_HEIGHT,
+      minHeight: SHORTEST_FIELD_HEIGHT,
       letterbox: false,
     },
   });
@@ -248,6 +250,12 @@ const showEnd = (engine: CreationEngine): Promise<void> =>
     ...buttonSound(engine),
   });
 
+/** The stage as the navigation last measured it, which a run starting takes its shape from (tilted view A35). */
+const stageBoxOf = (engine: CreationEngine): StageBox => ({
+  width: engine.navigation.width,
+  height: engine.navigation.height,
+});
+
 /** A run, and every power the screen it plays on cannot reach on its own. */
 const showGame = (engine: CreationEngine): Promise<void> => {
   // One channel per showing rather than one per event: the screen asks on every
@@ -265,6 +273,7 @@ const showGame = (engine: CreationEngine): Promise<void> => {
     ...buttonSound(engine),
     canvas: engine.canvas,
     renderer: engine.renderer,
+    stageBox: () => stageBoxOf(engine),
   });
 };
 
@@ -333,6 +342,7 @@ const showFrameBudget = async (engine: CreationEngine): Promise<void> => {
   await engine.navigation.showScreen(FrameBudgetScreen, {
     onBack: goHome,
     drawField: (field) => engine.renderer.render({ container: field }),
+    stageBox: () => stageBoxOf(engine),
     ...buttonSound(engine),
   });
 };

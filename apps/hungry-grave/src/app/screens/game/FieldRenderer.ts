@@ -4,7 +4,7 @@ import type { Caps } from '../../../game/caps';
 import { TICK_HZ } from '../../../game/clock';
 import type { Corpse } from '../../../game/corpses';
 import { corpseHitbox } from '../../../game/corpses';
-import { FIELD_HEIGHT, FIELD_WIDTH } from '../../../game/field';
+import { SHORTEST_FIELD } from '../../../game/field';
 import { graveHitbox } from '../../../game/grave';
 import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
@@ -12,7 +12,6 @@ import type { RunState } from '../../../game/run';
 import { shareOverMouth } from '../../../game/tip';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
-import { SCENE_CAMERA } from './camera';
 import {
   drawCorpse,
   drawTreasureBody,
@@ -36,6 +35,8 @@ import {
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 /**
  * Everything on the field, drawn from the sim's own pools.
@@ -132,7 +133,11 @@ const leanOf = (corpse: Corpse, run: RunState): number => {
   // leaves no span to lean through: food under the threshold stands straight.
   const span = threshold - TEETER_START;
   if (span <= 0) return 0;
-  const share = shareOverMouth(corpseHitbox(corpse), graveHitbox(run.grave));
+  const share = shareOverMouth(
+    corpseHitbox(corpse),
+    graveHitbox(run.grave),
+    run.field,
+  );
   return Math.max(0, Math.min(1, (share - TEETER_START) / span));
 };
 
@@ -173,6 +178,8 @@ interface ShotMemory {
 }
 
 class FieldRenderer {
+  // The run's scene, or the shortest field's before any run is handed in (A34).
+  private scene: Scene = sceneFor(SHORTEST_FIELD);
   private readonly mobSprites: Graphics[] = [];
   private readonly shotSprites: Graphics[] = [];
   private readonly corpseSprites: Graphics[] = [];
@@ -202,6 +209,18 @@ class FieldRenderer {
   private readonly shotLooks: string[] = [];
   private readonly shotMemory: ShotMemory[] = [];
   private built = false;
+
+  /**
+   * The run about to be drawn's scene: every placement goes through its
+   * camera, and the hit dim covers its field.
+   */
+  public useScene(scene: Scene): void {
+    this.scene = scene;
+    this.dim
+      .clear()
+      .rect(0, 0, scene.field.width, scene.field.height)
+      .fill({ color: PALETTE.night.hex });
+  }
 
   /**
    * Puts every pooled sprite into the layer layering.ts names for it.
@@ -330,7 +349,7 @@ class FieldRenderer {
     if (this.built) return;
     this.built = true;
     this.dim
-      .rect(0, 0, FIELD_WIDTH, FIELD_HEIGHT)
+      .rect(0, 0, this.scene.field.width, this.scene.field.height)
       .fill({ color: PALETTE.night.hex });
     this.dim.alpha = 0;
     for (let slot = 0; slot < SCATTER_SLOTS; slot++) {
@@ -367,7 +386,7 @@ class FieldRenderer {
         drawMob(sprite, mob);
       }
       const { halfHeight, motion } = MOB_TYPES[mob.type];
-      const at = standingAt(SCENE_CAMERA, mob.x, mob.y, halfHeight);
+      const at = standingAt(this.scene.camera, mob.x, mob.y, halfHeight);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
       sprite.zIndex = mob.y + halfHeight;
@@ -375,7 +394,7 @@ class FieldRenderer {
       // ghoul's turn readable at all; the other two types are drawn upright.
       sprite.rotation =
         motion === 'chases'
-          ? headingOnColumn(SCENE_CAMERA, mob.x, mob.y, mob.vx, mob.vy) -
+          ? headingOnColumn(this.scene.camera, mob.x, mob.y, mob.vx, mob.vy) -
             Math.PI / 2
           : 0;
     }
@@ -412,7 +431,7 @@ class FieldRenderer {
         this.shotLooks[slot] = look;
         drawShot(sprite, shot);
       }
-      const at = hostileFireAt(SCENE_CAMERA, shot.x, shot.y);
+      const at = hostileFireAt(this.scene.camera, shot.x, shot.y);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
     }
@@ -454,7 +473,7 @@ class FieldRenderer {
         slot,
         'food placement',
       );
-      const at = lyingAt(SCENE_CAMERA, corpse.x, corpse.y);
+      const at = lyingAt(this.scene.camera, corpse.x, corpse.y);
       placement.position.set(at.x, at.y);
       placement.scale.set(at.scaleX, at.scaleY);
       // The teeter, on every live piece of food and on every frame (design
@@ -478,17 +497,18 @@ class FieldRenderer {
    * grave; one that stopped outside it was culled and needs no read.
    */
   private cancelAt(run: RunState, seen: ShotMemory): void {
+    const field = this.scene.field;
     const inside =
       seen.x >= 0 &&
-      seen.x <= FIELD_WIDTH &&
+      seen.x <= field.width &&
       seen.y >= 0 &&
-      seen.y <= FIELD_HEIGHT;
+      seen.y <= field.height;
     if (!inside) return;
     const scatter = this.oldestScatter();
     scatter.born = run.tick;
     scatter.extent = seen.extent;
     scatter.kind = seen.kind;
-    const at = airborneAt(SCENE_CAMERA, seen.x, seen.y);
+    const at = airborneAt(this.scene.camera, seen.x, seen.y);
     scatter.sprite.position.set(at.x, at.y);
     scatter.sprite.scale.set(at.scaleX, at.scaleY);
     scatter.sprite.visible = true;

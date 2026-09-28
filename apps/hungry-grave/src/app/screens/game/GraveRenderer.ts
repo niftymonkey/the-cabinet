@@ -9,13 +9,9 @@ import {
 
 import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
-import {
-  COLUMN,
-  SCENE_CAMERA,
-  groundToColumn,
-  stanceOverGrave,
-  visibleGround,
-} from './camera';
+import { SHORTEST_FIELD } from '../../../game/field';
+import type { Camera } from './camera';
+import { groundToColumn, stanceOverGrave } from './camera';
 import type { GraveCanvas } from './graveCanvas';
 import { clamp } from './graveCanvas';
 import {
@@ -31,6 +27,8 @@ import type { GraveView } from './graveProjection';
 import { paintPit } from './graveWalls';
 import { lyingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import type { Scene } from './scene';
+import { sceneFor } from './scene';
 
 /**
  * What the bake reads off the renderer each frame: how wide the stage is in
@@ -62,27 +60,20 @@ const ORIGIN: ColumnPoint = { x: 0, y: 0 };
 const UNPLACED: Corners = [ORIGIN, ORIGIN, ORIGIN, ORIGIN];
 
 /**
- * The camera's scale at the column's nearest row, 1.178, where it draws the
- * grave largest. The hole is baked at that density so a grave moving up and
- * down the column never needs a bake for resolution (design record A10).
- */
-const NEAREST_ROW_SCALE = groundToColumn(
-  SCENE_CAMERA,
-  COLUMN.width / 2,
-  visibleGround(SCENE_CAMERA, COLUMN).bottom,
-).scale;
-
-/**
  * Where the camera draws the corners of the ground a baked layer covers: the
  * grave's width and length plus the layer's padding, clockwise from the far
  * left, so the drawn layer is exactly the projection of its ground (A5, A7).
  */
-const cornersOver = (grave: Grave, padShare: number): Corners => {
+const cornersOver = (
+  camera: Camera,
+  grave: Grave,
+  padShare: number,
+): Corners => {
   const pad = graveWidth(grave.size) * padShare;
   const across = graveWidth(grave.size) / 2 + pad;
   const along = grave.size + pad;
   const at = (x: number, y: number): ColumnPoint => {
-    const drawn = groundToColumn(SCENE_CAMERA, x, y);
+    const drawn = groundToColumn(camera, x, y);
     return { x: drawn.x, y: drawn.y };
   };
   return [
@@ -130,8 +121,8 @@ interface GraveSpot {
  * over it and the dark under it (tilted view T4, A6). There is no second camera
  * for the hole, so the fall and the Undertaker's end take their view from here.
  */
-const holeViewOver = (grave: GraveSpot): GraveView => ({
-  ...stanceOverGrave(SCENE_CAMERA, grave),
+const holeViewOver = (camera: Camera, grave: GraveSpot): GraveView => ({
+  ...stanceOverGrave(camera, grave),
   ...GRAVE_DARK,
 });
 
@@ -207,6 +198,8 @@ const replaceArt = (
  * renderer's own pass (onRender) rather than in sync.
  */
 class GraveRenderer {
+  // The run's scene, or the shortest field's before any run is handed in (A34).
+  private scene: Scene = sceneFor(SHORTEST_FIELD);
   private readonly pitArt = new Container();
   /**
    * Where falling food draws: inside the hole, between the cut and the turf, so
@@ -240,6 +233,16 @@ class GraveRenderer {
     layers.layer('graveMouth').addChild(this.pitArt, this.falls, this.lipArt);
   }
 
+  /**
+   * The run about to be drawn's scene. The hole is cut again under it, because
+   * the camera's stance over the same spot and the nearest row's density are
+   * both the scene's (A10, A34).
+   */
+  public useScene(scene: Scene): void {
+    this.scene = scene;
+    this.baked = null;
+  }
+
   /** Where the pit and the lip are drawn this frame, read-only. */
   public get corners(): GraveCorners {
     return this.drawn;
@@ -255,7 +258,7 @@ class GraveRenderer {
     if (this.wanted === null) {
       throw new Error('the hole has no view: the grave was never synced');
     }
-    return holeViewOver(this.wanted);
+    return holeViewOver(this.scene.camera, this.wanted);
   }
 
   public detach(): void {
@@ -275,12 +278,12 @@ class GraveRenderer {
   public sync(grave: Grave): void {
     this.wanted = { x: grave.x, y: grave.y, size: grave.size };
     this.drawn = {
-      pit: cornersOver(grave, BAKE_PADDING.pit),
-      lip: cornersOver(grave, BAKE_PADDING.lip),
+      pit: cornersOver(this.scene.camera, grave, BAKE_PADDING.pit),
+      lip: cornersOver(this.scene.camera, grave, BAKE_PADDING.lip),
     };
     setCornersOf(this.pitArt, this.drawn.pit);
     setCornersOf(this.lipArt, this.drawn.lip);
-    const at = lyingAt(SCENE_CAMERA, grave.x, grave.y);
+    const at = lyingAt(this.scene.camera, grave.x, grave.y);
     this.falls.position.set(at.x, at.y);
     this.falls.scale.set(at.scaleX, at.scaleY);
   }
@@ -320,11 +323,11 @@ class GraveRenderer {
     const wanted = this.wanted;
     if (wanted === null) return;
     const { size } = wanted;
-    const holeView = holeViewOver(wanted);
+    const holeView = holeViewOver(this.scene.camera, wanted);
     const viewScale = this.viewScaleFor(renderer);
     if (viewScale === null) return;
     const pixelsPerUnit = clamp(
-      viewScale * NEAREST_ROW_SCALE * (globalThis.devicePixelRatio || 1),
+      viewScale * this.scene.nearestScale * (globalThis.devicePixelRatio || 1),
       BAKE_PIXELS_PER_UNIT.min,
       BAKE_PIXELS_PER_UNIT.max,
     );

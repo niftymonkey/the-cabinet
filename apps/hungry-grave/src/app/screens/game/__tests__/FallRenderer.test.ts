@@ -9,6 +9,7 @@ import { Container, Graphics } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { capsFor } from '../../../../game/caps';
+import { SHORTEST_FIELD } from '../../../../game/field';
 import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
 import type { Swallowed } from '../../../../game/events';
 import type { RunState } from '../../../../game/run';
@@ -31,7 +32,7 @@ const BUILD_7_VIEW: GraveView = {
   darkFalloff: 2.6,
 };
 
-const CAPS = capsFor(DEFAULT_TUNING);
+const CAPS = capsFor(DEFAULT_TUNING, SHORTEST_FIELD);
 
 /** A corpse swallowed at the right-hand rim of a grave at the start size. */
 const swallowedAtTheRim = (): Swallowed => ({

@@ -41,23 +41,36 @@ const codeOf = (module: string): string =>
  */
 const TARGET = /(\s(<|>|<=|>=)\s-?\d)|(\d\s(<|>|<=|>=)\s)/;
 
+/**
+ * A collection's size ordered against none or one: whether it is empty, or
+ * holds a second value. That is a question about the shape of what was
+ * collected, like the bounds above, and never a reading judged against a
+ * number. Any other literal beside a size is still a target.
+ */
+const CARDINALITY =
+  /(\.(size|length)\s(<|>|<=|>=)\s[01]\b)|(\b[01]\s(<|>|<=|>=)\s[\w.]+\.(size|length)\b)/g;
+
+// Whether this code orders a reading against a number of its own.
+const namesATarget = (code: string): boolean =>
+  TARGET.test(code.replace(CARDINALITY, ''));
+
 describe('the harness reports and never judges', () => {
   it('orders no reading against a number of its own', () => {
     // Guard 81. ADR 0053's comparisons-never-thresholds, as the one thing that
     // can carry a threshold: a literal on one side of an ordering.
     for (const module of MODULES) {
-      expect(TARGET.test(codeOf(module)), `${module} names a target`).toBe(
+      expect(namesATarget(codeOf(module)), `${module} names a target`).toBe(
         false,
       );
     }
 
     // The scan has teeth, from either side of the operator.
-    expect(TARGET.test('if (spread.summary.max > 100) return;')).toBe(true);
-    expect(TARGET.test('const passed = 40 <= spread.count;')).toBe(true);
+    expect(namesATarget('if (spread.summary.max > 100) return;')).toBe(true);
+    expect(namesATarget('const passed = 40 <= spread.count;')).toBe(true);
     // And a bound taken off the reading itself is not a target.
-    expect(TARGET.test('fires.filter((fire) => fire.tick >= span.from);')).toBe(
-      false,
-    );
+    expect(
+      namesATarget('fires.filter((fire) => fire.tick >= span.from);'),
+    ).toBe(false);
   });
 
   it('carries no verdict, because nothing it declares is a yes or a no', () => {
@@ -80,5 +93,24 @@ describe('the harness reports and never judges', () => {
     for (const module of MODULES) {
       expect(codeOf(module), `${module} takes a mean`).not.toContain('meanOf');
     }
+  });
+});
+
+describe('what the target scan does not count', () => {
+  it('a count of how many distinct values a batch holds is not a target, while a reading ordered against a number still is', () => {
+    // Guard 81, and the false positive the field height met (#159): a batch
+    // that refuses to pool two fields asks how many distinct heights it holds,
+    // and "is there a second one" is a question about the batch's own shape,
+    // not a reading judged against a target. Both spellings of it pass.
+    expect(namesATarget('if (fieldHeights.size <= 1) return;')).toBe(false);
+    expect(namesATarget('if (1 < heights.length) throw error;')).toBe(false);
+    expect(namesATarget('const [, second] = heights;')).toBe(false);
+
+    // Every target the scan already caught is still caught, and a reading
+    // that happens to be a length is judged like any other reading.
+    expect(namesATarget('if (spread.summary.max > 100) return;')).toBe(true);
+    expect(namesATarget('const passed = 40 <= spread.count;')).toBe(true);
+    expect(namesATarget('if (kills.length > 40) return;')).toBe(true);
+    expect(namesATarget('if (fieldHeights.size <= 3) return;')).toBe(true);
   });
 });
