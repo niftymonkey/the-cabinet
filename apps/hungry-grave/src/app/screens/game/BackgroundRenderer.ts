@@ -44,16 +44,21 @@ import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
 /**
- * How fast the ground runs against the field: the field's own scroll, so what
- * lands on the ground stays where it landed.
+ * How fast a run's ground runs against its field, in ground units a tick: the
+ * field's own scroll times the scene's stretch, so what lands on the ground
+ * stays where it landed. It is the run's, because the stretch is (T12).
  *
  * Territory is lobbed onto the ground and becomes hands pulling at mobs, so a
  * patch belongs to the ground; it drifts in the sim at `SCROLL_SPEED`
  * (`lines/territory.ts`), the step mobs and corpses take. A ground running at
  * any other rate slides out from under every patch, which is what the slice 13b
- * deploy showed (Mark, 2026-09-08).
+ * deploy showed (Mark, 2026-09-08). On the play layer a field unit along is the
+ * stretch in ground units (1.224454 on the 760 field, 1.281514 on the 1168
+ * one), so a patch on the middle column stays on its ground all the way down
+ * only at the sim's scroll times the stretch (tilted view A22).
  */
-const GROUND_SPEED = SCROLL_SPEED;
+const groundSpeedOf = (scene: Scene): number =>
+  SCROLL_SPEED * scene.playLayer.stretch;
 
 /**
  * How many times the dressing eyes' footprint the Waking's source draws at.
@@ -90,7 +95,7 @@ const crossingTicks = (scene: Scene): number => {
   const seen = visibleGround(scene.camera, scene.column);
   return Math.ceil(
     (seen.bottom - seen.top + TALLEST_DRESSING_PIXELS * DRESSING_SCALE) /
-      GROUND_SPEED,
+      groundSpeedOf(scene),
   );
 };
 
@@ -203,6 +208,8 @@ class BackgroundRenderer {
    * ground, the dressing and the source are all drawn through it (A34).
    */
   private scene: Scene = sceneFor(SHORTEST_FIELD);
+  // The run's ground speed, set with its scene (A22, T12).
+  private groundSpeed = groundSpeedOf(this.scene);
   /** The patch of ground the scene's camera shows its column (A2), which the dressing is laid across. */
   private seen: VisibleGround = visibleGround(
     this.scene.camera,
@@ -269,6 +276,7 @@ class BackgroundRenderer {
    */
   public useScene(scene: Scene): void {
     this.scene = scene;
+    this.groundSpeed = groundSpeedOf(scene);
     this.seen = visibleGround(scene.camera, scene.column);
     this.grid = groundGrid(scene.camera, scene.column, scene.field, 0);
     this.ground.geometry.positions = this.grid.positions;
@@ -308,7 +316,7 @@ class BackgroundRenderer {
    */
   private syncGround(tick: number): void {
     const height = this.scene.field.height;
-    const scrolled = ((tick * GROUND_SPEED) % height) / height;
+    const scrolled = ((tick * this.groundSpeed) % height) / height;
     const rows = this.ground.geometry.uvs;
     const unscrolled = this.grid.uvs;
     for (let at = 1; at < rows.length; at += 2) {
@@ -423,7 +431,8 @@ class BackgroundRenderer {
   }
 
   private placeDressing(sprite: Sprite, run: RunState, index: number): void {
-    const fallen = (run.tick - index * DRESSING_INTERVAL_TICKS) * GROUND_SPEED;
+    const fallen =
+      (run.tick - index * DRESSING_INTERVAL_TICKS) * this.groundSpeed;
     const set = DRESSING_SETS[this.dressingFor(run, index)];
     const art = artAt(set, index);
     const texture = this.textureFor(art);
@@ -534,6 +543,5 @@ export {
   DRESSING_INTERVAL_TICKS,
   DRESSING_ON_SCREEN,
   DRIFT_WINDOW_TICKS,
-  GROUND_SPEED,
 };
 export type { BackgroundProps };

@@ -5,7 +5,6 @@
  * the grave.
  */
 
-import type { MoveCommand } from '../../../game/command';
 import type { FieldPoint } from '../../../game/field';
 
 interface Camera {
@@ -49,11 +48,6 @@ interface Grave {
   readonly size: number;
 }
 
-interface ColumnStep {
-  readonly x: number;
-  readonly y: number;
-}
-
 /**
  * Mark's two camera values, read off his phone after playing the tilted
  * prototype (T2, T3). The height is in half-lengths of the starting grave and
@@ -84,9 +78,6 @@ const BLADE_LEAN_DEGREES = 62;
  * `index.html:382`): the angle grass was drawn for before the tilt.
  */
 const BUILD_7_TILT = Math.atan(1.07 / 4.95);
-
-// A still move is exactly still, never a ground-to-column round trip's rounding.
-const STILL: MoveCommand = { x: 0, y: 0 };
 
 const radiansOf = (degrees: number): number => (degrees * Math.PI) / 180;
 
@@ -188,43 +179,6 @@ const stanceOverGrave = (camera: Camera, grave: Grave): Stance => {
 };
 
 /**
- * The ground a point reaches when its drawn point moves by a step on the
- * column, null past the horizon. Slice 4 steers with it (T9, A11).
- */
-const stepOnColumn = (
-  camera: Camera,
-  from: FieldPoint,
-  step: ColumnStep,
-): FieldPoint | null => {
-  const drawn = groundToColumn(camera, from.x, from.y);
-  return columnToGround(camera, drawn.x + step.x, drawn.y + step.y);
-};
-
-/**
- * The ground move, in base-speed units, that a move of the same units on the
- * column makes from where the grave draws (T9, A11). The player's steering and
- * the harness's hand both convert through this, so the two cannot convert two
- * ways. A step past the horizon is a still move.
- */
-const groundMoveOnColumn = (
-  camera: Camera,
-  grave: FieldPoint,
-  move: MoveCommand,
-  baseSpeed: number,
-): MoveCommand => {
-  if (move.x === 0 && move.y === 0) return STILL;
-  const reached = stepOnColumn(camera, grave, {
-    x: move.x * baseSpeed,
-    y: move.y * baseSpeed,
-  });
-  if (reached === null) return STILL;
-  return {
-    x: (reached.x - grave.x) / baseSpeed,
-    y: (reached.y - grave.y) / baseSpeed,
-  };
-};
-
-/**
  * How long a grass blade draws at this camera against build 7's length (A9).
  * Slice 2's ground painting reads it.
  */
@@ -237,11 +191,9 @@ export {
   CAMERA_VALUES,
   bladeReach,
   columnToGround,
-  groundMoveOnColumn,
   groundToColumn,
   makeCamera,
   stanceOverGrave,
-  stepOnColumn,
   visibleGround,
 };
 export type { Camera, Column, OnColumn, Stance, VisibleGround };

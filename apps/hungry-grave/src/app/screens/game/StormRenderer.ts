@@ -25,7 +25,15 @@ import type { WeaponLine } from '../../../game/lines/roster';
 import type { RunState } from '../../../game/run';
 import { SCROLL_SPEED } from '../../../game/tuning';
 import { SHORTEST_FIELD } from '../../../game/field';
+import type { FieldPoint } from '../../../game/field';
 import { PALETTE } from '../../palette';
+import type { PlayLayer } from './playLayer';
+import {
+  circleOutline,
+  OUTLINE_STEP,
+  playToColumn,
+  traceOnColumn,
+} from './playLayer';
 import {
   airborneOnPlay,
   headingOnPlay,
@@ -269,27 +277,44 @@ const drawSkull = (into: Graphics): void => {
  * ground visibly holds more hands and level reads as size twice over.
  *
  * The rim is the collision radius exactly, because a drawn size that disagreed
- * with it would make the player's read of their own ground a lie. The hands
- * are what keep the four motions apart under ADR 0005: the patch itself drifts
- * with the food layer at the scroll speed, so without motion of its own it
- * would be an inert mark in the corpses' lane.
+ * with it would make the player's read of their own ground a lie: it is traced
+ * through the play layer as the exact image of the sim's circle (tilted view
+ * A20), in column units on a node left at the column's origin. The rim's
+ * stroke and the hands keep their look at the camera's scale at the patch's
+ * point, the hands placed where the play layer draws their field points. The
+ * hands are what keep the four motions apart under ADR 0005: the patch itself
+ * drifts with the food layer at the scroll speed, so without motion of its own
+ * it would be an inert mark in the corpses' lane.
  */
-const drawPatch = (into: Graphics, radius: number): void => {
+const drawPatch = (into: Graphics, layer: PlayLayer, patch: Patch): void => {
   into.clear();
+  const { radius } = patch;
   if (radius <= 0) return;
   const hands = Math.round(radius / 8);
-  into.circle(0, 0, radius).stroke({
-    width: PATCH_STROKE,
+  const look = lyingOnPlay(layer, patch.x, patch.y);
+  const rim = traceOnColumn(
+    layer,
+    circleOutline(patch.x, patch.y, radius),
+    true,
+  );
+  into.poly(rim).stroke({
+    width: PATCH_STROKE * look.scaleX,
     color: PALETTE.territoryGround.hex,
     alignment: 0.5,
   });
   for (let hand = 0; hand < hands; hand++) {
     const angle = (hand / hands) * Math.PI * 2 - Math.PI / 2;
     const along = radius * (1 - HAND_REACH);
-    into.circle(
-      Math.cos(angle) * along,
-      Math.sin(angle) * along,
-      radius * HAND_WIDTH,
+    const at = playToColumn(
+      layer,
+      patch.x + Math.cos(angle) * along,
+      patch.y + Math.sin(angle) * along,
+    );
+    into.ellipse(
+      at.x,
+      at.y,
+      radius * HAND_WIDTH * look.scaleX,
+      radius * HAND_WIDTH * look.scaleY,
     );
   }
   if (hands > 0) into.fill({ color: PALETTE.territoryGround.hex });
@@ -345,42 +370,77 @@ const drawWisp = (into: Graphics): void => {
 };
 
 /**
- * One wedge per cone this level throws, laid down as a path for the caller to
- * fill or stroke. Pixi measures an angle from the positive x axis and a heading
- * is measured from straight up the field, which is the quarter turn between
- * them.
+ * One cone's outline in field units: from the grave's point out along one
+ * straight side, round the arc at the reach and back along the other, the arc
+ * cut into chords no longer than OUTLINE_STEP. Pixi measures an angle from the
+ * positive x axis and a heading is measured from straight up the field, which
+ * is the quarter turn between them.
  */
-const coneWedges = (into: Graphics, level: number, reach: number): void => {
+const coneOutline = (
+  at: FieldPoint,
+  facing: number,
+  halfAngle: number,
+  reach: number,
+): FieldPoint[] => {
+  const chords = Math.max(1, Math.ceil((2 * halfAngle * reach) / OUTLINE_STEP));
+  const arc = Array.from({ length: chords + 1 }, (_, step) => {
+    const angle = facing - halfAngle + (2 * halfAngle * step) / chords;
+    return {
+      x: at.x + reach * Math.cos(angle),
+      y: at.y + reach * Math.sin(angle),
+    };
+  });
+  return [at, ...arc];
+};
+
+/**
+ * One wedge per cone this level throws, traced through the play layer as the
+ * exact image of the sim's cone (tilted view A20) and laid down as a path for
+ * the caller to fill or stroke.
+ */
+const coneWedges = (
+  into: Graphics,
+  layer: PlayLayer,
+  toll: FieldPoint,
+  level: number,
+  reach: number,
+): void => {
   const row = BELL_CONE_ROWS[level];
   if (row === undefined) throw new Error(`no bell cone row for level ${level}`);
   for (let cone = 0; cone < row.headings.length; cone++) {
     const facing = coneHeading(level, cone) - Math.PI / 2;
-    into
-      .moveTo(0, 0)
-      .arc(0, 0, reach, facing - row.halfAngle, facing + row.halfAngle)
-      .closePath();
+    const outline = coneOutline(toll, facing, row.halfAngle, reach);
+    into.poly(traceOnColumn(layer, outline, true));
   }
 };
 
 /**
- * The toll's cones at a live reach, so what the player sees the toll answer is
- * what the sim swept (ADR 0036). The path is laid twice because pixi clears it
- * at every fill and stroke, and only a fill and the stroke straight after it
- * share one.
+ * The toll's cones at a live reach about the grave's point, so what the player
+ * sees the toll answer is what the sim swept (ADR 0036, tilted view A20). The
+ * path is laid twice because pixi clears it at every fill and stroke, and only
+ * a fill and the stroke straight after it share one. The strokes keep their
+ * look at the camera's scale at the grave's point.
  */
-const drawCones = (into: Graphics, level: number, reach: number): void => {
+const drawCones = (
+  into: Graphics,
+  layer: PlayLayer,
+  toll: FieldPoint,
+  level: number,
+  reach: number,
+): void => {
   into.clear();
   if (!(reach > 0)) return;
   if (level < 0 || level >= BELL_CONE_ROWS.length) return;
-  coneWedges(into, level, reach);
+  const scale = playToColumn(layer, toll.x, toll.y).scale;
+  coneWedges(into, layer, toll, level, reach);
   into.stroke({
-    width: CONE_STROKE + SPRITE_STROKE * 2,
+    width: (CONE_STROKE + SPRITE_STROKE * 2) * scale,
     color: PALETTE.foodOutline.hex,
     alignment: 0.5,
   });
-  coneWedges(into, level, reach);
+  coneWedges(into, layer, toll, level, reach);
   into.fill({ color: PALETTE.bellRing.hex, alpha: CONE_FILL_ALPHA }).stroke({
-    width: CONE_STROKE,
+    width: CONE_STROKE * scale,
     color: PALETTE.bellRing.hex,
     alignment: 0.5,
   });
@@ -420,15 +480,27 @@ const eruptionFrontsAt = (age: number): EruptionFront[] => {
   return fronts;
 };
 
-// The belch's shock fronts, leaving the grave and stopping where its push stops.
-const drawEruption = (into: Graphics, age: number): void => {
+/**
+ * The belch's shock fronts, leaving the grave and stopping where its push
+ * stops, each traced through the play layer as the exact image of its circle
+ * about the eruption's drifted point (tilted view A20), its edge kept at its
+ * look at the camera's scale there.
+ */
+const drawEruption = (
+  into: Graphics,
+  layer: PlayLayer,
+  at: FieldPoint,
+  age: number,
+): void => {
   into.clear();
+  const scale = playToColumn(layer, at.x, at.y).scale;
   for (const front of eruptionFrontsAt(age)) {
     // A front on the tick it is born has reached nowhere yet and is nothing to
     // draw, which is the same gate the single front kept at progress zero.
     if (front.radius <= 0) continue;
-    into.circle(0, 0, front.radius).stroke({
-      width: front.width,
+    const outline = circleOutline(at.x, at.y, front.radius);
+    into.poly(traceOnColumn(layer, outline, true)).stroke({
+      width: front.width * scale,
       color: PALETTE.belchEruption.hex,
       alignment: 0.5,
     });
@@ -585,9 +657,10 @@ class StormRenderer {
 
   private readonly skullDrawn: boolean[] = [];
   /**
-   * The look each patch sprite last drew, so it redraws only when it changes.
-   * It is a per-run memory keyed by slot and it dies in forgetPreviousRun: a
-   * slot's radius and hand count both reset with the run.
+   * The look each patch sprite last drew, its radius and where it lay, so it
+   * redraws only when either changes: the traced outline moves with the patch
+   * (A20). It is a per-run memory keyed by slot and it dies in
+   * forgetPreviousRun: a slot's radius and hand count both reset with the run.
    */
   private readonly patchDrawn: string[] = [];
   /**
@@ -756,14 +829,11 @@ class StormRenderer {
       const patch = patchAt(run, slot);
       sprite.visible = patch !== null;
       if (patch === null) continue;
-      const look = patchLook(patch);
+      const look = `${patchLook(patch)}|${patch.x}|${patch.y}`;
       if (this.patchDrawn[slot] !== look) {
         this.patchDrawn[slot] = look;
-        drawPatch(sprite, patch.radius);
+        drawPatch(sprite, this.scene.playLayer, patch);
       }
-      const at = lyingOnPlay(this.scene.playLayer, patch.x, patch.y);
-      sprite.position.set(at.x, at.y);
-      sprite.scale.set(at.scaleX, at.scaleY);
       // Ground still opening draws dimmed, so the beat before the hands come up
       // reads as a patch that cannot yet bite rather than as one that missed.
       const opening = patch.opening > 0;
@@ -878,10 +948,13 @@ class StormRenderer {
     const toll = run.lines.ring;
     this.ring.visible = toll !== null;
     if (toll === null) return;
-    drawCones(this.ring, toll.level, tollReach(toll));
-    const at = lyingOnPlay(this.scene.playLayer, run.grave.x, run.grave.y);
-    this.ring.position.set(at.x, at.y);
-    this.ring.scale.set(at.scaleX, at.scaleY);
+    drawCones(
+      this.ring,
+      this.scene.playLayer,
+      run.grave,
+      toll.level,
+      tollReach(toll),
+    );
     // Fading as it expands, so the falloff in damage is visible as a falloff on
     // screen rather than being a number only the sim knows.
     const spent = Math.max(0, Math.min(1, toll.ticks / BELL_EXPAND_TICKS));
@@ -889,11 +962,28 @@ class StormRenderer {
   }
 
   private syncBursts(run: RunState): void {
-    this.syncBurst(run, this.eruption, ERUPTION_TICKS, drawEruption);
+    this.syncEruption(run);
     this.syncBurst(run, this.splash, SPLASH_TICKS, drawSplash);
     this.syncBurst(run, this.lossBlowUp, LOSS_BLOW_UP_TICKS, (into, age) =>
       drawLossPops(into, this.lossPops, age),
     );
+  }
+
+  /**
+   * The eruption at its own age in ticks, traced about its point, which travels
+   * its own drift for every tick of that age, so it stays over the ground the
+   * press caught rather than being left behind by the crowd it drew (A20).
+   */
+  private syncEruption(run: RunState): void {
+    const burst = this.eruption;
+    const age = run.tick - burst.born;
+    if (age < 0 || age >= ERUPTION_TICKS) {
+      burst.sprite.visible = false;
+      return;
+    }
+    burst.sprite.visible = true;
+    const at = { x: burst.x, y: burst.y + age * burst.drift };
+    drawEruption(burst.sprite, this.scene.playLayer, at, age);
   }
 
   /**

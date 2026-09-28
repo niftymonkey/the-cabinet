@@ -1,12 +1,16 @@
 import { Container, Graphics } from 'pixi.js';
 
 import type { Caps } from '../../../game/caps';
+import { SHORTEST_FIELD } from '../../../game/field';
 import type { Swallowed } from '../../../game/events';
 import type { RunState } from '../../../game/run';
 import type { Fall } from './fall';
 import { fallAt, FALL_TICKS } from './fall';
 import { drawFoodBody, greyTint } from './foodSprite';
 import type { GraveView } from './graveProjection';
+import { graveFrameOffset, graveFrameVelocity } from './playPlacement';
+import { sceneFor } from './scene';
+import type { Scene } from './scene';
 
 /**
  * The food on its way into the hole, drawn from the swallow's own event.
@@ -85,9 +89,16 @@ interface FallRendererPowers {
 class FallRenderer {
   private readonly falls: Falling[] = [];
   private readonly powers: FallRendererPowers;
+  // The run's scene, or the shortest field's before any run is handed in (A34).
+  private scene: Scene = sceneFor(SHORTEST_FIELD);
 
   constructor(powers: FallRendererPowers) {
     this.powers = powers;
+  }
+
+  /** The run about to be drawn's scene, whose play layer a swallow starts from (A24, A34). */
+  public useScene(scene: Scene): void {
+    this.scene = scene;
   }
 
   /**
@@ -122,14 +133,20 @@ class FallRenderer {
    * The place and the way are turned into the grave's proportions here, against
    * the size the event carries from the tip: the grave grows on that very tick,
    * and it is the proportions that hold a feast at the rim it crossed while the
-   * mouth doubles under it.
+   * mouth doubles under it. The place is where the grave's frame draws the
+   * point the play layer drew the body at, and the way is carried by the same
+   * mapping, so the body goes over the rim with no jump (A24).
    */
   public swallowed(run: RunState, event: Swallowed): void {
     const falling = this.freeSlot(run.tick);
-    falling.fall.unitX = event.offsetX / event.graveSize;
-    falling.fall.unitY = event.offsetY / event.graveSize;
-    falling.fall.unitVx = event.vx / event.graveSize;
-    falling.fall.unitVy = event.vy / event.graveSize;
+    const layer = this.scene.playLayer;
+    const grave = { x: run.grave.x, y: run.grave.y, size: event.graveSize };
+    const at = graveFrameOffset(layer, grave, event.offsetX, event.offsetY);
+    const way = graveFrameVelocity(layer, grave, event.vx, event.vy);
+    falling.fall.unitX = at.x;
+    falling.fall.unitY = at.y;
+    falling.fall.unitVx = way.x;
+    falling.fall.unitVy = way.y;
     falling.fall.halfExtent = event.halfExtent;
     falling.fall.born = run.tick;
     const look = lookOf(event);

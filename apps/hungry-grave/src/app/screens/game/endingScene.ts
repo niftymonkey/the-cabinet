@@ -42,6 +42,13 @@ interface EndingScene {
   // The way in from that point, which is the way he goes over and folds along.
   readonly intoX: number;
   readonly intoY: number;
+  /**
+   * The rim he goes over, in the grave's own half-lengths. It is kept rather
+   * than read back off rimX and rimY, because the screen moves the haul's end
+   * to where the play layer draws the hinge and he must still fall about the
+   * hinge itself (tilted view A24).
+   */
+  readonly hinge: Hinge;
 }
 
 /**
@@ -129,16 +136,12 @@ const sceneFrom = (killed: BossKilled, grave: Grave): EndingScene => {
     rimY: grave.y + rim.y * grave.size,
     intoX: rim.intoX,
     intoY: rim.intoY,
+    hinge: rim,
   };
 };
 
-/** The rim the record was built round, back in the grave's own half-lengths. */
-const rimOf = (scene: EndingScene): Hinge => ({
-  x: (scene.rimX - scene.graveX) / scene.graveSize,
-  y: (scene.rimY - scene.graveY) / scene.graveSize,
-  intoX: scene.intoX,
-  intoY: scene.intoY,
-});
+/** The rim the record was built round, in the grave's own half-lengths. */
+const rimOf = (scene: EndingScene): Hinge => scene.hinge;
 
 /**
  * The half extent of his body along the way into the hole, which is what the

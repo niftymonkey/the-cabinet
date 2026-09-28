@@ -31,6 +31,7 @@ import { FallRenderer } from './game/FallRenderer';
 import { holeViewOver } from './game/GraveRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { FieldLayers } from './game/layering';
+import { groundUnderPlay } from './game/playLayer';
 import type { Scene } from './game/scene';
 import { sceneFor } from './game/scene';
 
@@ -120,11 +121,22 @@ class FrameBudgetScreen extends Container {
    * into every row, and what this column is for is the falls' own cost. The
    * renderer takes the container it draws into for exactly that reason (design
    * record R5). With no grave to read a cut from, it is handed the view a hole
-   * over the measured run's grave would be cut with.
+   * over the measured run's grave would be cut with: the scene camera's stance
+   * over the ground under the grave's play point (tilted view A23).
    */
   private readonly falls = new FallRenderer({
-    holeView: () =>
-      holeViewOver(this.measuredScene.camera, this.measuredGrave()),
+    holeView: () => {
+      const grave = this.measuredGrave();
+      const under = groundUnderPlay(
+        this.measuredScene.playLayer,
+        grave.x,
+        grave.y,
+      );
+      return holeViewOver(this.measuredScene.camera, {
+        ...under,
+        size: grave.size,
+      });
+    },
   });
 
   // The scene of the field every run of this showing stands on, read off the stage when it opens.
@@ -172,6 +184,7 @@ class FrameBudgetScreen extends Container {
     const field = fieldOfHeight(fieldHeightForBox(box.width, box.height));
     this.measuredScene = sceneFor(field);
     this.fieldRenderer.useScene(this.measuredScene);
+    this.falls.useScene(this.measuredScene);
     // The runs below are all made with no record of their own and on this one
     // field, so this is what every one of them derives.
     const caps = capsFor(DEFAULT_TUNING, field);

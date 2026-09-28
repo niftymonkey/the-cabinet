@@ -14,8 +14,16 @@ import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
 import type { Swallowed } from '../../../../game/events';
 import { createRun } from '../../../../game/run';
 import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
-import { SHORTEST_FIELD, SHORTEST_FIELD_HEIGHT } from '../../../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+  fieldOfHeight,
+} from '../../../../game/field';
 import { groundToColumn, stanceOverGrave } from '../camera';
+import { groundUnderPlay, playToColumn } from '../playLayer';
+import { graveOnGround } from '../playPlacement';
+import type { Scene } from '../scene';
 import { sceneFor } from '../scene';
 import { fallAt } from '../fall';
 import { FallRenderer } from '../FallRenderer';
@@ -31,8 +39,148 @@ import { facePoint, wallFaces } from '../graveWalls';
 import { FieldLayers } from '../layering';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
-const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
-  sceneFor(SHORTEST_FIELD);
+const SHORTEST_SCENE = sceneFor(SHORTEST_FIELD);
+const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } = SHORTEST_SCENE;
+
+// A 390 by 844 phone's field, where the play layer's relations are checked a second time (T12).
+const TALL_SCENE = sceneFor(fieldOfHeight(1168));
+
+const ORIGIN_POINT = { x: 0, y: 0 };
+
+/** The four ways from a quadrilateral's centre to its corners, clockwise from the far left. */
+const CORNER_WAYS = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
+/**
+ * Where the camera draws the corners of a baked layer's ground rectangle for a
+ * grave whose opening needs no widening (A23, A29): centred on the ground under
+ * its play point, the layer's padding added to the grave's width and length,
+ * across times the opening's own widening off the ground rectangle graveOnGround
+ * gives the hitbox, along times the stretch.
+ */
+function cameraShapeOf(scene: Scene, at: Grave, padShare: number) {
+  const width = graveWidth(at.size);
+  const pad = width * padShare;
+  const opening = graveOnGround(scene.playLayer, at, width / 2, at.size);
+  const across = (opening.halfAcross / (width / 2)) * (width / 2 + pad);
+  const along = (at.size + pad) * scene.playLayer.stretch;
+  return CORNER_WAYS.map(([x, y]) =>
+    groundToColumn(
+      scene.camera,
+      opening.centre.x + x * across,
+      opening.centre.y + y * along,
+    ),
+  );
+}
+
+/** Asserts two sets of corners within a tolerance, naming both when they differ. */
+function expectCornersNear(
+  actual: readonly { x: number; y: number }[],
+  expected: readonly { x: number; y: number }[],
+  tolerance: number,
+): void {
+  const apart = Math.max(
+    ...actual.map((each, at) =>
+      Math.max(
+        Math.abs(each.x - (expected[at]?.x ?? NaN)),
+        Math.abs(each.y - (expected[at]?.y ?? NaN)),
+      ),
+    ),
+  );
+  expect(
+    apart,
+    `${cornersText(actual)} against ${cornersText(expected)}`,
+  ).toBeLessThanOrEqual(tolerance);
+}
+
+/**
+ * Where a quadrilateral's diagonals cross, which is where any projective map
+ * of a rectangle onto it draws the rectangle's centre.
+ */
+function diagonalsCross(corners: Corners): { x: number; y: number } {
+  const [a, b, c, d] = corners;
+  const r = { x: c.x - a.x, y: c.y - a.y };
+  const s = { x: d.x - b.x, y: d.y - b.y };
+  const t = ((b.x - a.x) * s.y - (b.y - a.y) * s.x) / (r.x * s.y - r.y * s.x);
+  return { x: a.x + t * r.x, y: a.y + t * r.y };
+}
+
+/**
+ * Where a perspective mesh through these corners draws the point (s, t) of its
+ * texture's unit square, by the square-to-quadrilateral map (Heckbert, 1989),
+ * which is the map Pixi's PerspectiveMesh draws with.
+ */
+function onMesh(corners: Corners, s: number, t: number) {
+  const [p0, p1, p2, p3] = corners;
+  const sx = p0.x - p1.x + p2.x - p3.x;
+  const sy = p0.y - p1.y + p2.y - p3.y;
+  const dx1 = p1.x - p2.x;
+  const dx2 = p3.x - p2.x;
+  const dy1 = p1.y - p2.y;
+  const dy2 = p3.y - p2.y;
+  const den = dx1 * dy2 - dx2 * dy1;
+  const g = (sx * dy2 - dx2 * sy) / den;
+  const h = (dx1 * sy - sx * dy1) / den;
+  const w = g * s + h * t + 1;
+  return {
+    x: ((p1.x - p0.x + g * p1.x) * s + (p3.x - p0.x + h * p3.x) * t + p0.x) / w,
+    y: ((p1.y - p0.y + g * p1.y) * s + (p3.y - p0.y + h * p3.y) * t + p0.y) / w,
+  };
+}
+
+/**
+ * The drawn opening: where the pit's mesh draws the corners of the grave's own
+ * width and length inside its bake, which is the pit's padding in from the
+ * texture's edge on every side.
+ */
+function drawnOpening(pit: Corners, size: number) {
+  const width = graveWidth(size);
+  const pad = width * BAKE_PADDING.pit;
+  const s = pad / (width + 2 * pad);
+  const t = pad / (2 * size + 2 * pad);
+  return [
+    onMesh(pit, s, t),
+    onMesh(pit, 1 - s, t),
+    onMesh(pit, 1 - s, 1 - t),
+    onMesh(pit, s, 1 - t),
+  ];
+}
+
+/**
+ * How far a column point lies outside a quadrilateral whose corners run
+ * clockwise on the screen, in column units; zero or less is inside.
+ */
+function outsideBy(
+  quad: readonly { x: number; y: number }[],
+  point: { x: number; y: number },
+): number {
+  return Math.max(
+    ...quad.map((from, at) => {
+      const to = quad[(at + 1) % quad.length] ?? from;
+      const cross =
+        (to.x - from.x) * (point.y - from.y) -
+        (to.y - from.y) * (point.x - from.x);
+      return -cross / Math.hypot(to.x - from.x, to.y - from.y);
+    }),
+  );
+}
+
+/** How far a wall reaches into the hole's view, in field units, from its lip to its deepest drawn point. */
+function wallReach(
+  view: GraveView,
+  size: number,
+  id: 'left' | 'right',
+): number {
+  const face = wallFaces(size, view).find((each) => each.id === id);
+  if (face === undefined) throw new Error(`no ${id} face`);
+  const lip = facePoint(face, size, 0.5, 0).x;
+  const deep = facePoint(face, size, 0.5, 1).x;
+  return id === 'left' ? deep - lip : lip - deep;
+}
 
 /** The three sizes the grave's art is judged at (design record R4). */
 const EVERY_SIZE = [SIZE_FLOOR, SIZE_START, SIZE_CEILING];
@@ -98,9 +246,13 @@ function grave(size: number, x = 270, y = 600): Grave {
   return { x, y, size, invulnerable: 0, owed: 0, scoreRungBled: false };
 }
 
-function attached(): { layers: FieldLayers; renderer: GraveRenderer } {
+function attached(scene: Scene = SHORTEST_SCENE): {
+  layers: FieldLayers;
+  renderer: GraveRenderer;
+} {
   const layers = new FieldLayers();
   const renderer = new GraveRenderer();
+  renderer.useScene(scene);
   renderer.attach(layers);
   return { layers, renderer };
 }
@@ -109,16 +261,6 @@ function pieceOf(layers: FieldLayers, at: number): Container {
   const piece = layers.layer('graveMouth').children[at];
   if (piece === undefined) throw new Error(`no mouth child at ${at}`);
   return piece;
-}
-
-/** The corners of a ground rectangle round the grave, clockwise from the far left, where the camera draws them. */
-function projectedRectangle(at: Grave, halfWidth: number, halfLength: number) {
-  return [
-    [at.x - halfWidth, at.y - halfLength],
-    [at.x + halfWidth, at.y - halfLength],
-    [at.x + halfWidth, at.y + halfLength],
-    [at.x - halfWidth, at.y + halfLength],
-  ].map(([x, y]) => groundToColumn(SHORTEST_CAMERA, x ?? NaN, y ?? NaN));
 }
 
 /** Corners written out, so two sets compare at a glance. */
@@ -246,13 +388,11 @@ describe('GraveRenderer', () => {
     for (const size of [27.1, 27.2, 27.3]) {
       const at = grave(size);
       frame(layers, renderer, at);
-      const box = graveHitbox(at);
-      const reach = graveWidth(size) * BAKE_PADDING.pit;
       const drawn = cornersText(renderer.corners.pit);
-      expect(drawn).toBe(
-        cornersText(
-          projectedRectangle(at, box.width / 2 + reach, box.height / 2 + reach),
-        ),
+      expectCornersNear(
+        renderer.corners.pit,
+        cameraShapeOf(SHORTEST_SCENE, at, BAKE_PADDING.pit),
+        1e-9,
       );
       expect(drawn).not.toBe(before);
       before = drawn;
@@ -315,23 +455,29 @@ describe('the hole cut in the ground (grave-in-the-ground R4)', () => {
     );
   });
 
-  it("the place for falls follows the grave's point on the column and takes the camera's scale, never the grave's size", () => {
-    // A fall holds its place in the grave's own proportions and multiplies by
-    // the size itself (R5), so a container scaled by the size would apply it
-    // twice and a feast would start its fall in mid-hole. It lies at the
-    // grave's centre under the camera (tilted view A7): at ground (111, 222),
-    // worked on an independent pinhole, (120.338158, 254.570341), 0.941269
-    // across and 0.747235 down, whatever the size.
+  it("the place for falls is the grave's frame on the play layer, the larger of the scale and one across and the rows per field unit along, and never takes the grave's size", () => {
+    // A29: a fall holds its place in the grave's own proportions and
+    // multiplies by the size itself (R5), so a container scaled by the size
+    // would apply it twice. The frame on the play layer, from the design
+    // record's play layer bullets: at field (270, 608) it lies at (270,
+    // 559.555815), 1.084074 across and 1.213640 along; at field (100, 100) at
+    // (100, 72.678500), 1 across and 0.756871 along; whatever the size.
     const { renderer } = attached();
-    for (const size of EVERY_SIZE) {
-      renderer.sync(grave(size, 111, 222));
-      const falls = renderer.falls;
-      const near = (value: number, expected: number) =>
-        `${size} ${Math.abs(value - expected) < 1e-5}`;
-      expect(near(falls.position.x, 120.338158)).toBe(`${size} true`);
-      expect(near(falls.position.y, 254.570341)).toBe(`${size} true`);
-      expect(near(falls.scale.x, 0.941269)).toBe(`${size} true`);
-      expect(near(falls.scale.y, 0.747235)).toBe(`${size} true`);
+    for (const [x, y, column, across, along] of [
+      [270, 608, 559.555815, 1.084074, 1.21364],
+      [100, 100, 72.6785, 1, 0.756871],
+    ] as const) {
+      for (const size of EVERY_SIZE) {
+        renderer.sync(grave(size, x, y));
+        const falls = renderer.falls;
+        const near = (value: number, expected: number) =>
+          `${x},${y} ${size} ${Math.abs(value - expected) < 1e-5}`;
+        const yes = `${x},${y} ${size} true`;
+        expect(near(falls.position.x, x)).toBe(yes);
+        expect(near(falls.position.y, column)).toBe(yes);
+        expect(near(falls.scale.x, across)).toBe(yes);
+        expect(near(falls.scale.y, along)).toBe(yes);
+      }
     }
   });
 });
@@ -355,22 +501,28 @@ describe("the blinking border is gone (Mark's ruling of 2026-09-21)", () => {
 });
 
 describe('the grave under the tilted camera (tilted view A5, A7, A10)', () => {
-  it("the grave's pit and lip are drawn through the four projected corners of their ground rectangle, at the size the sim says, and a grave near the top draws its far end narrower than its near end", () => {
-    // The pit and the lip are large enough for the camera's scale to change
-    // across them, so each is a perspective mesh through the camera's points
-    // for the four corners of the ground its bake covers: the grave's width
-    // and length plus the bake's padding, 0.12 of the width for the pit and
-    // 0.3 for the lip (A5, A7). A start-size grave at ground (270, 150), its
-    // corners worked on an independent pinhole, clockwise from the far left.
+  it("the grave's pit and lip are drawn through the projected corners of a ground rectangle of the grave's size centred on the ground under its play point, the mesh's centre draws at the grave's play point, and a grave near the top draws its far end narrower than its near end", () => {
+    // A23, A29: the pit and the lip are perspective meshes through the
+    // camera's points for the corners of the ground their bakes cover: the
+    // grave's width and length plus the bake's padding (0.12 of the width for
+    // the pit, 0.3 for the lip), centred on the ground under the grave's play
+    // point, across widened as the opening is and along times the stretch. A
+    // start-size grave in the middle column near the top, at field (270, 150),
+    // where the opening needs no widening past the camera's shape.
+    const at = grave(SIZE_START, 270, 150);
     const { layers, renderer } = attached();
-    frame(layers, renderer, grave(SIZE_START, 270, 150));
+    frame(layers, renderer, at);
     const pit: Corners = renderer.corners.pit;
     const lip: Corners = renderer.corners.lip;
-    expect(cornersText(pit)).toBe(
-      '254.820046,180.970142 285.179954,180.970142 285.516000,223.842788 254.484000,223.842788',
+    expectCornersNear(
+      pit,
+      cameraShapeOf(SHORTEST_SCENE, at, BAKE_PADDING.pit),
+      1e-9,
     );
-    expect(cornersText(lip)).toBe(
-      '250.446993,177.605489 289.553007,177.605489 290.056324,227.370454 249.943676,227.370454',
+    expectCornersNear(
+      lip,
+      cameraShapeOf(SHORTEST_SCENE, at, BAKE_PADDING.lip),
+      1e-9,
     );
     for (const [piece, corners] of [
       [THE_PIT, pit],
@@ -382,9 +534,13 @@ describe('the grave under the tilted camera (tilted view A5, A7, A10)', () => {
           .flatMap((each) => [each.x.toFixed(6), each.y.toFixed(6)])
           .join(','),
       );
+      const centre = diagonalsCross(corners);
+      const placed = playToColumn(SHORTEST_SCENE.playLayer, 270, 150);
+      expect(Math.abs(centre.x - placed.x)).toBeLessThanOrEqual(1e-9);
+      expect(Math.abs(centre.y - placed.y)).toBeLessThanOrEqual(1e-9);
     }
-    const farWidth = (pit[1]?.x ?? NaN) - (pit[0]?.x ?? NaN);
-    const nearWidth = (pit[2]?.x ?? NaN) - (pit[3]?.x ?? NaN);
+    const farWidth = pit[1].x - pit[0].x;
+    const nearWidth = pit[2].x - pit[3].x;
     expect(farWidth).toBeLessThan(nearWidth);
   });
 
@@ -435,22 +591,38 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     ).toBeLessThanOrEqual(1e-9);
   });
 
-  it('moving the grave less than a stance step does not bake the hole again, and moving it more does', () => {
-    // A10: where the grave stands decides which walls show, and the hole is
-    // baked again once the grave has moved more than a step, across or along,
-    // from where it was baked.
-    const { layers, renderer } = attached();
-    frame(layers, renderer, grave(27, 270, 600));
-    const baked = canvasesMade.length;
-    frame(layers, renderer, grave(27, 270 + STANCE_REBAKE_STEP / 2, 600));
-    frame(
-      layers,
-      renderer,
-      grave(27, 270 + STANCE_REBAKE_STEP / 2, 600 + STANCE_REBAKE_STEP / 2),
-    );
-    expect(canvasesMade.length).toBe(baked);
-    frame(layers, renderer, grave(27, 270 + STANCE_REBAKE_STEP * 1.5, 600));
-    expect(canvasesMade.length).toBe(baked + 2);
+  it('moving the grave so the ground under it moves less than a stance step does not bake the hole again, and more does, measured in ground units', () => {
+    // A10, A23: the walls that show follow the ground under the grave's play
+    // point, so the step is counted between those ground points. Near the top
+    // a field unit is 1 / 0.856 ground units across and 1.224 along, so a move
+    // of 0.8 of a step in field units stays inside the step and a move of 0.9
+    // of a step passes it, across and along alike; counted in field units
+    // neither would bake.
+    const step = STANCE_REBAKE_STEP;
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+    ] as const) {
+      const { layers, renderer } = attached();
+      frame(layers, renderer, grave(27, 270, 100));
+      const baked = canvasesMade.length;
+      frame(
+        layers,
+        renderer,
+        grave(27, 270 + dx * step * 0.8, 100 + dy * step * 0.8),
+      );
+      expect(`${dx},${dy} ${canvasesMade.length - baked}`).toBe(
+        `${dx},${dy} 0`,
+      );
+      frame(
+        layers,
+        renderer,
+        grave(27, 270 + dx * step * 0.9, 100 + dy * step * 0.9),
+      );
+      expect(`${dx},${dy} ${canvasesMade.length - baked}`).toBe(
+        `${dx},${dy} 2`,
+      );
+    }
   });
 
   it('the fall is handed the view the walls were last cut with', () => {
@@ -459,22 +631,22 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
     // moved by less than a step since. Before the first bake it reads the view
     // the next bake will cut. Over a grave of size 27 the camera is 42.5
     // half-lengths up and its nadir sits (270 - x) / 27 across.
+    // The stance is taken over the ground under the grave's play point (A23).
     const { layers, renderer } = attached();
-    const nadirYOver = (y: number): number =>
-      stanceOverGrave(SHORTEST_CAMERA, { x: 270, y, size: 27 }).nadirY;
+    const viewOver = (x: number, y: number) => ({
+      ...stanceOverGrave(SHORTEST_CAMERA, {
+        ...groundUnderPlay(SHORTEST_SCENE.playLayer, x, y),
+        size: 27,
+      }),
+      ...GRAVE_DARK,
+    });
     renderer.sync(grave(27, 243, 600));
-    expect(viewText(renderer.holeView())).toBe(
-      viewText({ cameraHeight: 42.5, nadirX: 1, nadirY: nadirYOver(600) }),
-    );
+    expect(viewText(renderer.holeView())).toBe(viewText(viewOver(243, 600)));
     drawn(layers);
     frame(layers, renderer, grave(27, 243 + STANCE_REBAKE_STEP / 2, 600));
-    expect(viewText(renderer.holeView())).toBe(
-      viewText({ cameraHeight: 42.5, nadirX: 1, nadirY: nadirYOver(600) }),
-    );
+    expect(viewText(renderer.holeView())).toBe(viewText(viewOver(243, 600)));
     frame(layers, renderer, grave(27, 297, 600));
-    expect(viewText(renderer.holeView())).toBe(
-      viewText({ cameraHeight: 42.5, nadirX: -1, nadirY: nadirYOver(600) }),
-    );
+    expect(viewText(renderer.holeView())).toBe(viewText(viewOver(297, 600)));
 
     // And the hop the screens declare carries it: a fall synced after the grave
     // has moved under a step is drawn with the baked view.
@@ -498,12 +670,7 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
       },
       40,
       27,
-      {
-        cameraHeight: 42.5,
-        nadirX: -1,
-        nadirY: nadirYOver(600),
-        ...GRAVE_DARK,
-      },
+      viewOver(297, 600),
     );
     expect(
       `${sprite?.position.x.toFixed(9)},${sprite?.position.y.toFixed(9)}`,
@@ -552,6 +719,172 @@ describe('the hole cut by the scene camera (tilted view T4, A6, A10)', () => {
         drawnReach(view, 'left') - drawnReach(view, 'right'),
       );
       expect(apart).toBeLessThan(1);
+    }
+  });
+});
+
+describe('the grave on the play layer (tilted view T4, T10, A23, A29)', () => {
+  it('the grave at the left edge and at the right edge of its starting row draws at column x equal to its field x, one scale on both sides', () => {
+    // T10: across, a field unit is a column unit at every row. The grave's
+    // frame lies at its field x at the same scale on both sides, and the grave
+    // drawn at the right edge is the mirror image of the one at the left edge
+    // about the column's middle, on both fields (T12).
+    for (const scene of [SHORTEST_SCENE, TALL_SCENE]) {
+      const row = scene.field.height - 152;
+      const drawnAt = (x: number) => {
+        const { layers, renderer } = attached(scene);
+        frame(layers, renderer, grave(SIZE_START, x, row));
+        return {
+          falls: renderer.falls,
+          pit: renderer.corners.pit,
+          lip: renderer.corners.lip,
+        };
+      };
+      const left = drawnAt(SIZE_START / 2);
+      const right = drawnAt(FIELD_WIDTH - SIZE_START / 2);
+      expect(Math.abs(left.falls.position.x - SIZE_START / 2)).toBeLessThan(
+        1e-9,
+      );
+      expect(
+        Math.abs(right.falls.position.x - (FIELD_WIDTH - SIZE_START / 2)),
+      ).toBeLessThan(1e-9);
+      expect(left.falls.scale.x).toBe(right.falls.scale.x);
+      expect(left.falls.scale.y).toBe(right.falls.scale.y);
+      for (const layer of ['pit', 'lip'] as const) {
+        const mirrored = [1, 0, 3, 2].map((at) => {
+          const corner = right[layer][at];
+          if (corner === undefined) throw new Error(`no corner ${at}`);
+          return { x: FIELD_WIDTH - corner.x, y: corner.y };
+        });
+        expectCornersNear(left[layer], mirrored, 1e-9);
+      }
+    }
+  });
+
+  it("the hole is cut over the ground under the grave's play point: the design record's stance figures on the 760 and the 1168 field", () => {
+    // A23, A34: tilt 9's aimHoleCamera. Size 27 graves at the left edge, the
+    // middle and the right edge of the starting row: on the 760 field at field
+    // (40, 608), (270, 608) and (500, 608) the nadir is (7.857873, 19.801919),
+    // (0, 19.801919) and (-7.857873, 19.801919) half-lengths; on the 1168
+    // field at (40, 1016), (270, 1016) and (500, 1016) it is (7.344603,
+    // 14.150916), (0, 14.150916) and (-7.344603, 14.150916); the camera 42.5
+    // half-lengths up on both.
+    for (const [scene, row, nadirX, nadirY] of [
+      [SHORTEST_SCENE, 608, 7.857873, 19.801919],
+      [TALL_SCENE, 1016, 7.344603, 14.150916],
+    ] as const) {
+      for (const [x, side] of [
+        [40, 1],
+        [270, 0],
+        [500, -1],
+      ] as const) {
+        const { layers, renderer } = attached(scene);
+        frame(layers, renderer, grave(27, x, row));
+        const view = renderer.holeView();
+        const label = `${scene.field.height} ${x}`;
+        expect(Math.abs(view.cameraHeight - 42.5), label).toBeLessThan(1e-6);
+        expect(Math.abs(view.nadirX - side * nadirX), label).toBeLessThan(1e-6);
+        expect(Math.abs(view.nadirY - nadirY), label).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('a grave at the left edge shows more of its left wall than its right, and at the right edge the reverse', () => {
+    // T4, tilt 9's check "the side walls differ between the left and the
+    // right edge": the camera stands over the column's middle, so the wall
+    // away from the middle shows more, on both fields.
+    for (const scene of [SHORTEST_SCENE, TALL_SCENE]) {
+      const row = scene.field.height - 152;
+      for (const [x, more, less] of [
+        [SIZE_START / 2, 'left', 'right'],
+        [FIELD_WIDTH - SIZE_START / 2, 'right', 'left'],
+      ] as const) {
+        const { layers, renderer } = attached(scene);
+        frame(layers, renderer, grave(SIZE_START, x, row));
+        const view = renderer.holeView();
+        expect(
+          wallReach(view, SIZE_START, more) - wallReach(view, SIZE_START, less),
+          `${scene.field.height} ${x}`,
+        ).toBeGreaterThan(0.5);
+      }
+    }
+  });
+
+  it("the grave's drawn opening covers its hitbox: the play layer's image of each hitbox corner lies inside the drawn opening, and along, the opening's far and near ends are the hitbox's rows, at the left edge, the middle and the right edge, near the top and on the lowest row", () => {
+    // A29 as ruled after slice B: a hit never looks like a miss, so the
+    // drawn opening covers the hitbox's play-layer image at every position
+    // and size, on both fields (T12).
+    for (const scene of [SHORTEST_SCENE, TALL_SCENE]) {
+      for (const size of [SIZE_START, SIZE_CEILING]) {
+        const half = graveWidth(size) / 2;
+        for (const x of [half, 270, FIELD_WIDTH - half]) {
+          for (const y of [size, scene.field.height - size]) {
+            const { layers, renderer } = attached(scene);
+            frame(layers, renderer, grave(size, x, y));
+            const opening = drawnOpening(renderer.corners.pit, size);
+            const label = `${scene.field.height} ${size} ${x},${y}`;
+            const far = playToColumn(scene.playLayer, x, y - size).y;
+            const near = playToColumn(scene.playLayer, x, y + size).y;
+            for (const [at, row] of [
+              [0, far],
+              [1, far],
+              [2, near],
+              [3, near],
+            ] as const) {
+              expect(
+                Math.abs((opening[at]?.y ?? NaN) - row),
+                `${label} row of corner ${at}`,
+              ).toBeLessThan(1e-6);
+            }
+            for (const [dx, dy] of CORNER_WAYS) {
+              const corner = playToColumn(
+                scene.playLayer,
+                x + dx * half,
+                y + dy * size,
+              );
+              expect(
+                outsideBy(opening, corner),
+                `${label} hitbox corner ${dx},${dy}`,
+              ).toBeLessThanOrEqual(1e-6);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("the drawn opening's centre is where the play layer draws the centre of the grave's hitbox, within half a CSS pixel, at the left edge, the middle and the right edge, on the top, middle and bottom rows, at the start size and the ceiling, on both fields", () => {
+    // Mark, playing the build before this slice: he was hurt with nothing
+    // near him and a corpse under the drawn grave was not swallowed, because
+    // the grave drew where the sim's hitbox was not. The drawn opening's
+    // centre is where the mesh draws the centre of the painted opening, the
+    // crossing of the opening's diagonals; the hitbox's centre is the grave's
+    // field point. Half a CSS pixel of a 390-wide phone is 0.5 * 540 / 390
+    // column units.
+    const halfPixel = (0.5 * 540) / 390;
+    for (const scene of [SHORTEST_SCENE, TALL_SCENE]) {
+      for (const size of [SIZE_START, SIZE_CEILING]) {
+        const half = graveWidth(size) / 2;
+        const rows = [size, scene.field.height / 2, scene.field.height - size];
+        for (const x of [half, 270, FIELD_WIDTH - half]) {
+          for (const y of rows) {
+            const { layers, renderer } = attached(scene);
+            frame(layers, renderer, grave(size, x, y));
+            const opening = drawnOpening(renderer.corners.pit, size);
+            const centre = diagonalsCross([
+              opening[0] ?? ORIGIN_POINT,
+              opening[1] ?? ORIGIN_POINT,
+              opening[2] ?? ORIGIN_POINT,
+              opening[3] ?? ORIGIN_POINT,
+            ]);
+            const placed = playToColumn(scene.playLayer, x, y);
+            expect(
+              Math.hypot(centre.x - placed.x, centre.y - placed.y),
+              `${scene.field.height} ${size} ${x},${y}`,
+            ).toBeLessThanOrEqual(halfPixel);
+          }
+        }
+      }
     }
   });
 });

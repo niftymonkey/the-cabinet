@@ -9,11 +9,9 @@ import { describe, expect, it } from 'vitest';
 import {
   bladeReach,
   columnToGround,
-  groundMoveOnColumn,
   groundToColumn,
   makeCamera,
   stanceOverGrave,
-  stepOnColumn,
   visibleGround,
 } from '../camera';
 import { SHORTEST_FIELD } from '../../../../game/field';
@@ -197,48 +195,6 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
     );
   });
 
-  it("a step on the column moves the grave's drawn point by exactly that step", () => {
-    // T9 and A11: a drag and a key are steps on the glass.
-    const starts = [
-      { x: 270, y: 380 },
-      { x: 40, y: 700 },
-      { x: 500, y: -100 },
-    ];
-    for (const from of starts) {
-      const drawn = groundToColumn(SHORTEST_CAMERA, from.x, from.y);
-      const landed = stepOnColumn(SHORTEST_CAMERA, from, { x: 12, y: -7 });
-      expect(landed).not.toBeNull();
-      const drawnAfter = groundToColumn(SHORTEST_CAMERA, landed!.x, landed!.y);
-      expectNear(drawnAfter.x, drawn.x + 12, EXACT);
-      expectNear(drawnAfter.y, drawn.y - 7, EXACT);
-    }
-  });
-
-  it("a straight-up step never moves the drawn point sideways: from ground (40, 700), a step of (0, -10) lands at ground (39.055288, 690.913296), which draws at x 6.730739, the start's own x", () => {
-    // T9 and A11: tilt 5's drift toward the vanishing point is what this rules out.
-    const landed = stepOnColumn(
-      SHORTEST_CAMERA,
-      { x: 40, y: 700 },
-      { x: 0, y: -10 },
-    );
-    expect(landed).not.toBeNull();
-    expectNear(landed!.x, 39.055288, CLOSE);
-    expectNear(landed!.y, 690.913296, CLOSE);
-    expectNear(
-      groundToColumn(SHORTEST_CAMERA, landed!.x, landed!.y).x,
-      6.730739,
-      CLOSE,
-    );
-    expectNear(groundToColumn(SHORTEST_CAMERA, 40, 700).x, 6.730739, CLOSE);
-  });
-
-  it('a step past the horizon has no ground: from ground (270, 380), a step of (0, -2200) is null', () => {
-    // The horizon is 2135.7 column units above the middle row.
-    expect(
-      stepOnColumn(SHORTEST_CAMERA, { x: 270, y: 380 }, { x: 0, y: -2200 }),
-    ).toBeNull();
-  });
-
   it("ground beyond the camera's nearest share is held there and never draws at an infinite size: ground y 2700 and ground y 1e9 both draw at scale 1 / 0.12", () => {
     // The prototype's NEAREST_SHARE guard: ground at or behind the camera's
     // feet is held, so nothing is ever handed an infinity to draw with.
@@ -274,42 +230,5 @@ describe('the scene camera (tilted view T2, T3, T6, A6, A9, A11)', () => {
       1,
       CLOSE,
     );
-  });
-});
-
-describe('a move on the glass becomes a ground move (tilted view T9, A11)', () => {
-  it('a move on the column becomes the ground move that lands where the step on the column says, and a still move stays still', () => {
-    // A11: a move of (0, -10 / 4.5) base-speed units on the column is a step of
-    // (0, -10) at a base speed of 4.5, which from ground (40, 700) lands at
-    // (39.055288, 690.913296), slice 1's pinned landing. The ground move is
-    // that landing less the start, over the base speed.
-    const moved = groundMoveOnColumn(
-      SHORTEST_CAMERA,
-      { x: 40, y: 700 },
-      { x: 0, y: -10 / 4.5 },
-      4.5,
-    );
-    expectNear(moved.x, (39.055288 - 40) / 4.5, CLOSE);
-    expectNear(moved.y, (690.913296 - 700) / 4.5, CLOSE);
-
-    // A still move is exactly still, never a round trip's rounding.
-    expect(
-      groundMoveOnColumn(
-        SHORTEST_CAMERA,
-        { x: 40, y: 700 },
-        { x: 0, y: 0 },
-        4.5,
-      ),
-    ).toEqual({ x: 0, y: 0 });
-
-    // A step past the horizon has no ground to reach, so the move is still.
-    expect(
-      groundMoveOnColumn(
-        SHORTEST_CAMERA,
-        { x: 270, y: 380 },
-        { x: 0, y: -2200 / 4.5 },
-        4.5,
-      ),
-    ).toEqual({ x: 0, y: 0 });
   });
 });

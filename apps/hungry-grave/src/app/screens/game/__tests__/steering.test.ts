@@ -13,13 +13,13 @@ import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { fitField, READOUT_RESERVE } from '../../../layout';
 import { SHORTEST_FIELD } from '../../../../game/field';
-import { groundToColumn, stepOnColumn } from '../camera';
+import { columnToPlay, playToColumn } from '../playLayer';
 import { sceneFor } from '../scene';
 import type { RunSteering } from '../steering';
 import { createRunSteering } from '../steering';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
-const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
+const { playLayer: SHORTEST_PLAY_LAYER } = sceneFor(SHORTEST_FIELD);
 
 // The run steering reads its persisted keyboard speed on construction.
 Object.defineProperty(globalThis, 'localStorage', {
@@ -52,7 +52,7 @@ interface Rig {
   finger: { x: number; y: number };
 }
 
-/** A fresh run with its grave stood at a ground point, and its controls. */
+/** A fresh run with its grave stood at a field point, and its controls. */
 const rigAt = (x: number, y: number): Rig => {
   const run = createRun(SEED);
   run.grave.x = x;
@@ -80,9 +80,9 @@ const tick = (rig: Rig): void => {
   expect(rig.execution.faults).toEqual([]);
 };
 
-/** Where the grave draws on the column now. */
+/** Where the grave draws on the column now: on the play layer (T10). */
 const drawn = (rig: Rig): { x: number; y: number } =>
-  groundToColumn(SHORTEST_CAMERA, rig.run.grave.x, rig.run.grave.y);
+  playToColumn(SHORTEST_PLAY_LAYER, rig.run.grave.x, rig.run.grave.y);
 
 /**
  * A finger put down on the glass and moved past the slop, so the drag is
@@ -128,9 +128,9 @@ const expectDrawnTravel = (
   );
 };
 
-/** Where on the glass a ground point draws, in CSS pixels. */
+/** Where on the glass a field point draws on the play layer, in CSS pixels. */
 const onGlass = (x: number, y: number): { x: number; y: number } => {
-  const column = groundToColumn(SHORTEST_CAMERA, x, y);
+  const column = playToColumn(SHORTEST_PLAY_LAYER, x, y);
   return {
     x: PHONE.offsetX + column.x * PHONE.scale,
     y: PHONE.offsetY + column.y * PHONE.scale,
@@ -298,22 +298,38 @@ describe('steering on the glass (tilted view T9, A11)', () => {
     }
   });
 
-  it("the move the sim is handed is a ground move: the grave's field point after a tick is where stepOnColumn says the step reaches", () => {
-    // A11, for the drag: the app turns the step on the column into ground
-    // through the camera, so the sim and the tape only ever see ground moves.
-    // With DRAG_RATIO 1 a settled drag's step on the column is the finger's
-    // travel in column units.
+  it("a drag's move lands the grave's field point where the play layer's inverse of the finger's target says", () => {
+    // T9, T10: a drag goes through the play layer's exact inverse (tilt 9's
+    // drag), so the sim and the tape only ever see field moves. With
+    // DRAG_RATIO 1 a settled drag's step on the column is the finger's travel
+    // in column units.
     const rig = rigAt(100, 200);
     const at = onGlass(100, 200);
     grip(rig, at.x, at.y + 60);
-    const before = { x: rig.run.grave.x, y: rig.run.grave.y };
+    const before = drawn(rig);
     rig.finger = { x: rig.finger.x + 12, y: rig.finger.y + 9 };
     rig.steering.pointerMove(touchAt(rig.finger.x, rig.finger.y), PHONE);
     tick(rig);
-    const step = { x: 12 / PHONE.scale, y: 9 / PHONE.scale };
-    const reached = stepOnColumn(SHORTEST_CAMERA, before, step);
+    const reached = columnToPlay(
+      SHORTEST_PLAY_LAYER,
+      before.x + 12 / PHONE.scale,
+      before.y + 9 / PHONE.scale,
+    );
     expect(reached).not.toBeNull();
     expect(Math.abs(rig.run.grave.x - reached!.x)).toBeLessThan(GRID_PER_TICK);
     expect(Math.abs(rig.run.grave.y - reached!.y)).toBeLessThan(GRID_PER_TICK);
+  });
+
+  it("a held W leaves the grave's drawn x unchanged, from a grave near the left edge low on the field", () => {
+    // T9: a held key goes straight up the screen without drifting sideways.
+    // Across, a field unit is a column unit at every row (T10), so a key's
+    // plain field move keeps the drawn x exactly.
+    const rig = rigAt(60, 700);
+    const from = drawn(rig).x;
+    rig.steering.keys.press('KeyW');
+    for (let ticks = 1; ticks <= 60; ticks++) {
+      tick(rig);
+      expect(drawn(rig).x, `tick ${ticks}`).toBe(from);
+    }
   });
 });

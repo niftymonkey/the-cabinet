@@ -13,8 +13,8 @@ import { TouchSteer } from '../../../input/touch';
 import type { FieldPlacement } from '../../layout';
 import { screenToColumn } from '../../layout';
 import { userSettings } from '../../userSettings';
-import type { Camera } from './camera';
-import { groundMoveOnColumn, groundToColumn, stepOnColumn } from './camera';
+import type { PlayLayer } from './playLayer';
+import { columnToPlay, playToColumn } from './playLayer';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -47,6 +47,9 @@ const STEERING_POINTERS = ['touch', 'pen'];
  * about 2.2 on a 390-wide phone, where it is.
  */
 const STEER_SLOP_STAGE_UNITS = 3;
+
+// A still move is exactly still, never a play layer round trip's rounding.
+const STILL: MoveCommand = { x: 0, y: 0 };
 
 /** What the run's controls need from the screen around them. */
 interface SteeringPowers {
@@ -81,7 +84,7 @@ interface RunSteering {
   readKeyboardSpeed(): void;
   // A lost keyup or a drag interrupted by a popup must not survive into the resumed run.
   goQuiet(): void;
-  // The run about to be steered's scene, whose camera a drag converts through (A34).
+  // The run about to be steered's scene, whose play layer a drag converts through (A34, T10).
   useScene(scene: Scene): void;
 }
 
@@ -121,38 +124,49 @@ const toColumn = (
   return screenToColumn(placement, event.global.x, event.global.y);
 };
 
-// Where the grave draws on the column, which is where the input models reason about it (tilted view A11).
-const graveOnColumn = (camera: Camera, grave: FieldPoint): ColumnPoint => {
-  const drawn = groundToColumn(camera, grave.x, grave.y);
+// Where the grave draws on the column, which is where the input models reason about it (tilted view T10).
+const graveOnColumn = (layer: PlayLayer, grave: FieldPoint): ColumnPoint => {
+  const drawn = playToColumn(layer, grave.x, grave.y);
   return { x: drawn.x, y: drawn.y };
 };
 
 /**
- * The ground move that makes a drag's move on the column (tilted view T9).
+ * The field move, in base-speed units, that makes a drag's move on the column
+ * (tilted view T9, T10): the grave's drawn point plus the move, taken back
+ * through the play layer's exact inverse, less the grave's field point. It is
+ * tilt 9's drag.
  *
- * A step past the horizon has no ground and comes back still. It cannot
- * happen from inside the column in one tick, because the horizon is 2135
- * column units above the middle row, so one that does is an anomaly and is
- * logged once rather than thrown: a pointer is a live input.
+ * A target past the horizon has no field point and comes back still. It
+ * cannot happen from inside the column in one tick, because the horizon is
+ * 1552 column rows or more above the top row, so one that does is an anomaly
+ * and is logged once rather than thrown: a pointer is a live input.
  */
 const dragOnField = (
   steering: Steering,
   grave: FieldPoint,
   onColumn: MoveCommand,
 ): MoveCommand => {
-  const camera = steering.scene.camera;
-  const move = groundMoveOnColumn(camera, grave, onColumn, BASE_SPEED);
-  if (move.x !== 0 || move.y !== 0) return move;
-  if (steering.pastHorizonLogged) return move;
-  // A still result is also a settled drag's rounding, so only a step the camera finds no ground for is the anomaly.
-  const step = { x: onColumn.x * BASE_SPEED, y: onColumn.y * BASE_SPEED };
-  if (stepOnColumn(camera, grave, step) === null) {
+  if (onColumn.x === 0 && onColumn.y === 0) return STILL;
+  const layer = steering.scene.playLayer;
+  const drawn = playToColumn(layer, grave.x, grave.y);
+  const reached = columnToPlay(
+    layer,
+    drawn.x + onColumn.x * BASE_SPEED,
+    drawn.y + onColumn.y * BASE_SPEED,
+  );
+  if (reached !== null) {
+    return {
+      x: (reached.x - grave.x) / BASE_SPEED,
+      y: (reached.y - grave.y) / BASE_SPEED,
+    };
+  }
+  if (!steering.pastHorizonLogged) {
     steering.pastHorizonLogged = true;
     console.warn(
-      `a move of (${onColumn.x}, ${onColumn.y}) on the column from ground (${grave.x}, ${grave.y}) reaches past the horizon; the grave is held still`,
+      `a move of (${onColumn.x}, ${onColumn.y}) on the column from field (${grave.x}, ${grave.y}) reaches past the horizon; the grave is held still`,
     );
   }
-  return move;
+  return STILL;
 };
 
 const keyDown = (steering: Steering, event: KeyboardEvent): void => {
@@ -215,7 +229,7 @@ const commandSource = (steering: Steering): CommandSource => {
     const move = combineSteer(
       keyCommand,
       steering.touch,
-      graveOnColumn(steering.scene.camera, grave),
+      graveOnColumn(steering.scene.playLayer, grave),
       (onColumn) => dragOnField(steering, grave, onColumn),
     );
     return { move, belch };
@@ -234,7 +248,7 @@ const pointerDown = (
   steering.touch.down(
     event.pointerId,
     toColumn(placement, event),
-    graveOnColumn(steering.scene.camera, grave),
+    graveOnColumn(steering.scene.playLayer, grave),
   );
 };
 

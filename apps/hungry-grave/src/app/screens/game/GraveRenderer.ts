@@ -11,7 +11,7 @@ import type { Grave } from '../../../game/grave';
 import { graveWidth } from '../../../game/grave';
 import { SHORTEST_FIELD } from '../../../game/field';
 import type { Camera } from './camera';
-import { groundToColumn, stanceOverGrave } from './camera';
+import { stanceOverGrave } from './camera';
 import type { GraveCanvas } from './graveCanvas';
 import { clamp } from './graveCanvas';
 import {
@@ -25,8 +25,11 @@ import { paintLip } from './graveLip';
 import { mouthPolygon } from './graveMouth';
 import type { GraveView } from './graveProjection';
 import { paintPit } from './graveWalls';
-import { lyingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import type { PlayLayer } from './playLayer';
+import { groundUnderPlay } from './playLayer';
+import type { ColumnPoint, Corners } from './playPlacement';
+import { graveFrameOnPlay, graveOpeningOnColumn } from './playPlacement';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -41,15 +44,6 @@ interface RendererView {
   };
 }
 
-/** A point on the column, in column units. */
-interface ColumnPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
-/** A quadrilateral's corners, clockwise from the far left. */
-type Corners = readonly [ColumnPoint, ColumnPoint, ColumnPoint, ColumnPoint];
-
 /** Where the grave's two baked layers are drawn, corner for corner. */
 interface GraveCorners {
   readonly pit: Corners;
@@ -60,27 +54,55 @@ const ORIGIN: ColumnPoint = { x: 0, y: 0 };
 const UNPLACED: Corners = [ORIGIN, ORIGIN, ORIGIN, ORIGIN];
 
 /**
- * Where the camera draws the corners of the ground a baked layer covers: the
- * grave's width and length plus the layer's padding, clockwise from the far
- * left, so the drawn layer is exactly the projection of its ground (A5, A7).
+ * Where a projective map of the unit square onto these corners draws the point
+ * (s, t) of the square (Heckbert's square-to-quadrilateral map), which is the
+ * map Pixi's PerspectiveMesh draws its texture with. Past the square's edges it
+ * carries on in the same perspective.
+ */
+const throughCorners = (
+  corners: Corners,
+  s: number,
+  t: number,
+): ColumnPoint => {
+  const [p0, p1, p2, p3] = corners;
+  const sx = p0.x - p1.x + p2.x - p3.x;
+  const sy = p0.y - p1.y + p2.y - p3.y;
+  const dx1 = p1.x - p2.x;
+  const dx2 = p3.x - p2.x;
+  const dy1 = p1.y - p2.y;
+  const dy2 = p3.y - p2.y;
+  const den = dx1 * dy2 - dx2 * dy1;
+  const g = (sx * dy2 - dx2 * sy) / den;
+  const h = (dx1 * sy - sx * dy1) / den;
+  const w = g * s + h * t + 1;
+  return {
+    x: ((p1.x - p0.x + g * p1.x) * s + (p3.x - p0.x + h * p3.x) * t + p0.x) / w,
+    y: ((p1.y - p0.y + g * p1.y) * s + (p3.y - p0.y + h * p3.y) * t + p0.y) / w,
+  };
+};
+
+/**
+ * Where a baked layer's corners draw, clockwise from the far left: the grave's
+ * drawn opening (A23, A29) carried out by the layer's padding in the opening's
+ * own perspective. The bake paints the opening at the grave's width and length
+ * with the padding round it, so the mesh draws the painted opening exactly on
+ * the drawn one, and the pit and the lip, round one opening, always agree.
  */
 const cornersOver = (
-  camera: Camera,
+  layer: PlayLayer,
   grave: Grave,
   padShare: number,
 ): Corners => {
-  const pad = graveWidth(grave.size) * padShare;
-  const across = graveWidth(grave.size) / 2 + pad;
-  const along = grave.size + pad;
-  const at = (x: number, y: number): ColumnPoint => {
-    const drawn = groundToColumn(camera, x, y);
-    return { x: drawn.x, y: drawn.y };
-  };
+  const width = graveWidth(grave.size);
+  const opening = graveOpeningOnColumn(layer, grave, width / 2, grave.size);
+  // The padding in shares of the opening's width and of its length.
+  const across = padShare;
+  const along = (width * padShare) / (grave.size * 2);
   return [
-    at(grave.x - across, grave.y - along),
-    at(grave.x + across, grave.y - along),
-    at(grave.x + across, grave.y + along),
-    at(grave.x - across, grave.y + along),
+    throughCorners(opening, -across, -along),
+    throughCorners(opening, 1 + across, -along),
+    throughCorners(opening, 1 + across, 1 + along),
+    throughCorners(opening, -across, 1 + along),
   ];
 };
 
@@ -109,7 +131,10 @@ interface Baked {
   readonly holeView: GraveView;
 }
 
-/** Where a grave stands and how big it is, which is all its hole's view needs. */
+/**
+ * The ground under a grave's play point and its size, which is all its hole's
+ * view needs (A23).
+ */
 interface GraveSpot {
   readonly x: number;
   readonly y: number;
@@ -118,7 +143,8 @@ interface GraveSpot {
 
 /**
  * The view a hole over this grave is cut with: the scene camera's own stance
- * over it and the dark under it (tilted view T4, A6). There is no second camera
+ * over the ground under the grave's play point and the dark under it (tilted
+ * view T4, A6, A23), tilt 9's aimHoleCamera. There is no second camera
  * for the hole, so the fall and the Undertaker's end take their view from here.
  */
 const holeViewOver = (camera: Camera, grave: GraveSpot): GraveView => ({
@@ -126,7 +152,7 @@ const holeViewOver = (camera: Camera, grave: GraveSpot): GraveView => ({
   ...GRAVE_DARK,
 });
 
-// Whether the grave has moved far enough from where it was baked for the walls that show to change (A10).
+// Whether the ground under the grave has moved far enough from where it was baked for the walls that show to change (A10, A23).
 const stanceMoved = (baked: GraveSpot, live: GraveSpot): boolean =>
   Math.abs(live.x - baked.x) > STANCE_REBAKE_STEP ||
   Math.abs(live.y - baked.y) > STANCE_REBAKE_STEP;
@@ -191,9 +217,10 @@ const replaceArt = (
  * The hole is baked afresh once the size has moved past HOLE_REBUILD_STEP, as
  * the prototype's rebuildHole is, because several of its details are a screen
  * pixel or two wide and must not scale with the grave. Every frame each baked
- * layer is drawn through the camera's points for the corners of the ground it
- * covers at the size the sim says, so the grave grows with every swallow and
- * sits in the leaning ground (design record A7). The bake needs the view's
+ * layer is drawn round the grave's drawn opening at the size the sim says, the
+ * camera's shape at the grave's play point widened to hold its hitbox, so the
+ * grave grows with every swallow, sits among the bodies around it and is never
+ * smaller than the box it is hit in (A23, A29). The bake needs the view's
  * pixels per field unit, which only the renderer knows, so it happens in the
  * renderer's own pass (onRender) rather than in sync.
  */
@@ -206,9 +233,10 @@ class GraveRenderer {
    * a body lying across the opening stays visible until it tips (design record
    * R5).
    *
-   * It lies at the grave's centre under the camera and never takes the grave's
-   * size: a fall holds its own place in the grave's proportions and multiplies
-   * by the size itself, so a container scaled by the size would apply it twice.
+   * It is the grave's frame on the play layer (A29) and never takes the
+   * grave's size: a fall holds its own place in the grave's proportions and
+   * multiplies by the size itself, so a container scaled by the size would
+   * apply it twice.
    */
   public readonly falls = new Container();
   private readonly lipArt = new Container();
@@ -272,18 +300,21 @@ class GraveRenderer {
    * else: the half-height is grave.size and the width is graveWidth's, never
    * re-derived here from the aspect.
    *
-   * Where it draws is free, and the size and the place are recorded for the
-   * next bake, because the camera's stance over the grave needs both.
+   * Where it draws is free, and the size and the ground under its play point
+   * are recorded for the next bake, because the camera's stance over the grave
+   * needs both (A23).
    */
   public sync(grave: Grave): void {
-    this.wanted = { x: grave.x, y: grave.y, size: grave.size };
+    const layer = this.scene.playLayer;
+    const ground = groundUnderPlay(layer, grave.x, grave.y);
+    this.wanted = { x: ground.x, y: ground.y, size: grave.size };
     this.drawn = {
-      pit: cornersOver(this.scene.camera, grave, BAKE_PADDING.pit),
-      lip: cornersOver(this.scene.camera, grave, BAKE_PADDING.lip),
+      pit: cornersOver(layer, grave, BAKE_PADDING.pit),
+      lip: cornersOver(layer, grave, BAKE_PADDING.lip),
     };
     setCornersOf(this.pitArt, this.drawn.pit);
     setCornersOf(this.lipArt, this.drawn.lip);
-    const at = lyingAt(this.scene.camera, grave.x, grave.y);
+    const at = graveFrameOnPlay(layer, grave.x, grave.y);
     this.falls.position.set(at.x, at.y);
     this.falls.scale.set(at.scaleX, at.scaleY);
   }

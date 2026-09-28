@@ -22,6 +22,11 @@ import {
 } from '../../../../game/belch';
 import { SHOVE_TICKS } from '../../../../game/shove';
 import { SHORTEST_FIELD } from '../../../../game/field';
+import {
+  BELL_CONE_ROWS,
+  coneHeading,
+  tollReach,
+} from '../../../../game/lines/bell';
 import { playToColumn } from '../playLayer';
 import { sceneFor } from '../scene';
 import { FieldLayers } from '../layering';
@@ -34,6 +39,93 @@ import {
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
 const { playLayer: SHORTEST_PLAY_LAYER } = sceneFor(SHORTEST_FIELD);
+
+/** A column point, or a field point, as the traced outlines are read. */
+interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Every polygon a sprite laid down for one kind of paint, in column units:
+ * the flat point lists of its path's polys, carried through the sprite's own
+ * place and scale, in the order they were laid.
+ */
+function polysIn(sprite: Graphics, action: 'fill' | 'stroke'): Point[][] {
+  return sprite.context.instructions
+    .filter((instruction) => instruction.action === action)
+    .flatMap((instruction) => {
+      const data = instruction.data as {
+        path?: { instructions?: { action: string; data: unknown[] }[] };
+      };
+      return (data.path?.instructions ?? []).filter(
+        (shape) => shape.action === 'poly',
+      );
+    })
+    .map((shape) => {
+      const flat = shape.data[0] as number[];
+      const points: Point[] = [];
+      for (let at = 0; at + 1 < flat.length; at += 2) {
+        points.push({
+          x: sprite.position.x + (flat[at] ?? NaN) * sprite.scale.x,
+          y: sprite.position.y + (flat[at + 1] ?? NaN) * sprite.scale.y,
+        });
+      }
+      return points;
+    });
+}
+
+/** The widths a sprite's strokes were laid at, in the order they were laid. */
+function strokeWidths(sprite: Graphics): number[] {
+  return sprite.context.instructions
+    .filter((instruction) => instruction.action === 'stroke')
+    .map((instruction) => {
+      const { style } = instruction.data as { style: { width: number } };
+      return style.width;
+    });
+}
+
+/** Whether a column point lies inside a polygon, by the even-odd crossing rule. */
+function inside(polygon: readonly Point[], point: Point): boolean {
+  let crossings = 0;
+  for (let at = 0; at < polygon.length; at++) {
+    const from = polygon[at];
+    const to = polygon[(at + 1) % polygon.length];
+    if (from === undefined || to === undefined) continue;
+    if (from.y > point.y === to.y > point.y) continue;
+    const x = from.x + ((point.y - from.y) / (to.y - from.y)) * (to.x - from.x);
+    if (x > point.x) crossings++;
+  }
+  return crossings % 2 === 1;
+}
+
+/**
+ * Asserts a traced outline is the exact image of a field circle: a field point
+ * one unit inside its radius draws inside the outline and one unit outside
+ * draws outside, all around (A20).
+ */
+function expectImageOfCircle(
+  outline: readonly Point[],
+  centre: Point,
+  radius: number,
+  label: string,
+): void {
+  for (let step = 0; step < 36; step++) {
+    const angle = (step / 36) * Math.PI * 2;
+    const at = (reach: number) =>
+      playToColumn(
+        SHORTEST_PLAY_LAYER,
+        centre.x + reach * Math.cos(angle),
+        centre.y + reach * Math.sin(angle),
+      );
+    expect(inside(outline, at(radius - 1)), `${label} in at ${step}`).toBe(
+      true,
+    );
+    expect(inside(outline, at(radius + 1)), `${label} out at ${step}`).toBe(
+      false,
+    );
+  }
+}
 
 function attached(): { layers: FieldLayers; renderer: StormRenderer } {
   const layers = new FieldLayers();
@@ -207,18 +299,10 @@ describe('sprites follow their slots (plan 6.19)', () => {
 
   it('draws one wedge per cone the level throws, so a level-1 toll is one and a level-5 toll is five', () => {
     // Read off the drawing instructions and never off the module's source
-    // text. One arc is one wedge, counted in the fill that lays the cone
-    // bodies down, so the outline passes are never double-counted.
-    const wedges = (sprite: Graphics) =>
-      sprite.context.instructions
-        .filter((instruction) => instruction.action === 'fill')
-        .flatMap((instruction) => {
-          const data = instruction.data as {
-            path?: { instructions?: { action: string }[] };
-          };
-          return data.path?.instructions ?? [];
-        })
-        .filter((shape) => shape.action === 'arc').length;
+    // text. One traced outline is one wedge (A20), counted in the fill that
+    // lays the cone bodies down, so the outline passes are never
+    // double-counted.
+    const wedges = (sprite: Graphics) => polysIn(sprite, 'fill').length;
 
     const { layers, renderer } = attached();
     const state = quietRun();
@@ -356,11 +440,12 @@ describe('the momentary effects (plan 6.19)', () => {
     // belch measures its reach from (belch.ts, insideBurst), and the splash
     // lies at the mouth, because it is a spray out of the mouth and not this
     // circle. Every body the press threw rides the field down at SCROLL_SPEED
-    // while the ring is out (step.ts, scrollField), so the eruption's ground
-    // point rides with them and it is drawn where the play layer puts that
-    // point (tilted view A7, A19). Worked independently in double precision:
-    // the grave's centre (270, 608), its mouth (270, 581), and 89 ticks down
-    // the field at 38 a second, (270, 664.366667).
+    // while the ring is out (step.ts, scrollField), so the eruption's point
+    // rides with them and each front is traced about it on the play layer
+    // (A20). The splash is placed as a lying thing at the mouth (A7, A19).
+    // Worked independently in double precision: the grave's centre (270,
+    // 608), its mouth (270, 581), and 89 ticks down the field at 38 a second,
+    // (270, 664.366667).
     const { layers, renderer } = attached();
     const state = quietRun();
     expect([state.grave.x, state.grave.y, state.grave.size]).toEqual([
@@ -369,24 +454,26 @@ describe('the momentary effects (plan 6.19)', () => {
     renderer.erupt(state);
     renderer.splashed(state);
     renderer.sync(state);
-    const eruption = spriteAt(layers, 'belchEruption', 0);
-    expect(eruption.position.x).toBeCloseTo(270, 5);
-    expect(eruption.position.y).toBeCloseTo(559.555815, 5);
-    expect(eruption.scale.x).toBeCloseTo(1.084074, 5);
-    expect(eruption.scale.y).toBeCloseTo(0.991168, 5);
-
     const splash = spriteAt(layers, 'belchEruption', 1);
     expect(splash.position.x).toBeCloseTo(270, 5);
     expect(splash.position.y).toBeCloseTo(527.244856, 5);
     expect(splash.scale.x).toBeCloseTo(1.068945, 5);
     expect(splash.scale.y).toBeCloseTo(0.963696, 5);
 
+    const eruption = spriteAt(layers, 'belchEruption', 0);
     state.tick += ERUPTION_TICKS - 1;
     renderer.sync(state);
     expect(ERUPTION_TICKS - 1).toBe(89);
-    expect(eruption.position.y).toBeCloseTo(630.047463, 5);
-    expect(eruption.scale.x).toBeCloseTo(1.117081, 5);
-    expect(eruption.scale.y).toBeCloseTo(1.052443, 5);
+    const fronts = eruptionFrontsAt(89);
+    const traced = polysIn(eruption, 'stroke');
+    expect(traced).toHaveLength(fronts.length);
+    expect(fronts).toHaveLength(1);
+    expectImageOfCircle(
+      traced[0] ?? [],
+      { x: 270, y: 664.366667 },
+      fronts[0]?.radius ?? NaN,
+      'last tick',
+    );
   });
 });
 
@@ -435,9 +522,15 @@ describe("Territory's claimed ground", () => {
     }
     expect(full.visible).toBe(true);
     expect(stale.visible).toBe(true);
-    expect(full.getLocalBounds().width).toBeGreaterThan(
-      stale.getLocalBounds().width * 1.5,
-    );
+    // Across, a field unit is a column unit (T10), so the traced rim's width
+    // on the column is its diameter in field units (A20).
+    const across = (sprite: Graphics) => {
+      const rim = polysIn(sprite, 'stroke')[0] ?? [];
+      const xs = rim.map((point) => point.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    expect(Math.abs(across(full) - 96)).toBeLessThan(0.1);
+    expect(Math.abs(across(stale) - 48)).toBeLessThan(0.1);
   });
 
   it('scales the hands with the ground’s circumference, so level reads as size twice over', () => {
@@ -450,22 +543,27 @@ describe("Territory's claimed ground", () => {
     putPatch(state, 1, 108);
     renderer.sync(state);
 
-    const circlesOf = (sprite: Graphics) =>
+    // The rim is one traced outline, stroked (A20); every hand is one shape
+    // in the fill.
+    const handsOf = (sprite: Graphics) =>
       sprite.context.instructions
+        .filter((instruction) => instruction.action === 'fill')
         .flatMap((instruction) => {
           const data = instruction.data as {
             path?: { instructions?: { action: string }[] };
           };
           return data.path?.instructions ?? [];
         })
-        .filter((shape) => shape.action === 'circle').length;
+        .filter((shape) => shape.action === 'ellipse').length;
     const [levelOne, levelFive] = patchSprites(layers);
     if (levelOne === undefined || levelFive === undefined) {
       throw new Error('patchSprites gave fewer than 2 sprites');
     }
-    // The rim is one circle; every other circle is a hand.
-    expect(circlesOf(levelOne)).toBe(1 + 6);
-    expect(circlesOf(levelFive)).toBe(1 + 14);
+    for (const sprite of [levelOne, levelFive]) {
+      expect(polysIn(sprite, 'stroke')).toHaveLength(1);
+    }
+    expect(handsOf(levelOne)).toBe(6);
+    expect(handsOf(levelFive)).toBe(14);
   });
 
   it('the look is the radius alone, so grinding never rebuilds the ground', () => {
@@ -874,13 +972,121 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     expect(mark.position.y).toBeCloseTo(372.679496 - 90 * 0.996572, 4);
   });
 
-  it("a patch, the bell's cones and the belch's eruption are placed at their play points", () => {
-    // A7, A19: each lies at its play point, the scale across and the scale
-    // squared times the lean down. The patch at field (200, 300): row
-    // 237.716636, 0.933378 across and 0.734758 down, worked independently in
-    // double precision. The cones and the eruption at the grave's start,
-    // (270, 608): row 559.555815, 1.084074 across and 0.991168 down (the
-    // record's play layer bullets).
+  it('a Territory patch is drawn as the exact image of its sim circle, at the left edge, the middle and the right edge', () => {
+    // A20: the rim is the collision radius, so a body drawn inside it is a
+    // body the sim holds. Patches of radius 48 at field (60, 300), (270, 300)
+    // and (480, 300).
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const places = [60, 270, 480];
+    places.forEach((x, slot) => {
+      const patch = patchSlot(state, slot);
+      patch.alive = true;
+      patch.id = 600 + slot;
+      patch.x = x;
+      patch.y = 300;
+      patch.radius = 48;
+      patch.opening = 0;
+      patch.pulses = 0;
+      patch.struck.clear();
+    });
+    renderer.sync(state);
+    places.forEach((x, slot) => {
+      const sprite = spriteAt(layers, 'storm', SKULL_CAP + slot);
+      const rims = polysIn(sprite, 'stroke');
+      expect(rims, `patch at ${x}`).toHaveLength(1);
+      expectImageOfCircle(rims[0] ?? [], { x, y: 300 }, 48, `patch at ${x}`);
+    });
+  });
+
+  it("the bell's cones are drawn as the exact image of the sim's cones, at their reach and along both straight sides, at the left edge, the middle and the right edge", () => {
+    // A20: whatever lies inside a cone is struck. Each cone points where
+    // coneHeading says, measured from straight up the field, and spans its
+    // half angle each way out to the toll's live reach. A field point one unit
+    // inside its reach or either side draws inside the traced wedge, and one
+    // unit outside draws outside.
+    for (const x of [40, 270, 500]) {
+      const { layers, renderer } = attached();
+      const state = quietRun();
+      state.grave.x = x;
+      const toll = { level: MAX_LEVEL, ticks: 12, struck: new Set<number>() };
+      state.lines.ring = toll;
+      renderer.sync(state);
+      const reach = tollReach(toll);
+      const row = BELL_CONE_ROWS[MAX_LEVEL];
+      if (row === undefined) throw new Error('no cone row at the top level');
+      const wedges = polysIn(spriteAt(layers, 'bellRing', 0), 'fill');
+      expect(wedges).toHaveLength(row.headings.length);
+      wedges.forEach((wedge, cone) => {
+        const facing = coneHeading(MAX_LEVEL, cone) - Math.PI / 2;
+        const at = (angle: number, reach: number, aside = 0) =>
+          playToColumn(
+            SHORTEST_PLAY_LAYER,
+            x + reach * Math.cos(angle) + aside * Math.cos(angle + Math.PI / 2),
+            608 +
+              reach * Math.sin(angle) +
+              aside * Math.sin(angle + Math.PI / 2),
+          );
+        const label = `grave at ${x}, cone ${cone}`;
+        expect(inside(wedge, at(facing, reach - 1)), `${label} reach in`).toBe(
+          true,
+        );
+        expect(inside(wedge, at(facing, reach + 1)), `${label} reach out`).toBe(
+          false,
+        );
+        for (const side of [-1, 1]) {
+          const edge = facing + side * row.halfAngle;
+          // The inside of this side is back toward the cone's own heading.
+          expect(
+            inside(wedge, at(edge, reach / 2, -side)),
+            `${label} side ${side} in`,
+          ).toBe(true);
+          expect(
+            inside(wedge, at(edge, reach / 2, side)),
+            `${label} side ${side} out`,
+          ).toBe(false);
+        }
+      });
+    }
+  });
+
+  it("each of the belch's fronts is drawn as the exact image of its sim circle at the front's radius, about the eruption's drifted point", () => {
+    // A20: the push reaches exactly the front, so a body drawn inside the
+    // drawn front is one the push has reached. The eruption rides the field
+    // down at 38 / 60 field units a tick from the grave's centre, so at age a
+    // its point is (x, 608 + a * 38 / 60); graves at the left edge, the middle
+    // and the right edge.
+    for (const x of [40, 270, 500]) {
+      const { layers, renderer } = attached();
+      const state = quietRun();
+      state.grave.x = x;
+      renderer.erupt(state);
+      const born = state.tick;
+      for (const age of [6, 30, 75]) {
+        state.tick = born + age;
+        renderer.sync(state);
+        const fronts = eruptionFrontsAt(age).filter(
+          (front) => front.radius > 0,
+        );
+        const traced = polysIn(spriteAt(layers, 'belchEruption', 0), 'stroke');
+        expect(traced).toHaveLength(fronts.length);
+        fronts.forEach((front, at) => {
+          expectImageOfCircle(
+            traced[at] ?? [],
+            { x, y: 608 + (age * 38) / 60 },
+            front.radius,
+            `grave at ${x}, age ${age}, front ${at}`,
+          );
+        });
+      }
+    }
+  });
+
+  it("a patch's stroke keeps its drawn width: the traced rim's stroke is PATCH_STROKE times the camera's scale at the patch's point", () => {
+    // A20: stroke widths keep their look at the pinhole's scale at the
+    // shape's centre, because the node no longer carries that scale.
+    // PATCH_STROKE is 2 field units; the patch at field (200, 300), where the
+    // camera's scale is 0.933378 (worked independently in double precision).
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = patchSlot(state, 0);
@@ -889,31 +1095,11 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     patch.x = 200;
     patch.y = 300;
     patch.radius = 32;
-    patch.pull = 0.08;
-    patch.slow = 0.2;
-    patch.opening = TERRITORY_OPENING_TICKS / 2;
+    patch.opening = 0;
     patch.pulses = 0;
     patch.struck.clear();
     renderer.sync(state);
-
-    const ground = spriteAt(layers, 'storm', SKULL_CAP);
-    expect(ground.position.x).toBeCloseTo(200, 9);
-    expect(ground.position.y).toBeCloseTo(237.716636, 5);
-    expect(ground.scale.x).toBeCloseTo(0.933378, 5);
-    expect(ground.scale.y).toBeCloseTo(0.734758, 5);
-
-    expect([state.grave.x, state.grave.y]).toEqual([270, 608]);
-    state.lines.ring = { level: 4, ticks: 12, struck: new Set() };
-    renderer.erupt(state);
-    renderer.sync(state);
-    for (const sprite of [
-      spriteAt(layers, 'bellRing', 0),
-      spriteAt(layers, 'belchEruption', 0),
-    ]) {
-      expect(sprite.position.x).toBeCloseTo(270, 9);
-      expect(sprite.position.y).toBeCloseTo(559.555815, 5);
-      expect(sprite.scale.x).toBeCloseTo(1.084074, 5);
-      expect(sprite.scale.y).toBeCloseTo(0.991168, 5);
-    }
+    const [width] = strokeWidths(spriteAt(layers, 'storm', SKULL_CAP));
+    expect(width).toBeCloseTo(2 * 0.933378, 5);
   });
 });

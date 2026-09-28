@@ -31,6 +31,15 @@ interface GroundRectangle {
   readonly halfAlong: number;
 }
 
+/** A point on the column, in column units. */
+interface ColumnPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** A quadrilateral's corners on the column, clockwise from the far left. */
+type Corners = readonly [ColumnPoint, ColumnPoint, ColumnPoint, ColumnPoint];
+
 /**
  * A lying thing on the play layer, at tilt 7's look for the ground under it:
  * the scale across and the scale squared times the lean down (A7, A19). Slice
@@ -160,6 +169,80 @@ const graveOnGround = (
   };
 };
 
+// The ways from a quadrilateral's centre to its corners, clockwise from the far left.
+const CORNER_WAYS = [
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
+/**
+ * How many times the ground rectangle's half extent across must be taken for
+ * the camera's image of its corner one way across, on the row one way along,
+ * to reach the hitbox's own corner there. Across a ground row the image is
+ * linear in ground x, so it is one ratio.
+ */
+const wideningToHoldCorner = (
+  layer: PlayLayer,
+  ground: GroundRectangle,
+  grave: GraveFrame,
+  halfAcross: number,
+  across: number,
+  along: number,
+): number => {
+  const row = ground.centre.y + along * ground.halfAlong;
+  const middle = groundToColumn(layer.camera, ground.centre.x, row).x;
+  const corner = groundToColumn(
+    layer.camera,
+    ground.centre.x + across * ground.halfAcross,
+    row,
+  ).x;
+  return (grave.x + across * halfAcross - middle) / (corner - middle);
+};
+
+/**
+ * The grave's drawn opening on the column, clockwise from the far left: the
+ * camera's image of A29's ground rectangle (A23), widened across about its
+ * centre by the least factor that holds the hitbox's four corners (A29: a hit
+ * never looks like a miss). Off the middle column the camera's image converges
+ * toward the middle and leaves the outer far corner and the inner near corner
+ * outside; widening the ground rectangle rather than pushing corners keeps it
+ * the camera's own shape, and keeps its centre, where its diagonals cross,
+ * exactly where the play layer draws the grave's point (Mark: the grave must
+ * draw where the sim places it). Its far and near edges lie on the hitbox's
+ * rows, so holding the four corners holds the whole hitbox. Slice C draws the
+ * pit and the lip round it.
+ */
+const graveOpeningOnColumn = (
+  layer: PlayLayer,
+  grave: GraveFrame,
+  halfAcross: number,
+  halfAlong: number,
+): Corners => {
+  const ground = graveOnGround(layer, grave, halfAcross, halfAlong);
+  const widening = Math.max(
+    1,
+    ...CORNER_WAYS.map(([across, along]) =>
+      wideningToHoldCorner(layer, ground, grave, halfAcross, across, along),
+    ),
+  );
+  const [farLeft, farRight, nearRight, nearLeft] = CORNER_WAYS.map(
+    ([across, along]): ColumnPoint => {
+      const drawn = groundToColumn(
+        layer.camera,
+        ground.centre.x + across * widening * ground.halfAcross,
+        ground.centre.y + along * ground.halfAlong,
+      );
+      return { x: drawn.x, y: drawn.y };
+    },
+  );
+  if (!farLeft || !farRight || !nearRight || !nearLeft) {
+    throw new Error('a ground rectangle has four corners');
+  }
+  return [farLeft, farRight, nearRight, nearLeft];
+};
+
 /**
  * The offset, in the grave's own half-lengths, at which the grave's frame draws
  * the point the play layer draws at `grave + (dx, dy)` (A24). Slice C starts a
@@ -228,10 +311,11 @@ export {
   graveFrameOnPlay,
   graveFrameVelocity,
   graveOnGround,
+  graveOpeningOnColumn,
   headingOnPlay,
   hostileFireOnPlay,
   liftOnPlay,
   lyingOnPlay,
   standingOnPlay,
 };
-export type { GraveFrame };
+export type { ColumnPoint, Corners, GraveFrame };

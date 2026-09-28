@@ -27,23 +27,23 @@ const STEER_SLOP = 4;
  * How far the grave may draw from the target it was sent to and still count as
  * standing on it, in column units.
  *
- * An exact comparison is unusable: the move goes from the column to the ground
- * through the camera, onto the sim's float32 grid, through moveGrave's
- * `x + move * BASE_SPEED`, and back to the column, and that round trip is not
- * exact for most positions, so an exact test would re-anchor on every tick and
- * silently drop steering. This is far below anything visible
- * and far above the rounding error, the same shape as clock.ts's
- * TICK_TOLERANCE.
+ * An exact comparison is unusable: the move goes from the column to the field
+ * through the play layer's inverse, onto the sim's float32 grid, through
+ * moveGrave's `x + move * BASE_SPEED`, and back to the column, and that round
+ * trip is not exact for most positions (the inverse is exact across and within
+ * 1e-9 down), so an exact test would re-anchor on every tick and silently drop
+ * steering. This is far below anything visible and far above the rounding
+ * error, the same shape as clock.ts's TICK_TOLERANCE.
  */
 const TARGET_TOLERANCE = 1e-6;
 
 const STILL: MoveCommand = { x: 0, y: 0 };
 
 /**
- * A point on the column the camera draws the field into (tilted view A11).
- * Not a field point: one column unit is a different length of ground at every
- * row, and a column point typed as a field point is the confusion that let a
- * held key drift toward the vanishing point.
+ * A point on the column the play layer draws the field into (tilted view
+ * T10). Not a field point: down the column one column unit is a different
+ * length of field at every row, and a column point typed as a field point is
+ * the confusion that let a held key drift toward the vanishing point.
  */
 interface ColumnPoint {
   readonly x: number;
@@ -85,7 +85,7 @@ const apart = (a: ColumnPoint, b: ColumnPoint): boolean => {
  * It takes pointer ids and points already in column units, converted by
  * GameScreen through layout.ts's screenToColumn, and the grave where it draws
  * on the column. What it returns is a move on the column, which the app turns
- * into a ground move through the camera (tilted view A11).
+ * into a field move through the play layer's inverse (tilted view T10).
  *
  * Steering is all this model does. The belch is not a steering command: Mark
  * ruled on 2026-08-22 that it binds to a dedicated corner button, because the

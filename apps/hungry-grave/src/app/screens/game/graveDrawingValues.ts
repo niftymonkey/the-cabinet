@@ -26,16 +26,19 @@ const GRAVE_DARK: GraveDark = {
 };
 
 /**
- * How far the grave has to move, across or along, from where the hole was last
- * baked before it is baked again, in field units (tilted view A10). Growth alone
- * never bakes through it; the size has its own step.
+ * How far the ground under the grave's placed point has to move, across or
+ * along, from where the hole was last baked before it is baked again, in ground
+ * units, between the ground points under the grave's placed point (tilted view
+ * A10, A23). Growth alone never bakes through it; the size has its own step.
  *
- * The move changes the camera's stance over the grave, and so which walls show.
- * A bake kept over a move of m draws a centred grave's two side walls
- * 2 m D / (H + D) field units apart, with D the dark depth and H the camera's
+ * The move changes the camera's stance over that ground, and so which walls
+ * show. A bake kept over a move of m draws a centred grave's two side walls
+ * 2 m D / (H + D) ground units apart, with D the dark depth and H the camera's
  * height in half-lengths. At the ceiling (H 17, D 2.4), on the nearest row a
  * grave stands on, that is 1 CSS pixel of a 390-wide phone at m = 4.79; the
- * step sits under it, and a smaller grave has a smaller D / (H + D).
+ * step sits under it, and a smaller grave has a smaller D / (H + D). Counted
+ * in field units the step would pass that bound: a field unit is up to 1.216
+ * ground units across and 1.224 along at the top of the column.
  */
 const STANCE_REBAKE_STEP = 4.75;
 

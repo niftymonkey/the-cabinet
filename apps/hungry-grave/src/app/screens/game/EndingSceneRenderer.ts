@@ -8,14 +8,14 @@ import type { Grave } from '../../../game/grave';
 import { SHORTEST_FIELD } from '../../../game/field';
 import { PALETTE } from '../../palette';
 import { drawBoss } from './bossSprite';
-import { groundToColumn } from './camera';
 import type { EndingScene, EndingSceneDrawing } from './endingScene';
 import { endingSceneAt, sceneFrom } from './endingScene';
 import { greyTint } from './foodSprite';
 import { ENDING_FURROWS } from './graveDrawingValues';
 import type { GraveView } from './graveProjection';
-import { standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import { playToColumn } from './playLayer';
+import { fromGraveFrame, standingOnPlay } from './playPlacement';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -83,7 +83,7 @@ class EndingSceneRenderer {
     this.forgetPreviousRun();
   }
 
-  /** The run about to be drawn's scene, whose camera every placement goes through (A34). */
+  /** The run about to be drawn's scene, whose play layer every placement goes through (A34). */
   public useScene(scene: Scene): void {
     this.runScene = scene;
   }
@@ -119,10 +119,21 @@ class EndingSceneRenderer {
    * Only the Undertaker's death ends the run, and the screens show the scene
    * only once the run has ended, so the Banshee's death begins nothing. The
    * answer is whether a scene began, for a screen that keeps the scene's clock.
+   *
+   * His haul ends at the field point the play layer draws exactly where the
+   * grave's frame draws the rim hinge, so the dragged body and the falling body
+   * meet at one point, and the furrows reach it (tilted view A24).
    */
   public begin(killed: BossKilled, grave: Grave): boolean {
     if (killed.boss !== 'undertaker') return false;
-    this.scene = sceneFrom(killed, grave);
+    const scene = sceneFrom(killed, grave);
+    const haulEnd = fromGraveFrame(
+      this.runScene.playLayer,
+      grave,
+      scene.hinge.x,
+      scene.hinge.y,
+    );
+    this.scene = { ...scene, rimX: haulEnd.x, rimY: haulEnd.y };
     drawBoss(this.dragged, { kind: killed.boss, flash: 0 });
     drawBoss(this.falling, { kind: killed.boss, flash: 0 });
     this.show(0);
@@ -146,14 +157,15 @@ class EndingSceneRenderer {
   }
 
   /**
-   * Dragged over the field, he stands at the ground point the scene draws him
-   * at, upright at the camera's scale with his feet on the near edge of his
-   * footprint, and sorts by depth with the bodies around him (design record
-   * A7, A8). His own turn and squash ride inside that uniform scale.
+   * Dragged over the field, he stands where the play layer draws the field
+   * point the scene puts him at, upright at the camera's scale for that row with
+   * his feet on the near edge of his footprint, and sorts by depth with the
+   * bodies around him (design record A7, A8, A19). His own turn and squash ride
+   * inside that uniform scale.
    */
   private placeDragged(drawn: EndingSceneDrawing): void {
-    const at = standingAt(
-      this.runScene.camera,
+    const at = standingOnPlay(
+      this.runScene.playLayer,
       drawn.x,
       drawn.y,
       BOSS_HALF_HEIGHT,
@@ -215,10 +227,10 @@ class EndingSceneRenderer {
       const walked = point / (FURROW_POINTS - 1);
       const off = sits + wanderAt(line, point);
       // Across the way he is dragged, which is that way turned a quarter.
-      // The furrows lie in the ground, so each point is where the camera
-      // draws that ground (A7).
-      const on = groundToColumn(
-        this.runScene.camera,
+      // The furrows mark the field he crossed, so each point is where the
+      // play layer draws it (A24).
+      const on = playToColumn(
+        this.runScene.playLayer,
         scene.fromX + toX * walked - alongY * off,
         scene.fromY + toY * walked + alongX * off,
       );

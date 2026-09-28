@@ -1,6 +1,6 @@
 /**
- * Where scenery, and the grave and the ending scene until slice C, draw under
- * the camera, and at what size (design record A7): lying and standing.
+ * Where scenery draws under the camera, and at what size (design record A7):
+ * lying and standing.
  */
 
 import { type Camera, groundToColumn } from './camera';
@@ -23,8 +23,7 @@ const columnRateDownField = (camera: Camera, scale: number): number =>
 
 /**
  * A lying thing, laid on the ground so it foreshortens with the ground exactly
- * where it lies (A7). The dressing's eyes and cracks, and the grave until slice
- * C moves it onto the play layer, are placed with it.
+ * where it lies (A7). The dressing's eyes and cracks are placed with it.
  */
 const lyingAt = (camera: Camera, x: number, y: number): Placement => {
   const on = groundToColumn(camera, x, y);
@@ -39,8 +38,8 @@ const lyingAt = (camera: Camera, x: number, y: number): Placement => {
 /**
  * A standing thing, upright at the camera's scale with its feet on the near
  * edge of its footprint, so it rises from where it stands (A7). The point is
- * the drawing's own centre. The dressing's statues and cliffs, and the
- * Undertaker in his ending scene until slice C, are placed with it.
+ * the drawing's own centre. The dressing's statues and cliffs are placed with
+ * it.
  */
 const standingAt = (
   camera: Camera,

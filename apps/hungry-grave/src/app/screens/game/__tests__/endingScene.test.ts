@@ -175,6 +175,22 @@ describe("the Undertaker's ending scene", () => {
     expect(endingSceneAt(sideways, FALL_STARTS, BUILD_7_VIEW).turn).not.toBe(0);
   });
 
+  it('the scene keeps the rim hinge the pull crosses, whatever its haul end', () => {
+    // A24: the screen moves the haul's end to the field point the play layer
+    // draws where the grave's frame draws the hinge, and he still goes over the
+    // hinge the pull crosses, never one read back off the moved haul end. He
+    // died straight above the grave, so the hinge is the far edge at his own
+    // column, (0, -1) half-lengths, turning in toward the near end.
+    const scene = sceneFrom(KILLED, parked());
+    expect(scene.hinge).toEqual({ x: 0, y: -1, intoX: 0, intoY: 1 });
+    const moved = { ...scene, rimX: scene.rimX + 3, rimY: scene.rimY - 5 };
+    for (const progress of [TIP_STARTS, FALL_STARTS, 1]) {
+      expect(endingSceneAt(moved, progress, BUILD_7_VIEW)).toEqual(
+        endingSceneAt(scene, progress, BUILD_7_VIEW),
+      );
+    }
+  });
+
   it('he falls the way a corpse falls, on the same projection and the same light curve', () => {
     // R6: he falls with the shared fall, so he shrinks and darkens on the
     // walls' own curve and never lands. The check is against fall.ts itself,

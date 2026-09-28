@@ -264,6 +264,7 @@ class ReplayScreen extends Container {
     this.bossRenderer.useScene(scene);
     this.stormRenderer.useScene(scene);
     this.grave.useScene(scene);
+    this.falls.useScene(scene);
     this.scene.useScene(scene);
     this.fitTheDrawnField();
   }

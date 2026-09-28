@@ -177,13 +177,13 @@ const BOUNDARIES: Boundary[] = [
   /**
    * The scene camera (tilted view T2, T3, A13): pure math, no pixi at all, not
    * even a type import, because its tests and slice 3's fall run without a
-   * renderer. It reaches the field's width, height and point, the starting
-   * size its height is measured in, and the move command steering converts.
+   * renderer. It reaches the field's width, height and point, and the starting
+   * size its height is measured in.
    */
   {
     root: 'app',
     only: ['screens/game/camera.ts'],
-    mayReach: ['game/command', 'game/field', 'game/tuning'],
+    mayReach: ['game/field', 'game/tuning'],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -1145,6 +1145,9 @@ const PLAY_LAYER_RENDERERS = [
   'app/screens/game/FieldRenderer',
   'app/screens/game/StormRenderer',
   'app/screens/game/BossRenderer',
+  'app/screens/game/GraveRenderer',
+  'app/screens/game/FallRenderer',
+  'app/screens/game/EndingSceneRenderer',
 ];
 
 // The camera's placements, which are scenery's alone.
@@ -1152,6 +1155,15 @@ const CAMERA_PLACEMENTS = [
   'app/screens/game/camera',
   'app/screens/game/groundPlacement',
 ];
+
+/**
+ * The one play-layer renderer that reads the camera itself: the grave cuts its
+ * hole from the scene camera's stance over the ground under its play point
+ * (tilted view T4, A23).
+ */
+const READS_THE_CAMERA = new Map([
+  ['app/screens/game/GraveRenderer', ['app/screens/game/camera']],
+]);
 
 describe('the play layer carries what the sim moves (tilted view T10)', () => {
   it("the renderers of the play layer's things place through the play layer and never through the camera's placements", () => {
@@ -1163,6 +1175,7 @@ describe('the play layer carries what the sim moves (tilted view T10)', () => {
         .filter((specifier) => specifier.startsWith('.'))
         .map((specifier) => pathReachedBy(file, specifier))
         .filter((path) => CAMERA_PLACEMENTS.includes(path))
+        .filter((path) => !READS_THE_CAMERA.get(module)?.includes(path))
         .map((path) => `${module} reaches ${path}`);
     });
     expect(reached).toEqual([]);

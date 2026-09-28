@@ -16,8 +16,14 @@ import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
 import { FallRenderer } from '../FallRenderer';
-import { FALL_TICKS } from '../fall';
+import { FALL_TICKS, TIP_TICKS } from '../fall';
 import type { GraveView } from '../graveProjection';
+import { playToColumn } from '../playLayer';
+import { graveFrameOnPlay } from '../playPlacement';
+import { sceneFor } from '../scene';
+
+// The shortest field's scene, the one this file's values were pinned on (tilted view A34).
+const SHORTEST_SCENE = sceneFor(SHORTEST_FIELD);
 
 /**
  * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
@@ -53,6 +59,7 @@ const swallowedAtTheRim = (): Swallowed => ({
 const attached = (): { into: Container; renderer: FallRenderer } => {
   const into = new Container();
   const renderer = new FallRenderer({ holeView: () => BUILD_7_VIEW });
+  renderer.useScene(SHORTEST_SCENE);
   renderer.attach(into, CAPS);
   return { into, renderer };
 };
@@ -67,6 +74,29 @@ const runAt = (tick: number, x: number, y: number): RunState => {
   return run;
 };
 
+/** A corpse swallowed at an offset from the grave's centre, still. */
+const swallowedAt = (offsetX: number, offsetY: number): Swallowed => ({
+  ...swallowedAtTheRim(),
+  offsetX,
+  offsetY,
+});
+
+/**
+ * Where a fall's sprite draws on the column: its place in the grave's frame,
+ * through the grave's placement on the play layer (A29).
+ */
+const onColumn = (run: RunState, sprite: Graphics) => {
+  const frame = graveFrameOnPlay(
+    SHORTEST_SCENE.playLayer,
+    run.grave.x,
+    run.grave.y,
+  );
+  return {
+    x: frame.x + sprite.position.x * frame.scaleX,
+    y: frame.y + sprite.position.y * frame.scaleY,
+  };
+};
+
 const shown = (into: Container): Graphics[] =>
   into.children.filter(
     (child): child is Graphics => child instanceof Graphics && child.visible,
@@ -77,19 +107,58 @@ afterEach(() => {
 });
 
 describe('the falls on screen (grave-in-the-ground R5)', () => {
-  it('puts one fall in the air at the place the swallowed event names', () => {
-    // R5: the fall starts where the body crossed the rim. The event carries
-    // that place as an offset from the grave's centre, and the container this
-    // renderer draws into is the one positioned at the grave, so the sprite
-    // sits at the offset itself.
-    const { into, renderer } = attached();
-    const run = runAt(200, 270, 380);
-    renderer.swallowed(run, swallowedAtTheRim());
-    renderer.sync(run);
-    const falling = shown(into);
-    expect(falling).toHaveLength(1);
-    expect(falling[0]?.position.x).toBeCloseTo(13.5, 6);
-    expect(falling[0]?.position.y).toBeCloseTo(0, 6);
+  it("a swallowed body's fall begins where the play layer drew it: at age zero its sprite, through the grave's placement, is where the play layer draws the body's field point", () => {
+    // A24: the body goes over the rim from exactly where it was drawn the
+    // frame before, with no jump. Graves at (270, 608), (40, 700) and (270,
+    // 100); bodies at the hitbox's corners and past its far edge.
+    for (const [x, y] of [
+      [270, 608],
+      [40, 700],
+      [270, 100],
+    ] as const) {
+      for (const [dx, dy] of [
+        [13.5, -27],
+        [-13.5, 27],
+        [0, -30],
+      ] as const) {
+        const { into, renderer } = attached();
+        const run = runAt(200, x, y);
+        renderer.swallowed(run, swallowedAt(dx, dy));
+        renderer.sync(run);
+        const sprite = shown(into)[0];
+        if (sprite === undefined) throw new Error('no fall shown');
+        const drawn = onColumn(run, sprite);
+        const body = playToColumn(SHORTEST_SCENE.playLayer, x + dx, y + dy);
+        const label = `grave ${x},${y} body ${dx},${dy}`;
+        expect(Math.abs(drawn.x - body.x), label).toBeLessThan(1e-6);
+        expect(Math.abs(drawn.y - body.y), label).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('a fall that starts past the drawn far rim still hinges on the far edge and goes into the hole', () => {
+    // A24, fall.ts's rim rule: a body lying outside the far lip hinges on the
+    // far edge. By the tip's end it has turned over that edge into the mouth,
+    // never over a side, and once the fall is over it is gone.
+    for (const [x, y] of [
+      [270, 608],
+      [40, 700],
+      [270, 100],
+    ] as const) {
+      const { into, renderer } = attached();
+      const born = runAt(200, x, y);
+      renderer.swallowed(born, swallowedAt(3, -30));
+      renderer.sync(born);
+      renderer.sync(runAt(200 + TIP_TICKS, x, y));
+      const tipped = shown(into)[0];
+      if (tipped === undefined) throw new Error('no fall shown');
+      const label = `grave ${x},${y}`;
+      expect(tipped.position.y, label).toBeGreaterThan(-27);
+      expect(tipped.position.y, label).toBeLessThan(0);
+      expect(Math.abs(tipped.position.x), label).toBeLessThan(13.5);
+      renderer.sync(runAt(200 + FALL_TICKS, x, y));
+      expect(shown(into), label).toHaveLength(0);
+    }
   });
 
   it("follows the grave, because a fall is drawn in the grave's own frame", () => {

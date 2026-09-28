@@ -8,7 +8,11 @@ import type { Container, Renderer, Sprite } from 'pixi.js';
 import { Mesh, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { FIELD_WIDTH, SHORTEST_FIELD_HEIGHT } from '../../../../game/field';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD_HEIGHT,
+  fieldOfHeight,
+} from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -31,7 +35,9 @@ import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
 import { groundGrid } from '../groundMesh';
 import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
+import { playToColumn } from '../playLayer';
 import { lyingOnPlay } from '../playPlacement';
+import type { Scene } from '../scene';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
 const {
@@ -39,6 +45,19 @@ const {
   column: SHORTEST_COLUMN,
   playLayer: SHORTEST_PLAY_LAYER,
 } = sceneFor(SHORTEST_FIELD);
+
+// A 390 by 844 phone's field, where the ground's rate is checked a second time (T12).
+const TALL_SCENE = sceneFor(fieldOfHeight(1168));
+
+/**
+ * The play layer's stretch on each field, ground units along per field unit
+ * along, from the design record's two play layer tables (A18, T12).
+ */
+const STRETCH_760 = 1.224454;
+const STRETCH_1168 = 1.281514;
+
+/** The sim's scroll, 38 field units a second at 60 ticks a second. */
+const SCROLL_PER_TICK = 38 / 60;
 
 /** Pixi's own no-tint, which is what the ground wears now that it is painted. */
 const NO_TINT = 0xffffff;
@@ -105,11 +124,47 @@ function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
   return { x: foot.x, y: foot.y, half: sprite.width / scale / 2 };
 }
 
-/** The ground's texture row under one grid vertex, in field units. */
-function groundRowAt(layers: FieldLayers, vertex: number): number {
+/** The ground's texture row under one grid vertex, in field units of a picture one field tall. */
+function groundRowAt(
+  layers: FieldLayers,
+  vertex: number,
+  height = SHORTEST_FIELD_HEIGHT,
+): number {
   const v = groundOf(layers).geometry.uvs[vertex * 2 + 1];
   if (v === undefined) throw new Error(`no ground vertex ${vertex}`);
-  return v * SHORTEST_FIELD_HEIGHT;
+  return v * height;
+}
+
+/** The renderer attached and handed a run's scene. */
+function attachedOn(scene: Scene): {
+  layers: FieldLayers;
+  renderer: BackgroundRenderer;
+} {
+  const rig = attached();
+  rig.renderer.useScene(scene);
+  return rig;
+}
+
+/**
+ * How far the ground has scrolled, in ground units, at each of these rising
+ * ticks since tick 0, read off the texture row under one vertex. The picture
+ * repeats every field height, so each reading is unwrapped to the first
+ * repeat at or past the one before, which holds while no two samples are a
+ * whole repeat apart; it is measured against tick 0 each time, so rounding is
+ * never added up.
+ */
+function scrolledAt(scene: Scene, ticks: readonly number[]): number[] {
+  const { layers, renderer } = attachedOn(scene);
+  const height = scene.field.height;
+  renderer.sync(runInSection('procession', 0, 0));
+  const start = groundRowAt(layers, 0, height);
+  let last = 0;
+  return ticks.map((tick) => {
+    renderer.sync(runInSection('procession', tick, tick));
+    const raw = start - groundRowAt(layers, 0, height);
+    last = raw + height * Math.ceil((last - raw) / height - 1e-9);
+    return last;
+  });
 }
 
 /** The renderer's own pass reaching the ground, which is where it meets a renderer. */
@@ -629,13 +684,12 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     expect(announced).toContain('repeat repeat');
   });
 
-  it("the ground runs at the rate a landed patch drifts: over a number of ticks its texture moves by that many ticks of the sim's scroll, in ground units", () => {
-    // Territory is lobbed onto the ground, so a patch and the earth under it
-    // move as one (Mark, after the slice 13b deploy). The rate is read by
-    // drifting a real patch through the sim rather than off the renderer's own
-    // row, and one repeat of the picture is one field height, so the texture
-    // row under every vertex moves by exactly what the patch fell (A9: the
-    // scroll stays the sim's own, in ground units).
+  it("the ground runs at the rate a lying thing on the middle column drifts: over a number of ticks its texture moves by that many ticks of the sim's scroll times the scene's stretch, 1.224454 on the 760 field and 1.281514 on the 1168 one, in ground units", () => {
+    // A22, T12: on the play layer a field unit along is the stretch in ground
+    // units, so a patch lobbed onto the middle column stays on the ground it
+    // landed on only if the ground runs that much faster than the sim's
+    // scroll (Mark's slice 13b ruling). The sim's scroll is read by drifting a
+    // real patch through the sim rather than off the renderer's own row.
     const run = createRun(19);
     const patch = run.patches[0];
     if (patch === undefined) throw new Error('no patch pool slot 0');
@@ -645,18 +699,69 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     const ticks = 120;
     for (let each = 0; each < ticks; each++) advanceTerritory(run);
     const patchFell = patch.y - 100;
-    expect(patchFell).toBeGreaterThan(0);
+    expect(patchFell).toBeCloseTo(ticks * SCROLL_PER_TICK, 9);
 
-    const { layers, renderer } = attached();
-    renderer.sync(runInSection('procession', 0, 0));
-    const from = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
-    renderer.sync(runInSection('procession', ticks, ticks));
-    const to = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
-    to.forEach((row, at) =>
-      expect((from[at] ?? NaN) - row).toBeCloseTo(patchFell, 4),
-    );
+    for (const [scene, stretch] of [
+      [sceneFor(SHORTEST_FIELD), STRETCH_760],
+      [TALL_SCENE, STRETCH_1168],
+    ] as const) {
+      const height = scene.field.height;
+      const { layers, renderer } = attachedOn(scene);
+      renderer.sync(runInSection('procession', 0, 0));
+      const from = [0, 300, 700].map((vertex) =>
+        groundRowAt(layers, vertex, height),
+      );
+      renderer.sync(runInSection('procession', ticks, ticks));
+      const to = [0, 300, 700].map((vertex) =>
+        groundRowAt(layers, vertex, height),
+      );
+      to.forEach((row, at) =>
+        expect((from[at] ?? NaN) - row, `${height}`).toBeCloseTo(
+          patchFell * stretch,
+          4,
+        ),
+      );
+    }
   });
 
+  it('a patch on the middle column stays on its ground: a field point on column x 270 and the ground point under it at the start stay on one column row over the whole trip down the column, on the 760 and the 1168 field', () => {
+    // A22: a lying thing on the middle column drifts down the field at the
+    // sim's scroll and is drawn on the play layer; the ground under it is
+    // drawn by the camera and runs at the renderer's own scroll. From the top
+    // row to the bottom, the ground point it landed on stays on its row. The
+    // mesh keeps its texture rows as float32, so the ground is read to that
+    // grid: two rows of up to two field heights each, rounded to 2^-24 of
+    // their size, and at most 1.4 column rows per ground unit on the column.
+    for (const scene of [sceneFor(SHORTEST_FIELD), TALL_SCENE]) {
+      const height = scene.field.height;
+      const float32Grid = 2 * 2 * height * 2 ** -24 * 1.4;
+      const trip = Math.floor(height / SCROLL_PER_TICK);
+      const ticks = Array.from(
+        { length: 20 },
+        (_, step) => ((step + 1) * trip) / 20,
+      ).map(Math.floor);
+      const scrolled = scrolledAt(scene, ticks);
+      const landedRow = playToColumn(scene.playLayer, 270, 0).y;
+      const landedOn = columnToGround(scene.camera, 270, landedRow);
+      if (landedOn === null) throw new Error('the top row shows no ground');
+      ticks.forEach((tick, at) => {
+        const patchRow = playToColumn(
+          scene.playLayer,
+          270,
+          tick * SCROLL_PER_TICK,
+        ).y;
+        const groundRow = groundToColumn(
+          scene.camera,
+          270,
+          landedOn.y + (scrolled[at] ?? NaN),
+        ).y;
+        expect(
+          Math.abs(patchRow - groundRow),
+          `${height} tick ${tick}`,
+        ).toBeLessThan(float32Grid);
+      });
+    }
+  });
   it('the dressing is laid across the far row of the ground the camera sees and falls from its top row to past its bottom row', () => {
     // Laid across the ground the camera sees rather than the old rectangle,
     // so the far corners are dressed too, and on screen for as long as it
@@ -684,14 +789,33 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     expect(Math.max(...rights)).toBeLessThanOrEqual(
       SEEN.farRight + RECORD_CLOSE,
     );
-    // The tallest piece, the cliff, is 112 pixels at 1.875 units a pixel.
+  });
+
+  it("the dressing falls from the top row of the ground the camera sees to past its bottom row at the ground's speed", () => {
+    // A22: the dressing falls with the ground, at the sim's scroll times the
+    // stretch on the 760 field, where its density was authored. A piece laid
+    // on the top row has fallen that speed times the ticks since, and the
+    // drift window is how long the tallest piece, the cliff (112 pixels at
+    // 1.875 units a pixel), takes to clear the bottom row at that speed.
+    const speed = SCROLL_PER_TICK * STRETCH_760;
+    const index = 1000;
+    const { layers, renderer } = attached();
+    for (const later of [0, 150, 400]) {
+      const tick = index * DRESSING_INTERVAL_TICKS + later;
+      renderer.sync(runInSection('procession', tick, 1e6));
+      const slot = Math.floor(tick / DRESSING_INTERVAL_TICKS) - index;
+      const piece = dressing(layers)[slot];
+      if (piece === undefined || !piece.visible) continue;
+      expect(footOnGround(piece).y, `${later} ticks later`).toBeCloseTo(
+        SEEN.top + later * speed,
+        2,
+      );
+    }
     const fall = SEEN.bottom - SEEN.top + 112 * 1.875;
-    expect(DRIFT_WINDOW_TICKS * SCROLL_SPEED).toBeGreaterThanOrEqual(
+    expect(DRIFT_WINDOW_TICKS * speed).toBeGreaterThanOrEqual(
       fall - RECORD_CLOSE,
     );
-    expect((DRIFT_WINDOW_TICKS - 1) * SCROLL_SPEED).toBeLessThan(
-      fall + RECORD_CLOSE,
-    );
+    expect((DRIFT_WINDOW_TICKS - 1) * speed).toBeLessThan(fall + RECORD_CLOSE);
   });
 
   it('a statue stands and an eye lies', () => {

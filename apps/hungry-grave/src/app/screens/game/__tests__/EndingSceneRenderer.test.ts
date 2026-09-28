@@ -7,6 +7,7 @@ import type { Container } from 'pixi.js';
 import { Container as PixiContainer, Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
+import { BOSS_HALF_HEIGHT } from '../../../../game/bosses/phases';
 import type { BossKilled } from '../../../../game/events';
 import type { Grave } from '../../../../game/grave';
 import { createGrave } from '../../../../game/grave';
@@ -19,6 +20,12 @@ import { EndingSceneRenderer } from '../EndingSceneRenderer';
 import { ENDING_BEATS } from '../graveDrawingValues';
 import type { GraveView } from '../graveProjection';
 import { holeViewOver } from '../GraveRenderer';
+import { columnToPlay, playToColumn } from '../playLayer';
+import {
+  fromGraveFrame,
+  graveFrameOnPlay,
+  standingOnPlay,
+} from '../playPlacement';
 import { sceneFor } from '../scene';
 
 // The scene every renderer draws with before a run hands it one of its own.
@@ -34,6 +41,9 @@ const KILLED: BossKilled = {
 
 /** How far into the scene he is over the edge and falling. */
 const FALLING = ENDING_BEATS.drag + ENDING_BEATS.claw + ENDING_BEATS.tip;
+
+/** Where he tips over the rim: the claw's end, the first moment he is in the hole. */
+const TIPPING = ENDING_BEATS.drag + ENDING_BEATS.claw;
 
 function parked(): Grave {
   const grave = createGrave(SHORTEST_FIELD, SIZE_START);
@@ -77,6 +87,25 @@ function bodyOutline(sprite: Graphics): number[] {
   );
   if (poly === undefined) throw new Error('the body is not filled from a poly');
   return poly.data[0] as number[];
+}
+
+/** Every point each furrow was traced through, in the order it was traced, read off the drawing. */
+function furrowTraces(layers: FieldLayers): { x: number; y: number }[][] {
+  const furrows = layers.layer('ground').children[0] as Graphics;
+  const stroked = furrows.context.instructions.find(
+    (each) => each.action === 'stroke',
+  );
+  if (stroked === undefined) throw new Error('the furrows recorded no stroke');
+  const { path } = stroked.data as {
+    path: { instructions: { action: string; data: number[] }[] };
+  };
+  const traces: { x: number; y: number }[][] = [];
+  for (const step of path.instructions) {
+    const [x = NaN, y = NaN] = step.data;
+    if (step.action === 'moveTo') traces.push([{ x, y }]);
+    else if (step.action === 'lineTo') traces.at(-1)?.push({ x, y });
+  }
+  return traces;
 }
 
 /** The colour the furrows were stroked in, read off the drawing itself. */
@@ -223,5 +252,66 @@ describe("the Undertaker's ending scene on screen", () => {
 
     renderer.show(0.5);
     expect(pieces(layers, falls).every((piece) => !piece.visible)).toBe(true);
+  });
+
+  it("the Undertaker's haul ends where his fall begins: the play layer's point for the haul's end and the grave's frame's point for the rim hinge are one column point", () => {
+    // A24: the drag and the fall meet at one point. The haul's end is read
+    // back off the dragged body at the claw's end, his feet taken back
+    // through the play layer's inverse; his fall begins at the tip's first
+    // moment in the grave's frame, placed on the play layer (A29).
+    const grave = parked();
+    const layer = SHORTEST_SCENE.playLayer;
+    const { layers, falls, renderer } = attached();
+    renderer.begin(KILLED, grave);
+    renderer.show(TIPPING - 1e-9);
+    const dragged = layers.layer('mobBodies').children[0] as Graphics;
+    const feetRow = dragged.position.y + BOSS_HALF_HEIGHT * dragged.scale.y;
+    const feet = columnToPlay(layer, dragged.position.x, feetRow);
+    if (feet === null) throw new Error('his feet are above the horizon');
+    const hauledTo = playToColumn(layer, feet.x, feet.y - BOSS_HALF_HEIGHT);
+
+    renderer.show(TIPPING);
+    const falling = falls.children[0] as Graphics;
+    const frame = graveFrameOnPlay(layer, grave.x, grave.y);
+    const fallsFrom = {
+      x: frame.x + falling.position.x * frame.scaleX,
+      y: frame.y + falling.position.y * frame.scaleY,
+    };
+    expect(Math.abs(hauledTo.x - fallsFrom.x)).toBeLessThan(1e-6);
+    expect(Math.abs(hauledTo.y - fallsFrom.y)).toBeLessThan(1e-6);
+  });
+
+  it('the dragged Undertaker stands on the play layer, and the furrows lie on it', () => {
+    // T10, A7, A19: he is dragged over the field, so he stands where the play
+    // layer draws him, feet on the near edge of his footprint; the furrows
+    // mark the field he crossed, so they run from the play layer's row for
+    // where he fell to its row for the haul's end (A24).
+    const grave = parked();
+    const layer = SHORTEST_SCENE.playLayer;
+    const { layers, renderer } = attached();
+    renderer.begin(KILLED, grave);
+    renderer.show(0);
+    const dragged = layers.layer('mobBodies').children[0] as Graphics;
+    const standing = standingOnPlay(
+      layer,
+      KILLED.x,
+      KILLED.y,
+      BOSS_HALF_HEIGHT,
+    );
+    expect(Math.abs(dragged.position.x - standing.x)).toBeLessThan(1e-9);
+    expect(Math.abs(dragged.position.y - standing.y)).toBeLessThan(1e-9);
+    expect(Math.abs(dragged.scale.x - standing.scaleX)).toBeLessThan(1e-9);
+    expect(Math.abs(dragged.scale.y - standing.scaleY)).toBeLessThan(1e-9);
+
+    renderer.show(TIPPING);
+    const haulEnd = fromGraveFrame(layer, grave, 0, -1);
+    const fromRow = playToColumn(layer, KILLED.x, KILLED.y).y;
+    const toRow = playToColumn(layer, haulEnd.x, haulEnd.y).y;
+    const traces = furrowTraces(layers);
+    expect(traces.length).toBeGreaterThan(1);
+    for (const trace of traces) {
+      expect(Math.abs((trace[0]?.y ?? NaN) - fromRow)).toBeLessThan(1e-9);
+      expect(Math.abs((trace.at(-1)?.y ?? NaN) - toRow)).toBeLessThan(1e-9);
+    }
   });
 });

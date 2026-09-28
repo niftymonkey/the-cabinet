@@ -2,8 +2,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { fieldOfHeight } from '../../../../game/field';
-import { groundToColumn } from '../camera';
+import { FIELD_WIDTH, fieldOfHeight } from '../../../../game/field';
+import { graveWidth } from '../../../../game/grave';
+import { SIZE_CEILING, SIZE_START } from '../../../../game/tuning';
+import { columnToGround, groundToColumn } from '../camera';
 import { playToColumn } from '../playLayer';
 import {
   airborneOnPlay,
@@ -12,6 +14,7 @@ import {
   graveFrameOnPlay,
   graveFrameVelocity,
   graveOnGround,
+  graveOpeningOnColumn,
   headingOnPlay,
   hostileFireOnPlay,
   liftOnPlay,
@@ -81,6 +84,60 @@ const expectFrameRoundTrips = (
     expectNear(back.y, grave.y + dy, EXACT);
   }
 };
+
+/**
+ * Graves at the left edge the sim's hold allows, the centre and the right
+ * edge, near the top, on the starting row and on the lowest row, at the start
+ * size and the ceiling.
+ */
+const edgeToEdgeGraves = (height: number): GraveFrame[] =>
+  [SIZE_START, SIZE_CEILING].flatMap((size) => {
+    const half = graveWidth(size) / 2;
+    return [half, 270, FIELD_WIDTH - half].flatMap((x) =>
+      [size, height - 152, height - size].map((y) => ({ x, y, size })),
+    );
+  });
+
+/** The grave's drawn opening, at its hitbox's own half extents. */
+const openingOf = (scene: typeof SHORT, grave: GraveFrame) =>
+  graveOpeningOnColumn(
+    scene.playLayer,
+    grave,
+    graveWidth(grave.size) / 2,
+    grave.size,
+  );
+
+/** Where the play layer draws the four corners of a grave's hitbox. */
+const hitboxCornersOnPlay = (scene: typeof SHORT, grave: GraveFrame) => {
+  const half = graveWidth(grave.size) / 2;
+  return [
+    [-half, -grave.size],
+    [half, -grave.size],
+    [half, grave.size],
+    [-half, grave.size],
+  ].map(([dx = NaN, dy = NaN]) =>
+    playToColumn(scene.playLayer, grave.x + dx, grave.y + dy),
+  );
+};
+
+/**
+ * How far a column point lies outside a quadrilateral whose corners run
+ * clockwise on the screen (y down), in column units; zero or less is inside.
+ */
+const outsideBy = (
+  quad: readonly { x: number; y: number }[],
+  point: { x: number; y: number },
+): number =>
+  Math.max(
+    ...quad.map((from, i) => {
+      const to = quad[(i + 1) % quad.length] ?? from;
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+      const cross =
+        (to.x - from.x) * (point.y - from.y) -
+        (to.y - from.y) * (point.x - from.x);
+      return -cross / length;
+    }),
+  );
 
 describe('where play things draw on the play layer (tilted view A19)', () => {
   it("a lying thing at the grave's start draws at (270, 559.555815), 1.084074 across and 0.991168 down", () => {
@@ -208,12 +265,92 @@ describe("the grave's frame on the play layer (tilted view A24, A29)", () => {
     const grown = graveOnGround(LAYER, { x: 270, y: 100, size: 48 }, 24, 48);
     expectNear(grown.halfAcross, 24 * 1.191296, 1e-5);
   });
-  // Held as a todo, reported in slice B's note: off the middle column the
-  // pinhole's image of A29's ground rectangle converges toward the middle and
-  // leaves the hitbox's outer far corner and inner near corner outside it.
-  it.todo(
-    "the four corners of a grave's hitbox, drawn by the play layer, lie inside the pinhole's image of its ground rectangle",
-  );
+  it("the four corners of a grave's hitbox, drawn by the play layer, lie inside its drawn opening at the left edge, the centre and the right edge, at the start size and the ceiling, on both fields", () => {
+    // A29 as ruled after slice B: a hit must never look like a miss, so the
+    // drawn opening covers the hitbox's play-layer image at every position
+    // and size. Off the middle column the camera's shape alone leaves the
+    // outer far corner and the inner near corner outside by 1.2 to 7 column
+    // units, so the opening is widened there.
+    for (const scene of [SHORT, TALL]) {
+      for (const grave of edgeToEdgeGraves(scene.field.height)) {
+        const opening = openingOf(scene, grave);
+        for (const corner of hitboxCornersOnPlay(scene, grave)) {
+          expect(
+            outsideBy(opening, corner),
+            `${scene.field.height} ${JSON.stringify(grave)} corner ${corner.x},${corner.y}`,
+          ).toBeLessThanOrEqual(EXACT);
+        }
+      }
+    }
+  });
+  it("the drawn opening is the camera's image of a ground rectangle centred under the grave's play point on the hitbox's rows, widened across by the least factor that holds the hitbox: not at all where the rectangle already holds it, and otherwise until a hitbox corner lies on its edge", () => {
+    // A29 as amended after slice B, with Mark's rule that the grave draws
+    // where the sim places it: widening the ground rectangle about its centre
+    // keeps tilt 9's look (the scene camera's shape at the placed point) and
+    // its centre, and widening it least keeps it just large enough. Read back
+    // through the camera's exact inverse, so the check needs no widening of
+    // its own.
+    for (const scene of [SHORT, TALL]) {
+      for (const grave of edgeToEdgeGraves(scene.field.height)) {
+        const half = graveWidth(grave.size) / 2;
+        const ground = graveOnGround(scene.playLayer, grave, half, grave.size);
+        const opening = openingOf(scene, grave);
+        const label = `${scene.field.height} ${JSON.stringify(grave)}`;
+        const back = opening.map((corner) => {
+          const under = columnToGround(scene.camera, corner.x, corner.y);
+          if (under === null) throw new Error(`${label}: above the horizon`);
+          return under;
+        });
+        const [farLeft, farRight, nearRight, nearLeft] = back;
+        if (!farLeft || !farRight || !nearRight || !nearLeft) {
+          throw new Error(`${label}: not four corners`);
+        }
+        const widening = (farRight.x - ground.centre.x) / ground.halfAcross;
+        for (const [corner, across, along] of [
+          [farLeft, -1, -1],
+          [farRight, 1, -1],
+          [nearRight, 1, 1],
+          [nearLeft, -1, 1],
+        ] as const) {
+          expectNear(
+            corner.x,
+            ground.centre.x + across * widening * ground.halfAcross,
+            CLOSE,
+          );
+          expectNear(
+            corner.y,
+            ground.centre.y + along * ground.halfAlong,
+            CLOSE,
+          );
+        }
+        const unwidened = [
+          [-1, -1],
+          [1, -1],
+          [1, 1],
+          [-1, 1],
+        ].map(([across = NaN, along = NaN]) =>
+          groundToColumn(
+            scene.camera,
+            ground.centre.x + across * ground.halfAcross,
+            ground.centre.y + along * ground.halfAlong,
+          ),
+        );
+        const corners = hitboxCornersOnPlay(scene, grave);
+        const holds = corners.every(
+          (corner) => outsideBy(unwidened, corner) <= EXACT,
+        );
+        if (holds) {
+          expectNear(widening, 1, EXACT);
+          continue;
+        }
+        expect(widening, label).toBeGreaterThan(1);
+        const tightest = Math.max(
+          ...corners.map((corner) => outsideBy(opening, corner)),
+        );
+        expect(Math.abs(tightest), label).toBeLessThan(CLOSE);
+      }
+    }
+  });
   it("placements on the 1168 field: mob fire at field y 1016 draws at scale 1.453931, the grave's frame at 1016 is 1.159834 across and 1.453931 along, and the frame's relations hold for graves of size 27 at (40, 1016), (270, 1016) and (500, 1016)", () => {
     // A21, A29, A24 on a tall phone's field (T12).
     const fire = hostileFireOnPlay(TALL.playLayer, 270, 1016);
