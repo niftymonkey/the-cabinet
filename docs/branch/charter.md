@@ -17,6 +17,8 @@ Tilt 9 of the tilted prototype, uncommitted in the worktree `.claude/worktrees/1
 
 ## How a slice runs
 
+- **Screenshots stay few.** Mark, 2026-09-28: "I want to avoid running this large gigantic ridiculous amount of screenshots unless we're doing final regression testing before a release." A slice takes only the handful of shots that prove its own change; a whole run is checked by its replay verifying headless, never by a sweep of frames. A large sweep runs only as final regression before a release. Checks use his two real screens only: his iPhone in portrait, 428 by 926 CSS px (iPhone 12 Pro Max), and his desktop browser.
+
 Mark approved this lighter process on 2026-09-27 for the rest of the branch. The remaining work is four slices, A to D (the follow-along list); each is one coder's whole job.
 
 1. **The coder** builds test first by the feature flow and the coder contract, and runs each check once (test, typecheck, build, `pnpm verify`, the entry's rendered checks) before returning its note. It updates an existing test whose promise is unchanged and lists it; it stops only when a test's promise itself would change or the plan is wrong about the code (the contract's stop rule).

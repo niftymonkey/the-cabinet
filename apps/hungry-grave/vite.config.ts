@@ -30,7 +30,9 @@ export default defineConfig({
   plugins: [assetpackPlugin()],
   server: {
     port: 8080,
-    open: true,
+    // Servers here are started by agents for headless checks; an opened
+    // browser window steals the owner's focus and is never used.
+    open: false,
   },
   define: {
     APP_VERSION: JSON.stringify(process.env.npm_package_version),
