@@ -25,16 +25,16 @@ import {
   TEETER_START,
   TEETER_TILT,
 } from './graveDrawingValues';
-import {
-  airborneAt,
-  headingOnColumn,
-  hostileFireAt,
-  lyingAt,
-  standingAt,
-} from './groundPlacement';
 import type { FieldLayers } from './layering';
 import { drawScatter, drawShot, SCATTER_TICKS } from './mobFireSprite';
 import { drawMob, mobLook } from './mobSprite';
+import {
+  airborneOnPlay,
+  headingOnPlay,
+  hostileFireOnPlay,
+  lyingOnPlay,
+  standingOnPlay,
+} from './playPlacement';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -212,7 +212,7 @@ class FieldRenderer {
 
   /**
    * The run about to be drawn's scene: every placement goes through its
-   * camera, and the hit dim covers its field.
+   * play layer (T10), and the hit dim covers its field.
    */
   public useScene(scene: Scene): void {
     this.scene = scene;
@@ -386,7 +386,7 @@ class FieldRenderer {
         drawMob(sprite, mob);
       }
       const { halfHeight, motion } = MOB_TYPES[mob.type];
-      const at = standingAt(this.scene.camera, mob.x, mob.y, halfHeight);
+      const at = standingOnPlay(this.scene.playLayer, mob.x, mob.y, halfHeight);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
       sprite.zIndex = mob.y + halfHeight;
@@ -394,7 +394,7 @@ class FieldRenderer {
       // ghoul's turn readable at all; the other two types are drawn upright.
       sprite.rotation =
         motion === 'chases'
-          ? headingOnColumn(this.scene.camera, mob.x, mob.y, mob.vx, mob.vy) -
+          ? headingOnPlay(this.scene.playLayer, mob.y, mob.vx, mob.vy) -
             Math.PI / 2
           : 0;
     }
@@ -431,7 +431,7 @@ class FieldRenderer {
         this.shotLooks[slot] = look;
         drawShot(sprite, shot);
       }
-      const at = hostileFireAt(this.scene.camera, shot.x, shot.y);
+      const at = hostileFireOnPlay(this.scene.playLayer, shot.x, shot.y);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
     }
@@ -473,7 +473,7 @@ class FieldRenderer {
         slot,
         'food placement',
       );
-      const at = lyingAt(this.scene.camera, corpse.x, corpse.y);
+      const at = lyingOnPlay(this.scene.playLayer, corpse.x, corpse.y);
       placement.position.set(at.x, at.y);
       placement.scale.set(at.scaleX, at.scaleY);
       // The teeter, on every live piece of food and on every frame (design
@@ -508,7 +508,7 @@ class FieldRenderer {
     scatter.born = run.tick;
     scatter.extent = seen.extent;
     scatter.kind = seen.kind;
-    const at = airborneAt(this.scene.camera, seen.x, seen.y);
+    const at = airborneOnPlay(this.scene.playLayer, seen.x, seen.y);
     scatter.sprite.position.set(at.x, at.y);
     scatter.sprite.scale.set(at.scaleX, at.scaleY);
     scatter.sprite.visible = true;

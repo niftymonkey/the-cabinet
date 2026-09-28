@@ -3,6 +3,7 @@
 import type { Field } from '../../../game/field';
 import { SIZE_START } from '../../../game/tuning';
 import type { Camera, Column } from './camera';
+import { makePlayLayer, type PlayLayer } from './playLayer';
 import {
   CAMERA_VALUES,
   groundToColumn,
@@ -26,6 +27,8 @@ interface Scene {
    * hole draw largest, so both are baked as sharp as they draw there (A10).
    */
   readonly nearestScale: number;
+  // Where everything the sim moves is drawn over this column (T10, T11, A18).
+  readonly playLayer: PlayLayer;
 }
 
 /**
@@ -47,6 +50,7 @@ const sceneFor = (field: Field): Scene => {
     column,
     camera,
     nearestScale: groundToColumn(camera, column.width / 2, nearestRow).scale,
+    playLayer: makePlayLayer(camera, column),
   };
 };
 

@@ -303,12 +303,13 @@ describe('the phase flash (module 107, ADR 0007)', () => {
   });
 });
 
-describe('the boss under the tilted camera (tilted view A7)', () => {
-  it('the boss stands on its footprint where the camera puts its feet', () => {
-    // Upright at the camera's scale with its feet on the near edge of its
-    // footprint (A7): a Banshee at ground (173, 96) of half-height 40 has its
-    // feet at ground (173, 136). Worked on an independent pinhole (a camera
-    // 1147.5 up, 32.5 degrees off straight down, aimed at ground (270, 380)).
+describe('the boss on the play layer (tilted view A7, A19)', () => {
+  it('the boss stands on its footprint where the play layer puts its feet', () => {
+    // A7, A19: upright at the camera's scale for its row, its feet on the near
+    // edge of its footprint. A Banshee at field (173, 96) of half-height 40
+    // has its feet at field (173, 136), which the play layer draws at column
+    // (173, 100.338061) at scale 0.869053, so its centre is on row 65.575961;
+    // worked independently in double precision.
     const { layers, renderer } = attached();
     const { run, boss } = runWith('banshee');
     boss.x = 173;
@@ -316,9 +317,9 @@ describe('the boss under the tilted camera (tilted view A7)', () => {
     expect(BOSS_HALF_HEIGHT).toBe(40);
     renderer.sync(run);
     const body = bossSprite(layers);
-    expect(body.position.x).toBeCloseTo(181.525162, 5);
-    expect(body.position.y).toBeCloseTo(155.814325, 5);
-    expect(body.scale.x).toBeCloseTo(0.912112, 5);
-    expect(body.scale.y).toBeCloseTo(0.912112, 5);
+    expect(body.position.x).toBeCloseTo(173, 9);
+    expect(body.position.y).toBeCloseTo(65.575961, 5);
+    expect(body.scale.x).toBeCloseTo(0.869053, 5);
+    expect(body.scale.y).toBeCloseTo(0.869053, 5);
   });
 });

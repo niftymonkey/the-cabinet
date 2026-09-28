@@ -27,11 +27,11 @@ import { SCROLL_SPEED } from '../../../game/tuning';
 import { SHORTEST_FIELD } from '../../../game/field';
 import { PALETTE } from '../../palette';
 import {
-  airborneAt,
-  headingOnColumn,
-  liftOnColumn,
-  lyingAt,
-} from './groundPlacement';
+  airborneOnPlay,
+  headingOnPlay,
+  liftOnPlay,
+  lyingOnPlay,
+} from './playPlacement';
 import type { FieldLayers } from './layering';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
@@ -455,7 +455,7 @@ const drawSplash = (into: Graphics, age: number): void => {
 /**
  * Where one of a stripped line's sprites stood on the tick the rung was lost,
  * on the column, and the camera's scale there: a skull has no height, so its
- * ring is airborne at its ground point (design record A7).
+ * ring is airborne at its play point (design record A7, A19).
  */
 interface LossPop {
   readonly x: number;
@@ -607,7 +607,7 @@ class StormRenderer {
   private readonly wispDrawn: boolean[] = [];
   private built = false;
 
-  /** The run about to be drawn's scene, whose camera every placement goes through (A34). */
+  /** The run about to be drawn's scene, whose play layer every placement goes through (A34, T10). */
   public useScene(scene: Scene): void {
     this.scene = scene;
   }
@@ -721,7 +721,7 @@ class StormRenderer {
     this.lossPops.length = 0;
     for (const skull of run.skulls) {
       if (!skull.alive) continue;
-      const at = airborneAt(this.scene.camera, skull.x, skull.y);
+      const at = airborneOnPlay(this.scene.playLayer, skull.x, skull.y);
       this.lossPops.push({ x: at.x, y: at.y, scale: at.scaleX });
     }
     this.lossBlowUp.born = run.tick;
@@ -744,7 +744,7 @@ class StormRenderer {
         this.skullDrawn[slot] = true;
         drawSkull(sprite);
       }
-      const at = airborneAt(this.scene.camera, skull.x, skull.y);
+      const at = airborneOnPlay(this.scene.playLayer, skull.x, skull.y);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
     }
@@ -761,7 +761,7 @@ class StormRenderer {
         this.patchDrawn[slot] = look;
         drawPatch(sprite, patch.radius);
       }
-      const at = lyingAt(this.scene.camera, patch.x, patch.y);
+      const at = lyingOnPlay(this.scene.playLayer, patch.x, patch.y);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
       // Ground still opening draws dimmed, so the beat before the hands come up
@@ -837,9 +837,9 @@ class StormRenderer {
       // mark is (A7).
       const alongX = origin.x + (patch.x - origin.x) * travel;
       const alongY = origin.y + (patch.y - origin.y) * travel;
-      const at = airborneAt(this.scene.camera, alongX, alongY);
-      const lift = liftOnColumn(
-        this.scene.camera,
+      const at = airborneOnPlay(this.scene.playLayer, alongX, alongY);
+      const lift = liftOnPlay(
+        this.scene.playLayer,
         alongX,
         alongY,
         0,
@@ -860,14 +860,13 @@ class StormRenderer {
         this.wispDrawn[slot] = true;
         drawWisp(sprite);
       }
-      const at = airborneAt(this.scene.camera, wisp.x, wisp.y);
+      const at = airborneOnPlay(this.scene.playLayer, wisp.x, wisp.y);
       sprite.position.set(at.x, at.y);
       sprite.scale.set(at.scaleX, at.scaleY);
       // Oriented to its heading on the screen, which is what makes the curve
       // readable (A7).
-      sprite.rotation = headingOnColumn(
-        this.scene.camera,
-        wisp.x,
+      sprite.rotation = headingOnPlay(
+        this.scene.playLayer,
         wisp.y,
         wisp.vx,
         wisp.vy,
@@ -880,7 +879,7 @@ class StormRenderer {
     this.ring.visible = toll !== null;
     if (toll === null) return;
     drawCones(this.ring, toll.level, tollReach(toll));
-    const at = lyingAt(this.scene.camera, run.grave.x, run.grave.y);
+    const at = lyingOnPlay(this.scene.playLayer, run.grave.x, run.grave.y);
     this.ring.position.set(at.x, at.y);
     this.ring.scale.set(at.scaleX, at.scaleY);
     // Fading as it expands, so the falloff in damage is visible as a falloff on
@@ -922,7 +921,11 @@ class StormRenderer {
     if (!burst.onGround) return;
     // Lying on the ground at its point, which rides down the field with the
     // bodies it was drawn over (A7).
-    const at = lyingAt(this.scene.camera, burst.x, burst.y + age * burst.drift);
+    const at = lyingOnPlay(
+      this.scene.playLayer,
+      burst.x,
+      burst.y + age * burst.drift,
+    );
     burst.sprite.position.set(at.x, at.y);
     burst.sprite.scale.set(at.scaleX, at.scaleY);
   }

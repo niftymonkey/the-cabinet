@@ -29,13 +29,16 @@ import { SHORTEST_FIELD } from '../../../../game/field';
 import { sceneFor } from '../scene';
 import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
 import { groundGrid } from '../groundMesh';
-import { lyingAt } from '../groundPlacement';
 import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
+import { lyingOnPlay } from '../playPlacement';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
-const { camera: SHORTEST_CAMERA, column: SHORTEST_COLUMN } =
-  sceneFor(SHORTEST_FIELD);
+const {
+  camera: SHORTEST_CAMERA,
+  column: SHORTEST_COLUMN,
+  playLayer: SHORTEST_PLAY_LAYER,
+} = sceneFor(SHORTEST_FIELD);
 
 /** Pixi's own no-tint, which is what the ground wears now that it is painted. */
 const NO_TINT = 0xffffff;
@@ -485,6 +488,24 @@ describe('the drift between two sections (module 106)', () => {
 });
 
 describe("the Waking's own source", () => {
+  it("the Waking's source lies at its play point", () => {
+    // A7, A19: the source is a sim thing, so it lies at its play point, at the
+    // camera's scale across and the scale squared times the lean down. At
+    // field (270, 380) that is row 312.386873 at scale 0.968341 (the record's
+    // play layer table), so a square texture draws 0.968341 times the lean,
+    // 0.816691, as tall as it is wide.
+    const { layers, renderer } = attached();
+    const run = runInSection('waking', 20000, 200);
+    run.setPiece = sourceOnField({ x: 270, y: 380, open: false });
+    renderer.sync(run);
+    const children = layers.layer('ground').children as Sprite[];
+    const source = fromEnd(children, 1);
+    expect(source.texture.frame.width).toBe(source.texture.frame.height);
+    expect(source.position.x).toBeCloseTo(270, 9);
+    expect(source.position.y).toBeCloseTo(312.386873, 5);
+    expect(source.height / source.width).toBeCloseTo(0.816691, 5);
+  });
+
   it('draws nothing while no source stands on the field', () => {
     const { layers, renderer } = attached();
     renderer.sync(runInSection('crowd', 100, 100));
@@ -508,17 +529,19 @@ describe("the Waking's own source", () => {
     // Against a dressing eye the renderer actually drew, never against the row
     // the source's own size is derived from.
     expect(source.visible).toBe(true);
+    // It lies at its own play point (A7, A19), so its drawn width is its width
+    // in field units times the scale there.
+    const at = lyingOnPlay(SHORTEST_PLAY_LAYER, 200, 380);
+    expect(source.position.x).toBeCloseTo(at.x, 6);
+    expect(source.position.y).toBeCloseTo(at.y, 6);
+    const width = source.width / at.scaleX;
     // Three, from the design record's own sentence, against an eye the renderer
     // drew rather than against the row the source's size comes from.
-    expect(source.width).toBeCloseTo(3 * drawnEyeWidth(), 6);
+    expect(width).toBeCloseTo(3 * drawnEyeWidth(), 6);
     // And the drawn body is its own hitbox, so the storm hits what a player
     // sees. The dressing scale is a row rather than a derivation, so this is
     // what holds the two ends together.
-    expect(source.width).toBeCloseTo(2 * SET_PIECE_HALF_WIDTH, 6);
-    // It lies on the ground at its own point (A7).
-    const at = lyingAt(SHORTEST_CAMERA, 200, 380);
-    expect(source.position.x).toBeCloseTo(at.x, 6);
-    expect(source.position.y).toBeCloseTo(at.y, 6);
+    expect(width).toBeCloseTo(2 * SET_PIECE_HALF_WIDTH, 6);
     expect(source.tint).toBe(PALETTE.standInWaking.hex);
     expect(source.tint).not.toBe(PALETTE.standInVigilTint.hex);
   });

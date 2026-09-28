@@ -21,8 +21,8 @@ import {
   BELCH_SHOVES,
 } from '../../../../game/belch';
 import { SHOVE_TICKS } from '../../../../game/shove';
-import { groundToColumn } from '../camera';
 import { SHORTEST_FIELD } from '../../../../game/field';
+import { playToColumn } from '../playLayer';
 import { sceneFor } from '../scene';
 import { FieldLayers } from '../layering';
 import {
@@ -33,7 +33,7 @@ import {
 } from '../StormRenderer';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
-const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
+const { playLayer: SHORTEST_PLAY_LAYER } = sceneFor(SHORTEST_FIELD);
 
 function attached(): { layers: FieldLayers; renderer: StormRenderer } {
   const layers = new FieldLayers();
@@ -167,10 +167,10 @@ describe('sprites follow their slots (plan 6.19)', () => {
     renderer.sync(state);
 
     expect(spriteAt(layers, 'storm', 3).visible).toBe(true);
-    // At the camera's point for ground (120, 340), worked on an independent
-    // pinhole (tilted view A7).
-    expect(spriteAt(layers, 'storm', 3).position.x).toBeCloseTo(122.332586, 5);
-    expect(spriteAt(layers, 'storm', 3).position.y).toBeCloseTo(346.788951, 5);
+    // At the play layer's point for field (120, 340), worked independently
+    // in double precision (tilted view A18).
+    expect(spriteAt(layers, 'storm', 3).position.x).toBeCloseTo(120, 9);
+    expect(spriteAt(layers, 'storm', 3).position.y).toBeCloseTo(274.365346, 5);
     expect(spriteAt(layers, 'storm', 2).visible).toBe(false);
 
     skullSlot(state, 3).alive = false;
@@ -186,13 +186,12 @@ describe('sprites follow their slots (plan 6.19)', () => {
     const sprite = spriteAt(layers, 'storm', SKULL_CAP + TERRITORY_CAP);
     expect(sprite.rotation).toBeCloseTo(0, 6);
 
-    // Straight down the ground at x 200 heads a little away from the middle
-    // on the column, because nearer ground spreads (tilted view A7): worked
-    // on an independent pinhole, pi/2 plus 0.0327647.
+    // Straight down the field heads straight down the column at any x
+    // (tilted view T10).
     wisp.vx = 0;
     wisp.vy = 5;
     renderer.sync(state);
-    expect(sprite.rotation).toBeCloseTo(1.603561044, 6);
+    expect(sprite.rotation).toBeCloseTo(Math.PI / 2, 9);
   });
 
   it("shows the bell's cones only while a toll is live", () => {
@@ -358,10 +357,10 @@ describe('the momentary effects (plan 6.19)', () => {
     // lies at the mouth, because it is a spray out of the mouth and not this
     // circle. Every body the press threw rides the field down at SCROLL_SPEED
     // while the ring is out (step.ts, scrollField), so the eruption's ground
-    // point rides with them and it is drawn where the camera puts that point
-    // (tilted view A7). Worked on an independent pinhole: the grave's centre
-    // (270, 608), its mouth (270, 581), and 89 ticks down the field at 38 a
-    // second, (270, 664.366667).
+    // point rides with them and it is drawn where the play layer puts that
+    // point (tilted view A7, A19). Worked independently in double precision:
+    // the grave's centre (270, 608), its mouth (270, 581), and 89 ticks down
+    // the field at 38 a second, (270, 664.366667).
     const { layers, renderer } = attached();
     const state = quietRun();
     expect([state.grave.x, state.grave.y, state.grave.size]).toEqual([
@@ -372,22 +371,22 @@ describe('the momentary effects (plan 6.19)', () => {
     renderer.sync(state);
     const eruption = spriteAt(layers, 'belchEruption', 0);
     expect(eruption.position.x).toBeCloseTo(270, 5);
-    expect(eruption.position.y).toBeCloseTo(591.320185, 5);
-    expect(eruption.scale.x).toBeCloseTo(1.098947, 5);
-    expect(eruption.scale.y).toBeCloseTo(1.018552, 5);
+    expect(eruption.position.y).toBeCloseTo(559.555815, 5);
+    expect(eruption.scale.x).toBeCloseTo(1.084074, 5);
+    expect(eruption.scale.y).toBeCloseTo(0.991168, 5);
 
     const splash = spriteAt(layers, 'belchEruption', 1);
     expect(splash.position.x).toBeCloseTo(270, 5);
-    expect(splash.position.y).toBeCloseTo(564.137798, 5);
-    expect(splash.scale.x).toBeCloseTo(1.08622, 5);
-    expect(splash.scale.y).toBeCloseTo(0.995095, 5);
+    expect(splash.position.y).toBeCloseTo(527.244856, 5);
+    expect(splash.scale.x).toBeCloseTo(1.068945, 5);
+    expect(splash.scale.y).toBeCloseTo(0.963696, 5);
 
     state.tick += ERUPTION_TICKS - 1;
     renderer.sync(state);
     expect(ERUPTION_TICKS - 1).toBe(89);
-    expect(eruption.position.y).toBeCloseTo(650.172189, 5);
-    expect(eruption.scale.x).toBeCloseTo(1.126504, 5);
-    expect(eruption.scale.y).toBeCloseTo(1.070273, 5);
+    expect(eruption.position.y).toBeCloseTo(630.047463, 5);
+    expect(eruption.scale.x).toBeCloseTo(1.117081, 5);
+    expect(eruption.scale.y).toBeCloseTo(1.052443, 5);
   });
 });
 
@@ -559,23 +558,25 @@ describe('the arrival mark', () => {
   }
 
   /**
-   * Where the mark sets out from on the column: the camera's point for the
-   * grave's mouth, the point erupt uses (tilted view A7).
+   * Where the mark sets out from on the column: the play layer's point for
+   * the grave's mouth, the point erupt uses (tilted view A7, A19).
    */
   function mouth(state: RunState) {
-    return groundToColumn(
-      SHORTEST_CAMERA,
+    return playToColumn(
+      SHORTEST_PLAY_LAYER,
       state.grave.x,
       state.grave.y - state.grave.size,
     );
   }
 
-  /** The camera's point for the ground being claimed. */
-  const patchOnColumn = () => groundToColumn(SHORTEST_CAMERA, PATCH_X, PATCH_Y);
+  /** The play layer's point for the ground being claimed. */
+  const patchOnColumn = () =>
+    playToColumn(SHORTEST_PLAY_LAYER, PATCH_X, PATCH_Y);
 
   /**
    * How far along the line from the mouth to the ground the mark is, on the
-   * column: a straight path on the ground is a straight line on the column.
+   * column: across, a field unit is a column unit, so the share of the way
+   * across is the share of the travel (tilted view T10).
    */
   function covered(state: RunState, layers: FieldLayers): number {
     return (
@@ -622,8 +623,8 @@ describe('the arrival mark', () => {
     expect(largest).toBeGreaterThan(2);
     // The swell peaks at the middle of the beat, and on the column the mark
     // also shrinks as the ground under it gets farther, so the drawn size
-    // peaks one tick earlier: tick 33 of 68, worked on an independent pinhole
-    // (2.253918 against 2.253848 at tick 34).
+    // peaks one tick earlier: tick 33 of 68, worked independently on the play
+    // layer in double precision (2.192737 against 2.192459 at tick 34).
     expect(scales.indexOf(largest)).toBe(TERRITORY_OPENING_TICKS / 2 - 1);
     expect(scales[scales.length - 1]).toBeLessThan(1.1);
   });
@@ -687,16 +688,16 @@ describe('the arrival mark', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = opening(state, TERRITORY_OPENING_TICKS);
-    // The camera's point for a mouth at ground (100, 581), worked on an
-    // independent pinhole.
+    // The play layer's point for a mouth at field (100, 581) is column x 100
+    // (tilted view T10).
     state.grave.x = 100;
     renderer.sync(state);
-    expect(mark(layers).position.x).toBeCloseTo(85.342642, 5);
+    expect(mark(layers).position.x).toBeCloseTo(100, 9);
 
     state.grave.x = 400;
     patch.opening = TERRITORY_OPENING_TICKS;
     renderer.sync(state);
-    expect(mark(layers).position.x).toBeCloseTo(85.342642, 5);
+    expect(mark(layers).position.x).toBeCloseTo(100, 9);
   });
 
   it('forgetPreviousRun drops the remembered origins', () => {
@@ -706,17 +707,17 @@ describe('the arrival mark', () => {
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = opening(state, TERRITORY_OPENING_TICKS);
-    // The camera's points for mouths at ground (100, 581) and (400, 581),
-    // worked on an independent pinhole.
+    // The play layer's points for mouths at field (100, 581) and (400, 581)
+    // are column x 100 and 400 (tilted view T10).
     state.grave.x = 100;
     renderer.sync(state);
-    expect(mark(layers).position.x).toBeCloseTo(85.342642, 5);
+    expect(mark(layers).position.x).toBeCloseTo(100, 9);
 
     renderer.forgetPreviousRun();
     state.grave.x = 400;
     patch.opening = TERRITORY_OPENING_TICKS;
     renderer.sync(state);
-    expect(mark(layers).position.x).toBeCloseTo(411.208568, 5);
+    expect(mark(layers).position.x).toBeCloseTo(400, 9);
   });
 });
 
@@ -812,38 +813,74 @@ describe("a stripped line's expression blowing up (record R7)", () => {
   });
 });
 
-describe('the storm under the tilted camera (tilted view A7)', () => {
-  // Expected placements are worked on an independent pinhole (a camera 1147.5
-  // up, 32.5 degrees off straight down, aimed at ground (270, 380)).
-
-  it("a skull and a wisp draw at their ground points at the camera's size", () => {
-    // Neither has a height in the sim, so each is drawn upright at its ground
-    // point at the camera's scale there (A7).
+describe('the storm on the play layer (tilted view A7, A19)', () => {
+  it("a skull and a wisp draw at their play points at the camera's size for their row, and a skull's drawn x is its field x at every row", () => {
+    // A19, T10: field (100, 100) draws at (100, 72.678500) at scale 0.856101
+    // and field (400, 700) at (400, 676.868170) at 1.139004 (the record's
+    // play layer table); a skull flying straight up the field flies straight
+    // up the screen.
     const { layers, renderer } = attached();
     const state = quietRun();
-    putSkull(state, 0, 120, 340);
-    putWisp(state, 0, 200, 200);
+    putSkull(state, 0, 100, 100);
+    putWisp(state, 0, 400, 700);
     renderer.sync(state);
     const skull = spriteAt(layers, 'storm', 0);
-    expect(skull.position.x).toBeCloseTo(122.332586, 5);
-    expect(skull.position.y).toBeCloseTo(346.788951, 5);
-    expect(skull.scale.x).toBeCloseTo(0.984449, 5);
-    expect(skull.scale.y).toBeCloseTo(0.984449, 5);
+    expect(skull.position.x).toBeCloseTo(100, 9);
+    expect(skull.position.y).toBeCloseTo(72.6785, 5);
+    expect(skull.scale.x).toBeCloseTo(0.856101, 5);
+    expect(skull.scale.y).toBeCloseTo(0.856101, 5);
     const wisp = spriteAt(layers, 'storm', SKULL_CAP + TERRITORY_CAP);
-    expect(wisp.position.x).toBeCloseTo(204.645585, 5);
-    expect(wisp.position.y).toBeCloseTo(238.264518, 5);
-    expect(wisp.scale.x).toBeCloseTo(0.933634, 5);
-    expect(wisp.scale.y).toBeCloseTo(0.933634, 5);
+    expect(wisp.position.x).toBeCloseTo(400, 9);
+    expect(wisp.position.y).toBeCloseTo(676.86817, 5);
+    expect(wisp.scale.x).toBeCloseTo(1.139004, 5);
+    expect(wisp.scale.y).toBeCloseTo(1.139004, 5);
+
+    for (const y of [760, 380, 0]) {
+      putSkull(state, 1, 20, y);
+      renderer.sync(state);
+      expect(
+        Math.abs(spriteAt(layers, 'storm', 1).position.x - 20),
+      ).toBeLessThanOrEqual(1e-9);
+    }
   });
 
-  it('a patch lies on the ground, and the lob mark lifts off its path straight up the column', () => {
-    // A patch is ground, so it lies at its point at the camera's scale across
-    // and the ground's own rate down (A7). The mark's arc is an art offset in
-    // field units today, so it becomes a lift straight up the column at the
-    // camera's scale where the mark is (A7's last rule). Halfway through the
-    // beat the mark is halfway along the ground from the mouth (270, 581) to
-    // the patch (200, 300), at ground (235, 440.5), lifted by its full rise,
-    // which the ceiling holds at 90 field units.
+  it("the lob mark lifts straight up the column off its path, by the lift times the camera's scale there", () => {
+    // A7's last rule at the play point (A19). Halfway through the beat the
+    // mark is halfway along the field from the mouth (270, 581) to the patch
+    // (200, 300), at (235, 440.5), lifted by its full rise, which the ceiling
+    // holds at 90 field units. Field (235, 440.5) draws on row 372.679496 at
+    // scale 0.996572, worked independently in double precision.
+    const { layers, renderer } = attached();
+    const state = quietRun();
+    const patch = patchSlot(state, 0);
+    patch.alive = true;
+    patch.id = 500;
+    patch.x = 200;
+    patch.y = 300;
+    patch.radius = 32;
+    patch.pull = 0.08;
+    patch.slow = 0.2;
+    patch.opening = TERRITORY_OPENING_TICKS / 2;
+    patch.pulses = 0;
+    patch.struck.clear();
+    renderer.sync(state);
+
+    const mark = spriteAt(
+      layers,
+      'storm',
+      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
+    );
+    expect(mark.position.x).toBeCloseTo(235, 9);
+    expect(mark.position.y).toBeCloseTo(372.679496 - 90 * 0.996572, 4);
+  });
+
+  it("a patch, the bell's cones and the belch's eruption are placed at their play points", () => {
+    // A7, A19: each lies at its play point, the scale across and the scale
+    // squared times the lean down. The patch at field (200, 300): row
+    // 237.716636, 0.933378 across and 0.734758 down, worked independently in
+    // double precision. The cones and the eruption at the grave's start,
+    // (270, 608): row 559.555815, 1.084074 across and 0.991168 down (the
+    // record's play layer bullets).
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = patchSlot(state, 0);
@@ -860,17 +897,23 @@ describe('the storm under the tilted camera (tilted view A7)', () => {
     renderer.sync(state);
 
     const ground = spriteAt(layers, 'storm', SKULL_CAP);
-    expect(ground.position.x).toBeCloseTo(202.143744, 5);
-    expect(ground.position.y).toBeCloseTo(314.594988, 5);
-    expect(ground.scale.x).toBeCloseTo(0.969375, 5);
-    expect(ground.scale.y).toBeCloseTo(0.792525, 5);
+    expect(ground.position.x).toBeCloseTo(200, 9);
+    expect(ground.position.y).toBeCloseTo(237.716636, 5);
+    expect(ground.scale.x).toBeCloseTo(0.933378, 5);
+    expect(ground.scale.y).toBeCloseTo(0.734758, 5);
 
-    const mark = spriteAt(
-      layers,
-      'storm',
-      SKULL_CAP + TERRITORY_CAP + WISP_CAP,
-    );
-    expect(mark.position.x).toBeCloseTo(234.14332, 5);
-    expect(mark.position.y).toBeCloseTo(432.274104 - 90 * 1.024477, 4);
+    expect([state.grave.x, state.grave.y]).toEqual([270, 608]);
+    state.lines.ring = { level: 4, ticks: 12, struck: new Set() };
+    renderer.erupt(state);
+    renderer.sync(state);
+    for (const sprite of [
+      spriteAt(layers, 'bellRing', 0),
+      spriteAt(layers, 'belchEruption', 0),
+    ]) {
+      expect(sprite.position.x).toBeCloseTo(270, 9);
+      expect(sprite.position.y).toBeCloseTo(559.555815, 5);
+      expect(sprite.scale.x).toBeCloseTo(1.084074, 5);
+      expect(sprite.scale.y).toBeCloseTo(0.991168, 5);
+    }
   });
 });

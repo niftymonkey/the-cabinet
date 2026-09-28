@@ -205,7 +205,42 @@ const BOUNDARIES: Boundary[] = [
   {
     root: 'app',
     only: ['screens/game/scene.ts'],
+    mayReach: [
+      'app/screens/game/camera',
+      'app/screens/game/playLayer',
+      'game/field',
+      'game/tuning',
+    ],
+    mayReachInTests: [],
+    mayImport: [],
+  },
+  /**
+   * The play layer (tilted view T10, T11, A18): pure math over the camera, no
+   * pixi at all, not even a type import, because its tests and slice C's
+   * steering run without a renderer.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/playLayer.ts'],
     mayReach: ['app/screens/game/camera', 'game/field', 'game/tuning'],
+    mayReachInTests: [],
+    mayImport: [],
+  },
+  /**
+   * Where play things draw on the play layer (tilted view A7, A19, A21, A24,
+   * A29), pure for the play layer's reason: its tests and slice C's steering
+   * run without a renderer.
+   */
+  {
+    root: 'app',
+    only: ['screens/game/playPlacement.ts'],
+    mayReach: [
+      'app/screens/game/playLayer',
+      'app/screens/game/groundPlacement',
+      'app/screens/game/camera',
+      'game/field',
+      'game/tuning',
+    ],
     mayReachInTests: [],
     mayImport: [],
   },
@@ -1097,5 +1132,39 @@ describe("the run's scene stays pure (tilted view A34)", () => {
     expect(
       declaresFieldHeight(readFileSync(`${FIELD_MODULE}.ts`, 'utf8')),
     ).toBe(false);
+  });
+});
+
+/**
+ * The renderers of what the sim moves. Each places through its scene's play
+ * layer, so a body moving straight down the field moves straight down the
+ * screen; the camera's own placements would draw it drifting toward the middle
+ * as it nears (tilted view T10).
+ */
+const PLAY_LAYER_RENDERERS = [
+  'app/screens/game/FieldRenderer',
+  'app/screens/game/StormRenderer',
+  'app/screens/game/BossRenderer',
+];
+
+// The camera's placements, which are scenery's alone.
+const CAMERA_PLACEMENTS = [
+  'app/screens/game/camera',
+  'app/screens/game/groundPlacement',
+];
+
+describe('the play layer carries what the sim moves (tilted view T10)', () => {
+  it("the renderers of the play layer's things place through the play layer and never through the camera's placements", () => {
+    // T10: "The mobs and the weapons should also not be dealing with that
+    // tilt." A deliberate absence, so a test guards it.
+    const reached = PLAY_LAYER_RENDERERS.flatMap((module) => {
+      const file = join(SRC, `${module}.ts`);
+      return importsOf(readFileSync(file, 'utf8'))
+        .filter((specifier) => specifier.startsWith('.'))
+        .map((specifier) => pathReachedBy(file, specifier))
+        .filter((path) => CAMERA_PLACEMENTS.includes(path))
+        .map((path) => `${module} reaches ${path}`);
+    });
+    expect(reached).toEqual([]);
   });
 });

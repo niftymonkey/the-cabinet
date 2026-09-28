@@ -39,6 +39,7 @@ import { groundResolution, paintGround } from './groundPainting';
 import type { Placement } from './groundPlacement';
 import { lyingAt, standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
+import { lyingOnPlay } from './playPlacement';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -482,8 +483,8 @@ class BackgroundRenderer {
     const height = (width * texture.frame.height) / texture.frame.width;
     if (this.source.texture !== texture) this.source.texture = texture;
     if (this.sourceRim.texture !== texture) this.sourceRim.texture = texture;
-    // The source lies on the ground at the set piece's point (A7).
-    const at = lyingAt(this.scene.camera, setPiece.x, setPiece.y);
+    // The source is a sim thing, so it lies at its play point (A7, A19).
+    const at = lyingOnPlay(this.scene.playLayer, setPiece.x, setPiece.y);
     this.source.setSize(width * at.scaleX, height * at.scaleY);
     this.sourceRim.setSize(
       (width + 2 * SOURCE_RIM) * at.scaleX,

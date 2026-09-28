@@ -7,7 +7,7 @@ import { BOSS_HALF_HEIGHT } from '../../../game/bosses/phases';
 import type { RunState } from '../../../game/run';
 import { SHORTEST_FIELD } from '../../../game/field';
 import { bossLook, drawBoss } from './bossSprite';
-import { standingAt } from './groundPlacement';
+import { standingOnPlay } from './playPlacement';
 import type { FieldLayers } from './layering';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
@@ -35,7 +35,7 @@ class BossRenderer {
     this.body.visible = false;
   }
 
-  /** The run about to be drawn's scene, whose camera every placement goes through (A34). */
+  /** The run about to be drawn's scene, whose play layer every placement goes through (A34, T10). */
   public useScene(scene: Scene): void {
     this.scene = scene;
   }
@@ -62,7 +62,12 @@ class BossRenderer {
       drawBoss(this.body, boss);
     }
     // Standing, its feet on the near edge of its footprint (A7).
-    const at = standingAt(this.scene.camera, boss.x, boss.y, BOSS_HALF_HEIGHT);
+    const at = standingOnPlay(
+      this.scene.playLayer,
+      boss.x,
+      boss.y,
+      BOSS_HALF_HEIGHT,
+    );
     this.body.position.set(at.x, at.y);
     this.body.scale.set(at.scaleX, at.scaleY);
     this.body.zIndex = boss.y + BOSS_HALF_HEIGHT;

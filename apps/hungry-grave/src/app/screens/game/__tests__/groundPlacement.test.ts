@@ -10,14 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { groundToColumn } from '../camera';
 import { SHORTEST_FIELD } from '../../../../game/field';
 import { sceneFor } from '../scene';
-import {
-  airborneAt,
-  headingOnColumn,
-  hostileFireAt,
-  liftOnColumn,
-  lyingAt,
-  standingAt,
-} from '../groundPlacement';
+import { lyingAt, standingAt } from '../groundPlacement';
 
 // The shortest field's scene, the one this file's values were pinned on (tilted view A34).
 const { camera: SHORTEST_CAMERA } = sceneFor(SHORTEST_FIELD);
@@ -80,75 +73,5 @@ describe('where things draw under the camera (tilted view A7)', () => {
     const far = standingAt(SHORTEST_CAMERA, 270, 0, 11);
     const near = standingAt(SHORTEST_CAMERA, 270, 700, 11);
     expect(far.scaleX).toBeLessThan(near.scaleX);
-  });
-
-  it("an airborne thing draws at its own ground point at the camera's scale on both axes", () => {
-    // A7: skulls, wisps and scatters have no height in the sim.
-    const on = groundToColumn(SHORTEST_CAMERA, 100, 100);
-    const at = airborneAt(SHORTEST_CAMERA, 100, 100);
-    expectNear(at.x, 116.925935, CLOSE);
-    expectNear(at.y, 167.362471, CLOSE);
-    expectNear(at.scaleX, 0.900436, CLOSE);
-    expectNear(at.scaleY, on.scale, CLOSE);
-  });
-
-  it('a hostile shot near the top draws at scale one, never smaller, and near the bottom at the camera scale', () => {
-    // A7: mob fire is never drawn smaller than today's size and its hitbox.
-    const top = hostileFireAt(SHORTEST_CAMERA, 100, 100);
-    expectNear(top.x, 116.925935, CLOSE);
-    expectNear(top.y, 167.362471, CLOSE);
-    expectNear(top.scaleX, 1, CLOSE);
-    expectNear(top.scaleY, 1, CLOSE);
-    const bottom = hostileFireAt(SHORTEST_CAMERA, 400, 700);
-    expectNear(bottom.x, 418.804365, CLOSE);
-    expectNear(bottom.y, 688.923885, CLOSE);
-    expectNear(bottom.scaleX, 1.144649, CLOSE);
-    expectNear(bottom.scaleY, 1.144649, CLOSE);
-  });
-
-  it('a body moving straight down the field heads straight down the column on the middle column, and a body moving across heads across', () => {
-    // A7: a heading drawn on a body follows the way it moves on the screen.
-    expectNear(
-      headingOnColumn(SHORTEST_CAMERA, 270, 200, 0, 5),
-      Math.PI / 2,
-      CLOSE,
-    );
-    expectNear(headingOnColumn(SHORTEST_CAMERA, 270, 200, 5, 0), 0, CLOSE);
-    expectNear(
-      headingOnColumn(SHORTEST_CAMERA, 270, 200, -5, 0),
-      Math.PI,
-      CLOSE,
-    );
-  });
-
-  it('a lift of 10 field units straight up the field at ground (270, 100) is 10 times the scale there straight up the column', () => {
-    // A7's last bullet: an art offset in field units becomes a column offset at
-    // the camera's scale at that thing's ground point.
-    const lift = liftOnColumn(SHORTEST_CAMERA, 270, 100, 0, -10);
-    expectNear(lift.x, 0, CLOSE);
-    expectNear(lift.y, -10 * 0.900436, 1e-5);
-  });
-});
-
-describe('headings off the middle column (tilted view A7)', () => {
-  it('a body moving straight down the field off the middle column turns away from the middle on the column, as nearer ground spreads', () => {
-    // Worked on an independent pinhole: a camera 1147.5 up, 32.5 degrees off
-    // straight down, aimed at ground (270, 380), each point projected along
-    // its ray and the heading read off a central difference of 0.005 units.
-    expectNear(
-      headingOnColumn(SHORTEST_CAMERA, 100, 200, 0, 5),
-      1.650228786,
-      CLOSE,
-    );
-    expectNear(
-      headingOnColumn(SHORTEST_CAMERA, 200, 200, 0, 5),
-      1.603561044,
-      CLOSE,
-    );
-    expectNear(
-      headingOnColumn(SHORTEST_CAMERA, 100, 200, 5, 5),
-      0.69870318,
-      CLOSE,
-    );
   });
 });
