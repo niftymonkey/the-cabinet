@@ -76,6 +76,34 @@ const standingOnPlay = (
 };
 
 /**
+ * The field point a standing thing stands at when `standingOnPlay` draws its
+ * centre exactly where the play layer draws the field point `(x, y)`: the
+ * inverse of `standingOnPlay` for a centre, solved in closed form on the
+ * camera's pinhole row. It leaves out the camera's nearest-share hold, which
+ * binds only behind the camera's feet, off the column. Slice C ends the
+ * Undertaker's haul there, so his standing centre lands on the hinge his fall
+ * starts from (A24).
+ *
+ * Feet on ground row `target + g` draw at row `target + g * lean * s`, at
+ * scale `s = distance / (distance - g * rise)`, with the centre `halfDepth * s`
+ * above them; that is solved for `g`.
+ */
+const standingCentredOnPlay = (
+  layer: PlayLayer,
+  x: number,
+  y: number,
+  halfDepth: number,
+): FieldPoint => {
+  const { camera } = layer;
+  const centre = playToColumn(layer, x, y).y - camera.target.y;
+  const feetGround =
+    (camera.distance * (centre + halfDepth)) /
+    (camera.distance * camera.lean + centre * camera.rise);
+  const feetY = (camera.target.y + feetGround - layer.top) / layer.stretch;
+  return { x, y: feetY - halfDepth };
+};
+
+/**
  * A thing with no height in the sim (skulls, wisps, scatters, loss pops), at
  * its play point at the scale for its row (A7, A19). Slice B reads it.
  */
@@ -316,6 +344,7 @@ export {
   hostileFireOnPlay,
   liftOnPlay,
   lyingOnPlay,
+  standingCentredOnPlay,
   standingOnPlay,
 };
 export type { ColumnPoint, Corners, GraveFrame };

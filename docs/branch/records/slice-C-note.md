@@ -51,3 +51,13 @@
 ## 6. Stuck
 
 None. Nothing left running.
+
+## 7. Fix after landing
+
+- **What changed:** `playPlacement.ts` gains `standingCentredOnPlay`, the closed-form inverse of `standingOnPlay` for a centre. In `EndingSceneRenderer.begin`, the haul now ends where his standing centre lands on the hinge's column point. Nothing under `src/game` or `src/tape` changed.
+- **Test:** a new six-case test covers the 760 and 1168 fields with the grave at its left edge, centre and right edge. It was red first on its own assertion (4.34 against 4.08, 4.31 against 3.04, and 10.61 against 3.64 column units) and is green now. The bound is his centre's move from the fall's first frame to its second, one 60 Hz frame apart, because a handover inside that reads as the fall's own motion.
+- **Updated in form:** the handover test now reads his drawn centre, not the play point of the haul's end, and is renamed to match (the only lost name, 2789 before and 2795 after). The furrow test's haul end is now computed the new way.
+- **Checks:** typecheck 0. Tests `2784 passed | 11 expected fail | 2 todo`. Build `✓ built in 10.02s`, with #50/#51 only. `pnpm verify` 0.
+- **Rendered:** both won tapes were stepped +102 to +107 frames and read by eye (`local/tilt-fix-undertaker/shots-*`). His centre holds across +104 to +105.
+- **Finding:** his drawn height still pops at the tip, 1.085 to 1.204 on 760 and 1.158 to 1.440 on 1168, because the fall's vertical scale is the grave frame's rows per unit (A29). On the 1168 tape the fallen body also draws under the skulls and dots.
+- **Anomalies:** the 1168 jump was 10.6 with the grave near the bottom and 0.2 at row 600, so the note's 1.6 depends on the row. `shoot.mjs` intermittently fails with "never reached tick" (load 8). Running one shot per call worked.

@@ -10,20 +10,26 @@ import { describe, expect, it } from 'vitest';
 import { BOSS_HALF_HEIGHT } from '../../../../game/bosses/phases';
 import type { BossKilled } from '../../../../game/events';
 import type { Grave } from '../../../../game/grave';
-import { createGrave } from '../../../../game/grave';
-import { SHORTEST_FIELD } from '../../../../game/field';
+import { createGrave, graveWidth } from '../../../../game/grave';
+import {
+  FIELD_WIDTH,
+  SHORTEST_FIELD,
+  SHORTEST_FIELD_HEIGHT,
+  fieldOfHeight,
+} from '../../../../game/field';
 import { SIZE_START } from '../../../../game/tuning';
 import { PALETTE } from '../../../palette';
 import { drawBoss } from '../bossSprite';
-import { endingSceneAt, sceneFrom } from '../endingScene';
+import { ENDING_SCENE_MS, endingSceneAt, sceneFrom } from '../endingScene';
 import { EndingSceneRenderer } from '../EndingSceneRenderer';
 import { ENDING_BEATS } from '../graveDrawingValues';
 import type { GraveView } from '../graveProjection';
 import { holeViewOver } from '../GraveRenderer';
-import { columnToPlay, playToColumn } from '../playLayer';
+import { playToColumn } from '../playLayer';
 import {
   fromGraveFrame,
   graveFrameOnPlay,
+  standingCentredOnPlay,
   standingOnPlay,
 } from '../playPlacement';
 import { sceneFor } from '../scene';
@@ -44,6 +50,9 @@ const FALLING = ENDING_BEATS.drag + ENDING_BEATS.claw + ENDING_BEATS.tip;
 
 /** Where he tips over the rim: the claw's end, the first moment he is in the hole. */
 const TIPPING = ENDING_BEATS.drag + ENDING_BEATS.claw;
+
+/** One 60 Hz frame of the scene's own clock, as a share of the scene. */
+const ONE_FRAME = 1000 / 60 / ENDING_SCENE_MS;
 
 function parked(): Grave {
   const grave = createGrave(SHORTEST_FIELD, SIZE_START);
@@ -254,10 +263,10 @@ describe("the Undertaker's ending scene on screen", () => {
     expect(pieces(layers, falls).every((piece) => !piece.visible)).toBe(true);
   });
 
-  it("the Undertaker's haul ends where his fall begins: the play layer's point for the haul's end and the grave's frame's point for the rim hinge are one column point", () => {
-    // A24: the drag and the fall meet at one point. The haul's end is read
-    // back off the dragged body at the claw's end, his feet taken back
-    // through the play layer's inverse; his fall begins at the tip's first
+  it("the Undertaker's haul ends where his fall begins: his drawn centre at the haul's end and the grave's frame's point for the rim hinge are one column point", () => {
+    // A24: the drag and the fall meet at one point. The dragged body stands,
+    // so the point is his drawn centre at the claw's end, not the play
+    // layer's point for where he stands; his fall begins at the tip's first
     // moment in the grave's frame, placed on the play layer (A29).
     const grave = parked();
     const layer = SHORTEST_SCENE.playLayer;
@@ -265,10 +274,7 @@ describe("the Undertaker's ending scene on screen", () => {
     renderer.begin(KILLED, grave);
     renderer.show(TIPPING - 1e-9);
     const dragged = layers.layer('mobBodies').children[0] as Graphics;
-    const feetRow = dragged.position.y + BOSS_HALF_HEIGHT * dragged.scale.y;
-    const feet = columnToPlay(layer, dragged.position.x, feetRow);
-    if (feet === null) throw new Error('his feet are above the horizon');
-    const hauledTo = playToColumn(layer, feet.x, feet.y - BOSS_HALF_HEIGHT);
+    const hauledTo = { x: dragged.position.x, y: dragged.position.y };
 
     renderer.show(TIPPING);
     const falling = falls.children[0] as Graphics;
@@ -280,6 +286,69 @@ describe("the Undertaker's ending scene on screen", () => {
     expect(Math.abs(hauledTo.x - fallsFrom.x)).toBeLessThan(1e-6);
     expect(Math.abs(hauledTo.y - fallsFrom.y)).toBeLessThan(1e-6);
   });
+
+  it.each(
+    [SHORTEST_FIELD_HEIGHT, 1168].flatMap((height) =>
+      (['left edge', 'centre', 'right edge'] as const).map((edge) => ({
+        height,
+        edge,
+      })),
+    ),
+  )(
+    "across the tip the Undertaker's drawn centre moves no further than one frame of his own fall moves it, on the $height field with the grave at its $edge",
+    ({ height, edge }) => {
+      // The dispatching session's ruling on slice C's handover: his haul ends
+      // where his standing centre lands on the hinge his fall starts from, so
+      // the handover from the dragged body to the falling body is not a jump.
+      // The bound is the frame's ordinary step: how far his drawn centre moves
+      // between the fall's first frame and its second, one 60 Hz frame of the
+      // scene's clock apart. A handover within that reads as the fall's own
+      // motion; the standing body left 4.3 column units off it on the 760
+      // field with the grave near the bottom, against about 3 to 4 for a step.
+      const field = fieldOfHeight(height);
+      const scene = sceneFor(field);
+      const grave = createGrave(field, SIZE_START);
+      const halfWidth = graveWidth(grave.size) / 2;
+      grave.x =
+        edge === 'left edge'
+          ? halfWidth
+          : edge === 'right edge'
+            ? FIELD_WIDTH - halfWidth
+            : FIELD_WIDTH / 2;
+      grave.y = height - 160;
+      const { layers, falls, renderer } = attached(() =>
+        holeViewOver(scene.camera, grave),
+      );
+      renderer.useScene(scene);
+      renderer.begin(KILLED, grave);
+      const frame = graveFrameOnPlay(scene.playLayer, grave.x, grave.y);
+      const dragged = layers.layer('mobBodies').children[0] as Graphics;
+      const falling = falls.children[0] as Graphics;
+      const fallingCentreAt = (progress: number): { x: number; y: number } => {
+        renderer.show(progress);
+        return {
+          x: frame.x + falling.position.x * frame.scaleX,
+          y: frame.y + falling.position.y * frame.scaleY,
+        };
+      };
+
+      renderer.show(TIPPING - ONE_FRAME);
+      expect(dragged.visible).toBe(true);
+      const lastHaul = { x: dragged.position.x, y: dragged.position.y };
+      const firstFall = fallingCentreAt(TIPPING);
+      const secondFall = fallingCentreAt(TIPPING + ONE_FRAME);
+
+      const handover = Math.hypot(
+        firstFall.x - lastHaul.x,
+        firstFall.y - lastHaul.y,
+      );
+      const ordinaryStep = Math.hypot(
+        secondFall.x - firstFall.x,
+        secondFall.y - firstFall.y,
+      );
+      expect(handover).toBeLessThanOrEqual(ordinaryStep);
+    },
+  );
 
   it('the dragged Undertaker stands on the play layer, and the furrows lie on it', () => {
     // T10, A7, A19: he is dragged over the field, so he stands where the play
@@ -304,7 +373,13 @@ describe("the Undertaker's ending scene on screen", () => {
     expect(Math.abs(dragged.scale.y - standing.scaleY)).toBeLessThan(1e-9);
 
     renderer.show(TIPPING);
-    const haulEnd = fromGraveFrame(layer, grave, 0, -1);
+    const hinge = fromGraveFrame(layer, grave, 0, -1);
+    const haulEnd = standingCentredOnPlay(
+      layer,
+      hinge.x,
+      hinge.y,
+      BOSS_HALF_HEIGHT,
+    );
     const fromRow = playToColumn(layer, KILLED.x, KILLED.y).y;
     const toRow = playToColumn(layer, haulEnd.x, haulEnd.y).y;
     const traces = furrowTraces(layers);

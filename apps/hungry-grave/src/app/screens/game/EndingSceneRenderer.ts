@@ -15,7 +15,11 @@ import { ENDING_FURROWS } from './graveDrawingValues';
 import type { GraveView } from './graveProjection';
 import type { FieldLayers } from './layering';
 import { playToColumn } from './playLayer';
-import { fromGraveFrame, standingOnPlay } from './playPlacement';
+import {
+  fromGraveFrame,
+  standingCentredOnPlay,
+  standingOnPlay,
+} from './playPlacement';
 import type { Scene } from './scene';
 import { sceneFor } from './scene';
 
@@ -120,18 +124,26 @@ class EndingSceneRenderer {
    * only once the run has ended, so the Banshee's death begins nothing. The
    * answer is whether a scene began, for a screen that keeps the scene's clock.
    *
-   * His haul ends at the field point the play layer draws exactly where the
+   * His haul ends where he stands with his drawn centre exactly where the
    * grave's frame draws the rim hinge, so the dragged body and the falling body
-   * meet at one point, and the furrows reach it (tilted view A24).
+   * meet at one point with no jump at the tip, and the furrows reach the haul's
+   * end (tilted view A24).
    */
   public begin(killed: BossKilled, grave: Grave): boolean {
     if (killed.boss !== 'undertaker') return false;
     const scene = sceneFrom(killed, grave);
-    const haulEnd = fromGraveFrame(
-      this.runScene.playLayer,
+    const { playLayer } = this.runScene;
+    const hinge = fromGraveFrame(
+      playLayer,
       grave,
       scene.hinge.x,
       scene.hinge.y,
+    );
+    const haulEnd = standingCentredOnPlay(
+      playLayer,
+      hinge.x,
+      hinge.y,
+      BOSS_HALF_HEIGHT,
     );
     this.scene = { ...scene, rimX: haulEnd.x, rimY: haulEnd.y };
     drawBoss(this.dragged, { kind: killed.boss, flash: 0 });
