@@ -70,6 +70,8 @@ interface EndingSceneDrawing {
   readonly wide: number;
   readonly tall: number;
   readonly light: number;
+  // How far over the rim he has turned, from nothing on the ground to whole at the tip's end.
+  readonly tipped: number;
   readonly gone: boolean;
   // How far the furrows reach, as a share of the ground between where he fell and the rim.
   readonly furrows: number;
@@ -174,6 +176,7 @@ const draggedAt = (
     wide: 1,
     tall: 1,
     light: 1,
+    tipped: 0,
     gone: false,
     furrows: hauled,
   };
@@ -218,7 +221,8 @@ const fallingAt = (
     halfExtent: halfExtentIntoTheHole(hinge),
     born: 0,
   };
-  const drawn = fallAt(fall, fallAgeAt(progress), scene.graveSize, view);
+  const age = fallAgeAt(progress);
+  const drawn = fallAt(fall, age, scene.graveSize, view);
   const restingAt = Math.atan2(hinge.intoY, hinge.intoX);
   const alongIsHisWidth = hinge.intoX !== 0;
   return {
@@ -229,6 +233,7 @@ const fallingAt = (
     wide: alongIsHisWidth ? drawn.along : drawn.across,
     tall: alongIsHisWidth ? drawn.across : drawn.along,
     light: drawn.light,
+    tipped: clamp(age / TIP_TICKS, 0, 1),
     gone: drawn.gone,
     furrows: 1,
   };

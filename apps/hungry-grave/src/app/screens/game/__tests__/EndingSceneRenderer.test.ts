@@ -350,6 +350,66 @@ describe("the Undertaker's ending scene on screen", () => {
     },
   );
 
+  it.each(
+    [SHORTEST_FIELD_HEIGHT, 1168].flatMap((height) =>
+      (['left edge', 'centre', 'right edge'] as const).map((edge) => ({
+        height,
+        edge,
+      })),
+    ),
+  )(
+    "across the tip the Undertaker's drawn height changes no more than one frame of his own fall changes it, and from the tip's end he draws at his fall's own size, on the $height field with the grave at its $edge",
+    ({ height, edge }) => {
+      // The dispatching session's ruling on the second fix after slice C: the
+      // handover is continuous in drawn size as well as place. The standing
+      // body draws at one scale, while the grave's frame draws the fall with
+      // the ground's rows per unit (A29), so he drew 11% taller on the 760
+      // field and 24% on 1168 the frame he went over. The bound is the fall's
+      // own first-frame change in height, taken from the scene's arithmetic
+      // in the grave's frame and not from the renderer: a handover within it
+      // reads as the fall's own motion. By the tip's end he lies in the hole,
+      // so from there the fall draws exactly as the grave's frame draws it.
+      const field = fieldOfHeight(height);
+      const scene = sceneFor(field);
+      const grave = createGrave(field, SIZE_START);
+      const halfWidth = graveWidth(grave.size) / 2;
+      grave.x =
+        edge === 'left edge'
+          ? halfWidth
+          : edge === 'right edge'
+            ? FIELD_WIDTH - halfWidth
+            : FIELD_WIDTH / 2;
+      grave.y = height - 160;
+      const view = holeViewOver(scene.camera, grave);
+      const { layers, falls, renderer } = attached(() => view);
+      renderer.useScene(scene);
+      renderer.begin(KILLED, grave);
+      const frame = graveFrameOnPlay(scene.playLayer, grave.x, grave.y);
+      const dragged = layers.layer('mobBodies').children[0] as Graphics;
+      const falling = falls.children[0] as Graphics;
+      const record = sceneFrom(KILLED, grave);
+      const ownHeightAt = (progress: number): number =>
+        endingSceneAt(record, progress, view).tall * frame.scaleY;
+
+      renderer.show(TIPPING - ONE_FRAME);
+      expect(dragged.visible).toBe(true);
+      const lastHaul = dragged.scale.y;
+      renderer.show(TIPPING);
+      const firstFall = falling.scale.y * frame.scaleY;
+
+      const ownFirstStep = Math.abs(
+        ownHeightAt(TIPPING + ONE_FRAME) - ownHeightAt(TIPPING),
+      );
+      expect(Math.abs(firstFall - lastHaul)).toBeLessThanOrEqual(ownFirstStep);
+
+      const tipEnds = TIPPING + ENDING_BEATS.tip;
+      renderer.show(tipEnds);
+      const own = endingSceneAt(record, tipEnds, view);
+      expect(Math.abs(falling.scale.x - own.wide)).toBeLessThan(1e-9);
+      expect(Math.abs(falling.scale.y - own.tall)).toBeLessThan(1e-9);
+    },
+  );
+
   it('the dragged Undertaker stands on the play layer, and the furrows lie on it', () => {
     // T10, A7, A19: he is dragged over the field, so he stands where the play
     // layer draws him, feet on the near edge of his footprint; the furrows

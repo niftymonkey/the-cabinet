@@ -17,6 +17,7 @@ import type { FieldLayers } from './layering';
 import { playToColumn } from './playLayer';
 import {
   fromGraveFrame,
+  graveFrameOnPlay,
   standingCentredOnPlay,
   standingOnPlay,
 } from './playPlacement';
@@ -43,6 +44,20 @@ const wanderAt = (line: number, point: number): number => {
   if (share === undefined) throw new Error(`no wander at step ${step}`);
   return share * ENDING_FURROWS.width;
 };
+
+/** His drawn size across and down, each as a share of the grave frame's own scale that way. */
+interface SizeInFrame {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The share of a size between where it stands and where it lies that `tipped`
+ * has reached: linear, so the handover's first frame is exactly the standing
+ * size and the tip's end exactly the lying one.
+ */
+const tippedToward = (standing: number, tipped: number): number =>
+  standing + (1 - standing) * tipped;
 
 /**
  * What the scene's renderer is handed at construction: the view the hole's
@@ -77,6 +92,8 @@ class EndingSceneRenderer {
    * it: screens are pooled.
    */
   private scene: EndingScene | null = null;
+  // His standing size at the haul's end in the grave's frame, set at the death with the scene.
+  private standingInFrame: SizeInFrame = { x: 1, y: 1 };
   private readonly powers: EndingSceneRendererPowers;
 
   constructor(powers: EndingSceneRendererPowers) {
@@ -127,7 +144,8 @@ class EndingSceneRenderer {
    * His haul ends where he stands with his drawn centre exactly where the
    * grave's frame draws the rim hinge, so the dragged body and the falling body
    * meet at one point with no jump at the tip, and the furrows reach the haul's
-   * end (tilted view A24).
+   * end (tilted view A24). His standing size there is kept in the grave's
+   * frame, so the fall can start at it.
    */
   public begin(killed: BossKilled, grave: Grave): boolean {
     if (killed.boss !== 'undertaker') return false;
@@ -146,6 +164,17 @@ class EndingSceneRenderer {
       BOSS_HALF_HEIGHT,
     );
     this.scene = { ...scene, rimX: haulEnd.x, rimY: haulEnd.y };
+    const standing = standingOnPlay(
+      playLayer,
+      haulEnd.x,
+      haulEnd.y,
+      BOSS_HALF_HEIGHT,
+    );
+    const frame = graveFrameOnPlay(playLayer, grave.x, grave.y);
+    this.standingInFrame = {
+      x: standing.scaleX / frame.scaleX,
+      y: standing.scaleY / frame.scaleY,
+    };
     drawBoss(this.dragged, { kind: killed.boss, flash: 0 });
     drawBoss(this.falling, { kind: killed.boss, flash: 0 });
     this.show(0);
@@ -189,11 +218,21 @@ class EndingSceneRenderer {
     this.dragged.tint = greyTint(drawn.light);
   }
 
-  /** In the hole he is drawn as the falls are, in the grave's own placement. */
+  /**
+   * In the hole he is drawn as the falls are, in the grave's own placement.
+   * Standing, he has none of the grave frame's stretch down its rows (A29);
+   * lying in the hole, he has all of it. So over the tip his size goes from
+   * the one he stood at on the haul's last frame to the fall's own, by how far
+   * over the rim he has turned, and the handover never jumps in size.
+   */
   private placeFalling(drawn: EndingSceneDrawing): void {
+    const standing = this.standingInFrame;
     this.falling.position.set(drawn.x, drawn.y);
     this.falling.rotation = drawn.turn;
-    this.falling.scale.set(drawn.wide, drawn.tall);
+    this.falling.scale.set(
+      drawn.wide * tippedToward(standing.x, drawn.tipped),
+      drawn.tall * tippedToward(standing.y, drawn.tipped),
+    );
     this.falling.tint = greyTint(drawn.light);
   }
 
