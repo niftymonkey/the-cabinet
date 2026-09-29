@@ -10,6 +10,7 @@
 import { TICK_HZ } from '../../../game/clock';
 import { graveWidth } from '../../../game/grave';
 import {
+  FALL_CAMERA,
   FALL_DRAG,
   FALL_DROP_SECONDS,
   FALL_FOLD_FLOOR,
@@ -35,6 +36,7 @@ import { belowGround, lightAtDepth } from './graveProjection';
 interface Fall {
   unitX: number;
   unitY: number;
+  // The way, in half-lengths a tick (graveFrameVelocity).
   unitVx: number;
   unitVy: number;
   halfExtent: number;
@@ -221,7 +223,9 @@ const dropEnds = (
   const armY = (ahead.y - behind.y) / 2;
   const armDepth = (ahead.depth - behind.depth) / 2;
   const from = (ahead.depth + behind.depth) / 2;
-  const carried = (1 - Math.exp(-FALL_DRAG * seconds)) / FALL_DRAG;
+  // The way is in half-lengths a tick, as the rules move food, and the drag
+  // runs in seconds, so the way is carried at TICK_HZ times itself a second.
+  const carried = (TICK_HZ * (1 - Math.exp(-FALL_DRAG * seconds))) / FALL_DRAG;
   const x = clamp(
     (ahead.x + behind.x) / 2 + fall.unitVx * carried,
     -MOUTH_HALF_WIDTH,
@@ -235,6 +239,23 @@ const dropEnds = (
     { x: x + armX, y: y + armY, depth: depth + armDepth },
     { x: x - armX, y: y - armY, depth: depth - armDepth },
   ];
+};
+
+/**
+ * The view a falling body's path is drawn through: FALL_CAMERA's height, and
+ * its setback toward the nadir of the hole's own view, with the hole's dark.
+ * A nadir nearer than the setback is taken as it is, so a camera straight over
+ * the grave stands straight over it.
+ */
+const fallViewFrom = (hole: GraveView): GraveView => {
+  const reach = Math.hypot(hole.nadirX, hole.nadirY);
+  const toward = reach <= FALL_CAMERA.setback ? 1 : FALL_CAMERA.setback / reach;
+  return {
+    ...hole,
+    cameraHeight: FALL_CAMERA.height,
+    nadirX: hole.nadirX * toward,
+    nadirY: hole.nadirY * toward,
+  };
 };
 
 /**
@@ -284,7 +305,8 @@ const foldAt = (half: number, u: number): number => {
 
 /**
  * Where a falling body draws at this age, from the grave's centre, in field
- * units, down the hole cut with the view it is handed (tilted view T4).
+ * units, down the hole cut with the view it is handed (tilted view T4), along
+ * the path FALL_CAMERA draws toward that view's nadir (decision 7).
  *
  * The size is read every frame rather than held, because the grave grows on the
  * very tick the food went in: the place is in the grave's proportions and the
@@ -309,7 +331,8 @@ const fallAt = (
       ? tipEnds(fall, hinge, half, u)
       : dropEnds(fall, hinge, half, (age - TIP_TICKS) / TICK_HZ);
   const fold = foldAt(half, u);
-  const drawing = drawnBetween(ahead, behind, half, fold, graveSize, view);
+  const path = fallViewFrom(view);
+  const drawing = drawnBetween(ahead, behind, half, fold, graveSize, path);
   if (age < FALL_TICKS) return drawing;
   return { ...drawing, gone: true };
 };

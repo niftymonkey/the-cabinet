@@ -6,11 +6,21 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { TICK_HZ } from '../../../../game/clock';
 import { CORPSE_HALF_EXTENT } from '../../../../game/corpses';
+import {
+  SHORTEST_FIELD,
+  TALLEST_FIELD_HEIGHT,
+  fieldOfHeight,
+} from '../../../../game/field';
+import { DEFAULT_TUNING } from '../../../../game/tuningRecord';
 import type { Fall } from '../fall';
 import { fallAt, FALL_TICKS } from '../fall';
 import type { GraveView } from '../graveProjection';
 import { lightAtDepth } from '../graveProjection';
+import { holeViewOver } from '../GraveRenderer';
+import { groundUnderPlay } from '../playLayer';
+import { sceneFor } from '../scene';
 
 /**
  * Build 7's own camera over the hole, 4.95 half-lengths up and 1.07 behind, with
@@ -153,9 +163,9 @@ describe('the fall (grave-in-the-ground R5)', () => {
   it('keeps the way the food was swallowed with, so a body pulled in fast starts out faster than one that crept in', () => {
     // R5: it keeps its momentum, which is what makes a body arrive rather than
     // be placed. Both bodies go over the left rim; the pulled one carries two
-    // half-lengths a second across the shaft with it.
+    // half-lengths a second across the shaft with it, held a tick at a time.
     const crept: Fall = { ...overTheRightRim(), unitX: -0.5 };
-    const pulled: Fall = { ...crept, unitVx: 2 };
+    const pulled: Fall = { ...crept, unitVx: 2 / TICK_HZ };
     const age = TIP_TICKS + 5;
     expect(fallAt(pulled, age, SIZE, BUILD_7_VIEW).x).toBeGreaterThan(
       fallAt(crept, age, SIZE, BUILD_7_VIEW).x,
@@ -226,13 +236,15 @@ describe('the fall under the scene camera (tilted view T4)', () => {
     // Every fall test above keeps its promise with build 7's view handed in, so
     // the move to a view argument changes nothing on its own. The figures are
     // the drawing slice 2's fall.ts gave for these two falls at these ages,
-    // printed from that commit's own code.
+    // printed from that commit's own code. That code spent the way as
+    // half-lengths a second; it is half-lengths a tick, so the same motion is
+    // two and minus one a second, written a tick at a time.
     const pulled: Fall = {
       ...overTheRightRim(),
       unitX: -0.5,
       unitY: 0.3,
-      unitVx: 2,
-      unitVy: -1,
+      unitVx: 2 / TICK_HZ,
+      unitVy: -1 / TICK_HZ,
     };
     const before: readonly [Fall, number, readonly number[], boolean][] = [
       [
@@ -295,5 +307,96 @@ describe('the fall under the scene camera (tilted view T4)', () => {
       });
       expect(drawn.gone).toBe(gone);
     }
+  });
+});
+
+/**
+ * The stances the scene's own camera takes over a starting grave, at the
+ * middle and both sides of the column and near its top, middle and bottom, on
+ * the shortest field and the tallest.
+ */
+const sceneStances = (): GraveView[] =>
+  [SHORTEST_FIELD, fieldOfHeight(TALLEST_FIELD_HEIGHT)].flatMap((field) => {
+    const scene = sceneFor(field);
+    return [30, 270, 510].flatMap((x) =>
+      [0.2, 0.5, 0.85].map((share) =>
+        holeViewOver(scene.camera, {
+          ...groundUnderPlay(scene.playLayer, x, field.height * share),
+          size: SIZE,
+        }),
+      ),
+    );
+  });
+
+/** Every age of a fall that still draws, from its birth to the dark. */
+const visibleAges = (fall: Fall, view: GraveView): number[] =>
+  Array.from({ length: FALL_TICKS }, (_, age) => age).filter(
+    (age) => !fallAt(fall, age, SIZE, view).gone,
+  );
+
+describe('the fall eases toward the middle of the dark under the scene camera (decision 7)', () => {
+  it('a body falling from the rim stays inside the mouth until the dark takes it, wherever the grave stands on the screen', () => {
+    // Mark's play report: under the scene camera, depth carried a falling body
+    // 5% of the way to a nadir some 25 half-lengths down the screen, so by the
+    // dark it had left the mouth and drew on the ground by the near lip, which
+    // read as a corpse falling into the ground where the grave had been. A5
+    // and R5 hold it in the grave's frame; decision 7 eases it toward the
+    // middle of the dark. The mouth runs 0.5 half-lengths across and 1 along.
+    const bodies: Fall[] = [
+      overTheRightRim(),
+      { ...overTheRightRim(), unitX: 0, unitY: -1 },
+      { ...overTheRightRim(), unitX: -0.5, unitY: 0.5 },
+    ];
+    for (const view of sceneStances()) {
+      for (const fall of bodies) {
+        for (const age of visibleAges(fall, view)) {
+          const drawn = fallAt(fall, age, SIZE, view);
+          expect(Math.abs(drawn.x) / SIZE).toBeLessThanOrEqual(0.5 + 1e-9);
+          expect(Math.abs(drawn.y) / SIZE).toBeLessThanOrEqual(1 + 1e-9);
+        }
+      }
+    }
+  });
+
+  it('a grave on the middle of the column draws the fall build 7 drew, a third of the way to the middle of the dark by the dark depth', () => {
+    // Decision 7's look is build 7's (main before the tilt): 4.95 half-lengths
+    // up and 1.07 back, so by the dark depth 2.4 a body has come
+    // 1 - 4.95 / 7.35, about a third, of the way to the middle of the dark.
+    // The scene camera stands 42.5 up and draws only 5% of that. Over the
+    // middle of the column the scene camera's nadir lies straight down the
+    // screen, which is where build 7's stood.
+    const scene = sceneFor(SHORTEST_FIELD);
+    const middle = holeViewOver(scene.camera, {
+      ...groundUnderPlay(scene.playLayer, 270, 600),
+      size: SIZE,
+    });
+    const fall = overTheRightRim();
+    for (let age = 0; age <= FALL_TICKS; age++) {
+      const now = fallAt(fall, age, SIZE, middle);
+      const build7 = fallAt(fall, age, SIZE, BUILD_7_VIEW);
+      expect(now.x).toBeCloseTo(build7.x, 6);
+      expect(now.y).toBeCloseTo(build7.y, 6);
+      expect(now.along).toBeCloseTo(build7.along, 6);
+      expect(now.across).toBeCloseTo(build7.across, 6);
+      expect(now.light).toBeCloseTo(build7.light, 6);
+    }
+  });
+});
+
+describe("the fall's momentum (R5)", () => {
+  it('a body that goes over the rim at the pull speed is carried across the middle of the hole before the dark takes it', () => {
+    // R5: it keeps its momentum. The pull brings food to the rim at about 125
+    // field units a second (R3, T5), which the rules hold as field units a tick
+    // (pull.ts), and the swallow hands the fall that per-tick way. Spent
+    // against 2.4 a second of drag over the 0.75 s drop, 125 a second carries
+    // a body 125 * (1 - e^-1.8) / 2.4, about 43 field units: from the right rim
+    // of a starting grave past the middle, so it ends left of the middle where
+    // a still body ends right of it.
+    const perTick = -(DEFAULT_TUNING.swallow.pullStrength / TICK_HZ) / SIZE;
+    const still = overTheRightRim();
+    const pulled: Fall = { ...still, unitVx: perTick };
+    const last = FALL_TICKS - 1;
+    expect(fallAt(still, last, SIZE, BUILD_7_VIEW).x).toBeGreaterThan(0);
+    expect(fallAt(pulled, last, SIZE, BUILD_7_VIEW).x).toBeLessThan(0);
   });
 });

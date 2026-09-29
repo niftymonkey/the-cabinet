@@ -157,6 +157,26 @@ const FALL_SLIP_SHARE = 0.6;
  */
 const FALL_DRAG = 2.4;
 
+// How high a falling body's camera stands and how far back, in half-lengths.
+interface FallCamera {
+  readonly height: number;
+  readonly setback: number;
+}
+
+/**
+ * The camera a falling body's path is drawn through, in the grave's own
+ * half-lengths: build 7's hole camera, 4.95 up and 1.07 back (design record R4),
+ * which carries a body about a third of the way to the middle of the dark by
+ * the dark depth (Mark's decision 7).
+ *
+ * The scene camera stands 42.5 starting half-lengths up with its nadir some 25
+ * down the screen, so through it depth moves a body only 5% of the way, and
+ * toward a point past the near lip: by the dark a body has left the mouth and
+ * draws on the ground. So the path keeps build 7's height and setback, and
+ * stands back toward the scene camera's nadir, which is where its dark lies.
+ */
+const FALL_CAMERA: FallCamera = { height: 4.95, setback: 1.07 };
+
 /**
  * The smallest a body folds to on its way in, as a share of its own size. Food
  * longer than the opening folds to fit; the floor is there so that a body far
@@ -288,6 +308,7 @@ export {
   ENDING_SCENE_SECONDS,
   FACE_STEPS,
   FACE_WASH,
+  FALL_CAMERA,
   FALL_DRAG,
   FALL_DROP_SECONDS,
   FALL_FOLD_FLOOR,

@@ -28,7 +28,7 @@ interface Swallowed {
   readonly offsetX: number;
   readonly offsetY: number;
   readonly halfExtent: number;
-  // The way it was moving when it tipped, in field units a second.
+  // The way it was moving when it tipped, in field units a tick.
   readonly vx: number;
   readonly vy: number;
   // The grave's size on the tip tick, before the swallow's own growth.
