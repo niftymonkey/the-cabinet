@@ -4,29 +4,14 @@ Read the branch charter first: `docs/branch/charter.md`. Then this file. Every r
 
 ## Where the branch stands
 
-**Replanned on 2026-09-27 after Mark's correction (T10): the tilt is drawing only.** He played slice 4's deploy and found the tilt had reached the physics: "When I shoot my main weapon, that goes straight forward. It now no longer goes straight forward." He rejected tilt 8 of the prototype (no vanishing point anywhere, "a flat thing again") and approved tilt 9 "as long as the weapons behave right". Tilt 9 draws scenery through tilt 7's pinhole camera and places everything that moves on a play layer: straight across the screen, on the camera's own rows down it, at the camera's size for its row.
-
-Landed and pushed: the plan `d521b3555e`, slice 1 `1b728db1d3` (camera math, the capture tool), slice 2 `e8188848fc` (everything drawn through the camera), slice 3 `544f0028d4` (the hole cut by the scene camera), slice 4 `328570e623` (steering on the glass and two readings; deployed to https://hungry-grave.vercel.app, `dpl_CfuJeiLZxnNxJGQBRZjpmsiakd3E`), slice 6 `7fac05ff88` (the `FIELD_*` to `VIEW_*` rename), slice 5 `9b125bbc03` (the before batch). The replan is uncommitted in the worktree.
-
-What of that stands: slices 1 to 3 stand for scenery and the hole; slices B and C move everything that moves onto the play layer, and slice C moves the hole's stance. Slice 4's steering conversion comes out in slices A and C; its two readings stay (A27). Slice 5's batch is not used. Slice 6 is undone in slice 9 (A26). The old slices 7 and 8 are dropped, their entries marked so.
-
-**Two more rulings on 2026-09-27 (T11, T12).** Mark played tilt 10 and kept tilt 9's rows (T11, A28 answered). And he ruled that the field fills any portrait phone: each run's field is 540 wide and as tall as the phone's portrait shape asks, recorded in the tape's header and replayed in that shape on any screen (T12). That is a sim change, so it gets its own slice, P, split on the tech gate's advice into P1 (the rules, the tape and the test player) and P2 (the screen and the drawing), after A and before B; P1 changes named files under `src/game` and `src/tape`, and a run that asks for no shape still plays today's 760 field, so `GOLDEN`, every version and every pinned list still hold (A31, A33), and a second digest pin, `GOLDEN_1168`, guards the tall field. Tapes recorded before slice P1 stop replaying, refused by name.
-
-Outside slices P1 and P2 nothing under `src/game` or `src/tape` changes on this branch, and after slice A `src/dev` differs from `main` only by the two readings and slice P1's changes. The bot's and harness's lists go back to their values before slice 4 in slice A, measured against slice 4's own per-seed record of that tree (`local/tilt-slice-4/slice4-lists-before.json`); the expectation is an exact match, because the hand's commands to the sim are the same functions of state as before slice 4.
+**Every planned slice has landed and Mark has played the build (2026-09-29, desktop, the live deploy of `6f46b115d9`).** Tip `32c375abbd`, pushed, not deployed. His read: "pretty good", with three findings. (1) Corpses touched on a fast pass trail the grave instead of going in: not a missed test, it is decision 3's 55% share (`grave-in-the-ground.md`), and he wants "if you touch that thing, it should fall in"; his ruling on the value is open (first touch recommended). (2) A fall looked left behind where the grave had been: fixed in `32c375abbd`, the fall draws on build 7's own path camera (`FALL_CAMERA`, `fall.ts`) and spends its carried way per tick; CodeRabbit clean. (3) Territory patches warp into different eggs and slide across the ground: the play layer and the pinhole ground disagree by design (A22, A28); he questioned the split itself, and tilt 11 to 13 of the prototype (a Pinhole / Flat ground pair, a real ground photo) let him judge whether a ground on the play layer's own map still reads as tilted. If flat wins, one scenery-side slice moves `groundMesh`, the scroll, dressing and far headstones onto the play layer's map and A22's stretch goes.
 
 ## What is left, in order
 
-Mark approved a lighter process on 2026-09-27: the rest of the branch is slice 9 plus four slices, A to D, each run as the charter's "How a slice runs" says (one review per slice, bugs fixed in the next commit, no gate rounds until the close).
-
-1. Slice 9, the rename undone. Landed, `c5b1423ce5`.
-2. Slice A, steering and the test player back in the field, with the pins measured back to their values before slice 4. Running.
-3. **Before slice P1 is dispatched, the main session amends the coder contract** (`docs/branch/records/coder-contract.md`): its "The sim is untouched (T10)" rule and its version and `GOLDEN` pins name slice P1 as the one slice that changes `src/game` and `src/tape` (P2 touches `field.ts`, `caps.ts` and `tip.ts` only to delete what P1 left for it), under T12, with every existing pin still holding and `GOLDEN_1168` added. The contract says a coder stops where it and an entry disagree, so without this slice P1's coder stops at once. The charter's goal paragraph names T12 the same way.
-4. Slice P1, the field's height per run in the rules, the tape and the test player (`docs/branch/records/slice-P1.md`). It does not wait on Mark.
-5. Slice P2, the screen reads the run's shape and draws it (`docs/branch/records/slice-P2.md`).
-6. Slice B, the play layer's math and every placement on it.
-7. Slice C, the traced areas, the ground's scroll, the grave, and the drag on the play layer.
-8. Slice D, the weapons check with the bosses' patterns and the edge slide, the whole run, the proof that `src/game` and `src/tape` are untouched; then the deploy, and Mark's play on his phone coached line by line ("For Mark's next play" below).
-9. The tip review of the last commit, then the close: the three gates run once on the built result, "For the close" below is worked through, and the branch closes by `end-of-the-branch.md`, carrying the glossary entries and #39's size floor comment (A17).
+1. Mark's swallow ruling: `tipThreshold` to the value he picks, a design-record note that decision 3 is superseded on his play of 2026-09-29, spec test, review, commit.
+2. Mark's ground ruling from tilt 13: if flat, the scenery slice above; if pinhole, a shape rule for traced areas is a design conversation.
+3. Deploy, then his confirming play on iPhone and desktop against "For Mark's next play" below.
+4. The tip review, then the close: the three gates once on the built result, "For the close" worked through, `end-of-the-branch.md`, the glossary entries and the ADR 0003 amendment on his yes.
 
 ## For Mark's read
 
@@ -64,7 +49,8 @@ After slice D's deploy, on his phone at https://hungry-grave.vercel.app:
 
 Style, wording and nice-to-have findings from the per-slice reviews land here, never as a rerun. Each is worked or dropped at the close.
 
-- (none yet)
+- The fall has its own path camera (`FALL_CAMERA`, build 7's height) beside T4's shared hole camera: one line in the design record.
+- The weapons record's shots placeholder (CodeRabbit); the belch button overhangs the left bar at 390 by 600; the dev readout overlaps the score row; a big grave in a bottom corner overhangs by up to 17 px (A25); the 390 by 844 stage wording nit; bakes at 9.5 to 11.7 a second; a swallowed corpse turns pale at the handover (older than this branch); the Undertaker holds his height about six frames on 1168.
 
 ## Facts later work needs
 
