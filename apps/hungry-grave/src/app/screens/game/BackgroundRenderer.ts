@@ -1,15 +1,8 @@
-// The ground under the field: the field the prototype's painters bake it from,
-// the per-section dressing that drifts across a boundary, and the Waking's own
-// source. It draws into `ground` and adds no layer name (ADR 0014, ADR 0049).
+// The ground under the field: the photographed stand-in ground laid on the
+// camera, the per-section dressing that drifts across a boundary, and the
+// Waking's own source. It draws into `ground` and adds no layer name (ADR 0014, ADR 0049).
 
-import {
-  Graphics,
-  Mesh,
-  MeshGeometry,
-  Rectangle,
-  Sprite,
-  Texture,
-} from 'pixi.js';
+import { Mesh, MeshGeometry, Rectangle, Sprite, Texture } from 'pixi.js';
 
 import {
   fieldOfHeight,
@@ -20,9 +13,9 @@ import type { RunState } from '../../../game/run';
 import type { SetPiece } from '../../../game/stage/setPiece';
 import { SECTIONS } from '../../../game/stage/stage';
 import { SCROLL_SPEED } from '../../../game/tuning';
-import { PALETTE } from '../../palette';
+import { PALETTE, PHOTO_TINT } from '../../palette';
 import type { Camera, VisibleGround } from './camera';
-import { bladeReach, visibleGround } from './camera';
+import { visibleGround } from './camera';
 import type { DressingSetName, Stance, StandInArt } from './groundDressing';
 import {
   acrossAt,
@@ -33,9 +26,8 @@ import {
   SOURCE_AWAKE,
   SOURCE_DORMANT,
 } from './groundDressing';
-import type { GroundGrid } from './groundMesh';
+import type { GroundGrid, Tile } from './groundMesh';
 import { groundGrid, groundGridIndices } from './groundMesh';
-import { groundResolution, paintGround } from './groundPainting';
 import type { Placement } from './groundPlacement';
 import { lyingAt, standingAt } from './groundPlacement';
 import type { FieldLayers } from './layering';
@@ -59,6 +51,25 @@ import { sceneFor } from './scene';
  */
 const groundSpeedOf = (scene: Scene): number =>
   SCROLL_SPEED * scene.playLayer.stretch;
+
+/**
+ * The ground the camera lays on the column: a photographed patch of turf and
+ * bare earth standing in until the ground's art is made (tilted view T13),
+ * repeated plainly because it is seamless, its tile's size in field units, and
+ * the night laid over it.
+ *
+ * The photo is Poly Haven's Forest Ground 01 by Rob Tuytel, its diffuse map
+ * resized to 1024 square (https://polyhaven.com/a/forrest_ground_01). A tile
+ * of 512 is the prototype's `GROUND_PHOTO_TILE`: at the photo's true scale of
+ * about a grave's length its twigs shrink to a mottle, and at 512 they read as
+ * twigs, grass and bare earth while the tile still repeats down the leaning
+ * ground often enough to carry the lean.
+ */
+const GROUND_PHOTO = {
+  alias: 'standIn/ground/forest-ground.jpg',
+  tile: { width: 512, height: 512 } satisfies Tile,
+  tint: PHOTO_TINT.groundNight,
+} as const;
 
 /**
  * How many times the dressing eyes' footprint the Waking's source draws at.
@@ -163,30 +174,6 @@ interface BackgroundProps {
 }
 
 /**
- * What the bake reads off the renderer each frame: how wide the stage is in its
- * own units, how wide the page shows the canvas in CSS pixels, and the bake
- * itself, which only the renderer can do.
- */
-interface GroundView {
-  readonly screen: { readonly width: number };
-  readonly canvas: {
-    getBoundingClientRect?(): { readonly width: number };
-  };
-  generateTexture(options: {
-    target: Graphics;
-    frame: Rectangle;
-    resolution: number;
-    antialias: boolean;
-  }): Texture;
-}
-
-/**
- * The ground, drawn from the run's own tick. Render only: every sprite's
- * placement is a function of the tick, so a replay rendering a pinned tape at a
- * chosen tick draws the ground the run drew and this renderer holds nothing
- * across frames but its textures.
- */
-/**
  * The ground as a grid laid on the column, each vertex sampling the ground the
  * camera shows it (A9). Its positions never move; only the texture rows do, as
  * the ground scrolls. Held out of the batcher, which would not keep the
@@ -202,6 +189,29 @@ const groundMeshOver = (grid: GroundGrid): Mesh => {
   return new Mesh({ geometry, texture: Texture.EMPTY });
 };
 
+/**
+ * The photo made ready to lay on the ground: repeated plainly, sampled
+ * linearly and mipmapped, the prototype's `loadGroundPhoto`. The mip chain is
+ * sized when the texture first reaches the GPU, which is after this, because
+ * the mesh is the only thing that draws it. Its style is pushed, because WebGL2
+ * binds a sampler cached by the style's id.
+ */
+const readiedGroundPhoto = (photo: Texture): Texture => {
+  const source = photo.source;
+  source.style.addressMode = 'repeat';
+  source.style.scaleMode = 'linear';
+  source.style.update();
+  source.autoGenerateMipmaps = true;
+  source.updateMipmaps();
+  return photo;
+};
+
+/**
+ * The ground, drawn from the run's own tick. Render only: every sprite's
+ * placement is a function of the tick, so a replay rendering a pinned tape at a
+ * chosen tick draws the ground the run drew and this renderer holds nothing
+ * across frames but its textures.
+ */
 class BackgroundRenderer {
   /**
    * The run's scene, or the shortest field's before any run is handed in. The
@@ -219,7 +229,7 @@ class BackgroundRenderer {
   private grid = groundGrid(
     this.scene.camera,
     this.scene.column,
-    this.scene.field,
+    GROUND_PHOTO.tile,
     0,
   );
   private readonly ground = groundMeshOver({
@@ -232,22 +242,10 @@ class BackgroundRenderer {
   private readonly textures = new Map<string, Texture>();
   private readonly props: BackgroundProps;
   private built = false;
-  private bakedAt: number | null = null;
-  /**
-   * The picture the last repaint replaced, freed at the next one. The ground
-   * draws through Pixi's shared mesh shader, whose bind group holds the last
-   * texture it drew and destroys itself when that texture is destroyed, so a
-   * picture freed in the frame that swaps it breaks the next ground drawn.
-   */
-  private retired: Texture | null = null;
-  private wanted: { view: GroundView; resolution: number } | null = null;
-  private warnedUnmeasured = false;
 
   constructor(props: BackgroundProps) {
     this.props = props;
-    // The renderer is handed out nowhere else, so this is where the ground
-    // reads the view. It only asks for a bake; see askForABake.
-    this.ground.onRender = (renderer) => this.askForABake(renderer);
+    this.ground.tint = GROUND_PHOTO.tint;
     this.sourceRim.tint = PALETTE.standInWakingDark.hex;
     this.source.tint = PALETTE.standInWaking.hex;
     for (const sprite of [this.sourceRim, this.source]) {
@@ -270,18 +268,15 @@ class BackgroundRenderer {
   }
 
   /**
-   * The run about to be drawn's scene. The grid is laid again on its column,
-   * and the ground is painted again for its field on the next frame, because
-   * the picture is one field tall.
+   * The run about to be drawn's scene. The grid is laid again on its column.
    */
   public useScene(scene: Scene): void {
     this.scene = scene;
     this.groundSpeed = groundSpeedOf(scene);
     this.seen = visibleGround(scene.camera, scene.column);
-    this.grid = groundGrid(scene.camera, scene.column, scene.field, 0);
+    this.grid = groundGrid(scene.camera, scene.column, GROUND_PHOTO.tile, 0);
     this.ground.geometry.positions = this.grid.positions;
     this.ground.geometry.uvs = this.grid.uvs.slice();
-    this.bakedAt = null;
   }
 
   // The dressing pool, allocated once, so a placement never allocates.
@@ -300,22 +295,34 @@ class BackgroundRenderer {
 
   // The ground as the run's own tick says it is.
   public sync(run: RunState): void {
-    this.bakeIfAsked();
+    this.dressGround();
     this.syncGround(run.tick);
     this.syncDressing(run);
     this.syncSource(run.setPiece);
   }
 
   /**
-   * The picture is one field tall and repeats down the ground, so the run's
-   * own tick is the whole of where the ground stands: every vertex samples the
-   * ground it shows less the scroll, in ground units, so near ground runs
-   * faster on the screen than far ground (A9). The scroll is taken within one
-   * repeat, which the texture cannot tell apart, so the rows keep their
-   * precision on a long run.
+   * Lays the photo on the ground once its bundle has brought it. Until then
+   * the ground is empty for those first frames, the same shape the dressing
+   * takes while its art is coming.
+   */
+  private dressGround(): void {
+    if (this.ground.texture !== Texture.EMPTY) return;
+    const photo = this.props.standInArt(GROUND_PHOTO.alias);
+    if (photo === null) return;
+    this.ground.texture = readiedGroundPhoto(photo);
+  }
+
+  /**
+   * The photo repeats down the ground a tile at a time, so the run's own tick
+   * is the whole of where the ground stands: every vertex samples the ground it
+   * shows less the scroll, in ground units, so near ground runs faster on the
+   * screen than far ground (A9). The scroll is taken within one repeat, which
+   * the texture cannot tell apart, so the rows keep their precision on a long
+   * run.
    */
   private syncGround(tick: number): void {
-    const height = this.scene.field.height;
+    const height = GROUND_PHOTO.tile.height;
     const scrolled = ((tick * this.groundSpeed) % height) / height;
     const rows = this.ground.geometry.uvs;
     const unscrolled = this.grid.uvs;
@@ -323,96 +330,6 @@ class BackgroundRenderer {
       rows[at] = (unscrolled[at] ?? 0) - scrolled;
     }
     this.ground.geometry.getBuffer('aUV').update();
-  }
-
-  /**
-   * CSS pixels per field unit on this frame (the prototype's viewScale), or
-   * null while the page shows no canvas to measure. The field's own placement
-   * is read off the ground's transform, so the ground needs nothing from its
-   * screen.
-   */
-  private viewScaleFor(renderer: GroundView): number | null {
-    const transform = this.ground.getGlobalTransform();
-    const stageUnits = Math.hypot(transform.a, transform.b);
-    const shown = renderer.canvas.getBoundingClientRect?.().width;
-    const viewScale =
-      shown === undefined ? 0 : (stageUnits * shown) / renderer.screen.width;
-    if (Number.isFinite(viewScale) && viewScale > 0) return viewScale;
-    if (!this.warnedUnmeasured) {
-      console.warn(
-        `the ground cannot measure the view (canvas shown ${String(shown)} CSS pixels over a ${renderer.screen.width}-unit stage), so its field waits to be painted`,
-      );
-      this.warnedUnmeasured = true;
-    }
-    return null;
-  }
-
-  /**
-   * Notes that the view wants a density the field has not been baked at. It
-   * asks and never bakes: `generateTexture` is `renderer.render` under another
-   * name, so a bake inside the renderer's own pass re-enters the pass drawing
-   * the screen and the field comes back carrying a photograph of that frame.
-   *
-   * The picture is a function of the field, which ADR 0003 fixes, and of the
-   * texture density, which moves only when the viewport does, so this asks
-   * once a run rather than once a frame.
-   */
-  private askForABake(renderer: GroundView): void {
-    const viewScale = this.viewScaleFor(renderer);
-    if (viewScale === null) return;
-    const resolution = groundResolution(
-      viewScale * this.scene.nearestScale,
-      globalThis.devicePixelRatio || 1,
-      this.scene.field,
-    );
-    if (this.bakedAt === resolution) return;
-    this.wanted = { view: renderer, resolution };
-  }
-
-  /**
-   * Bakes what the last pass asked for. It runs from sync, which the screen
-   * calls in the frame's update, before Pixi renders: the one place this
-   * renderer holds a view and is outside the pass.
-   *
-   * The field is empty for the frame between the first ask and this bake, which
-   * is the same shape the dressing already takes while its bundle is coming.
-   */
-  private bakeIfAsked(): void {
-    const asked = this.wanted;
-    if (asked === null) return;
-    this.wanted = null;
-    this.bakeGround(asked.view, asked.resolution);
-    this.bakedAt = asked.resolution;
-  }
-
-  /**
-   * The painted field as one texture, shown at the field's own size.
-   *
-   * Left as live Graphics it is some four thousand shapes rasterised every
-   * frame, which the prototype measured as the difference between 8 and 34
-   * frames a second.
-   */
-  private bakeGround(renderer: GroundView, resolution: number): void {
-    const art = new Graphics();
-    const field = this.scene.field;
-    paintGround(art, field, bladeReach(this.scene.camera));
-    const texture = renderer.generateTexture({
-      target: art,
-      frame: new Rectangle(0, 0, field.width, field.height),
-      resolution,
-      antialias: true,
-    });
-    // Repeating both ways, because the camera sees more ground than the
-    // picture holds. WebGL2 binds a sampler built from the style and cached by
-    // its id, which setting the wrap leaves as it was, so the style is pushed
-    // (the prototype's own fix, tilted-view index.html:1957-1963).
-    texture.source.style.addressMode = 'repeat';
-    texture.source.style.update();
-    this.retired?.destroy(true);
-    const spent = this.ground.texture;
-    this.retired = spent === Texture.EMPTY ? null : spent;
-    this.ground.texture = texture;
-    art.destroy(true);
   }
 
   /**

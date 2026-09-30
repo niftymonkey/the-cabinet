@@ -19,7 +19,6 @@ import { fallAt, FALL_TICKS } from '../fall';
 import type { GraveView } from '../graveProjection';
 import { lightAtDepth } from '../graveProjection';
 import { holeViewOver } from '../GraveRenderer';
-import { groundUnderPlay } from '../playLayer';
 import { sceneFor } from '../scene';
 
 /**
@@ -311,22 +310,13 @@ describe('the fall under the scene camera (tilted view T4)', () => {
 });
 
 /**
- * The stances the scene's own camera takes over a starting grave, at the
- * middle and both sides of the column and near its top, middle and bottom, on
- * the shortest field and the tallest.
+ * The views the hole's own camera cuts on the shortest field and the tallest,
+ * which are the same wherever the grave stands (tilted view T13).
  */
-const sceneStances = (): GraveView[] =>
-  [SHORTEST_FIELD, fieldOfHeight(TALLEST_FIELD_HEIGHT)].flatMap((field) => {
-    const scene = sceneFor(field);
-    return [30, 270, 510].flatMap((x) =>
-      [0.2, 0.5, 0.85].map((share) =>
-        holeViewOver(scene.camera, {
-          ...groundUnderPlay(scene.playLayer, x, field.height * share),
-          size: SIZE,
-        }),
-      ),
-    );
-  });
+const holeViews = (): GraveView[] =>
+  [SHORTEST_FIELD, fieldOfHeight(TALLEST_FIELD_HEIGHT)].map((field) =>
+    holeViewOver(sceneFor(field).camera),
+  );
 
 /** Every age of a fall that still draws, from its birth to the dark. */
 const visibleAges = (fall: Fall, view: GraveView): number[] =>
@@ -334,20 +324,22 @@ const visibleAges = (fall: Fall, view: GraveView): number[] =>
     (age) => !fallAt(fall, age, SIZE, view).gone,
   );
 
-describe('the fall eases toward the middle of the dark under the scene camera (decision 7)', () => {
+describe("the fall eases toward the middle of the dark under the hole's own camera (decision 7, T13)", () => {
   it('a body falling from the rim stays inside the mouth until the dark takes it, wherever the grave stands on the screen', () => {
     // Mark's play report: under the scene camera, depth carried a falling body
     // 5% of the way to a nadir some 25 half-lengths down the screen, so by the
     // dark it had left the mouth and drew on the ground by the near lip, which
     // read as a corpse falling into the ground where the grave had been. A5
     // and R5 hold it in the grave's frame; decision 7 eases it toward the
-    // middle of the dark. The mouth runs 0.5 half-lengths across and 1 along.
+    // middle of the dark. The hole's own camera (T13) has its nadir 2.308
+    // half-lengths back, past the near lip too, so the path keeps build 7's
+    // setback. The mouth runs 0.5 half-lengths across and 1 along.
     const bodies: Fall[] = [
       overTheRightRim(),
       { ...overTheRightRim(), unitX: 0, unitY: -1 },
       { ...overTheRightRim(), unitX: -0.5, unitY: 0.5 },
     ];
-    for (const view of sceneStances()) {
+    for (const view of holeViews()) {
       for (const fall of bodies) {
         for (const age of visibleAges(fall, view)) {
           const drawn = fallAt(fall, age, SIZE, view);
@@ -358,27 +350,28 @@ describe('the fall eases toward the middle of the dark under the scene camera (d
     }
   });
 
-  it('a grave on the middle of the column draws the fall build 7 drew, a third of the way to the middle of the dark by the dark depth', () => {
+  it("a grave anywhere on either field draws the fall build 7 drew, a third of the way to the middle of the dark by the dark depth, on the hole's own height", () => {
     // Decision 7's look is build 7's (main before the tilt): 4.95 half-lengths
     // up and 1.07 back, so by the dark depth 2.4 a body has come
     // 1 - 4.95 / 7.35, about a third, of the way to the middle of the dark.
-    // The scene camera stands 42.5 up and draws only 5% of that. Over the
-    // middle of the column the scene camera's nadir lies straight down the
-    // screen, which is where build 7's stood.
-    const scene = sceneFor(SHORTEST_FIELD);
-    const middle = holeViewOver(scene.camera, {
-      ...groundUnderPlay(scene.playLayer, 270, 600),
-      size: SIZE,
-    });
+    // T13 cuts the walls from that same height, so the fall and the walls
+    // shrink alike with depth; the fall keeps build 7's setback straight back
+    // toward the walls' nadir.
+    for (const view of holeViews()) {
+      expect(view.cameraHeight).toBe(BUILD_7_VIEW.cameraHeight);
+      expect(view.nadirX).toBe(0);
+    }
     const fall = overTheRightRim();
-    for (let age = 0; age <= FALL_TICKS; age++) {
-      const now = fallAt(fall, age, SIZE, middle);
-      const build7 = fallAt(fall, age, SIZE, BUILD_7_VIEW);
-      expect(now.x).toBeCloseTo(build7.x, 6);
-      expect(now.y).toBeCloseTo(build7.y, 6);
-      expect(now.along).toBeCloseTo(build7.along, 6);
-      expect(now.across).toBeCloseTo(build7.across, 6);
-      expect(now.light).toBeCloseTo(build7.light, 6);
+    for (const view of holeViews()) {
+      for (let age = 0; age <= FALL_TICKS; age++) {
+        const now = fallAt(fall, age, SIZE, view);
+        const build7 = fallAt(fall, age, SIZE, BUILD_7_VIEW);
+        expect(now.x).toBeCloseTo(build7.x, 6);
+        expect(now.y).toBeCloseTo(build7.y, 6);
+        expect(now.along).toBeCloseTo(build7.along, 6);
+        expect(now.across).toBeCloseTo(build7.across, 6);
+        expect(now.light).toBeCloseTo(build7.light, 6);
+      }
     }
   });
 });

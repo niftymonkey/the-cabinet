@@ -307,6 +307,7 @@ describe('steering on the glass (tilted view T9, A11)', () => {
     const at = onGlass(100, 200);
     grip(rig, at.x, at.y + 60);
     const before = drawn(rig);
+    const start = { x: rig.run.grave.x, y: rig.run.grave.y };
     rig.finger = { x: rig.finger.x + 12, y: rig.finger.y + 9 };
     rig.steering.pointerMove(touchAt(rig.finger.x, rig.finger.y), PHONE);
     tick(rig);
@@ -316,8 +317,15 @@ describe('steering on the glass (tilted view T9, A11)', () => {
       before.y + 9 / PHONE.scale,
     );
     expect(reached).not.toBeNull();
-    expect(Math.abs(rig.run.grave.x - reached!.x)).toBeLessThan(GRID_PER_TICK);
-    expect(Math.abs(rig.run.grave.y - reached!.y)).toBeLessThan(GRID_PER_TICK);
+    // The sim takes the move on the float32 grid at the move's own size: a
+    // drag near the top of the column is several base speeds of field in one
+    // tick, where a float32 step is wider than GRID_PER_TICK's.
+    const gridAt = (move: number): number =>
+      4.5 * 2 ** Math.ceil(Math.log2(Math.abs(move) / 4.5)) * 2 ** -24;
+    const moveX = reached!.x - start.x;
+    const moveY = reached!.y - start.y;
+    expect(Math.abs(rig.run.grave.x - reached!.x)).toBeLessThan(gridAt(moveX));
+    expect(Math.abs(rig.run.grave.y - reached!.y)).toBeLessThan(gridAt(moveY));
   });
 
   it("a held W leaves the grave's drawn x unchanged, from a grave near the left edge low on the field", () => {

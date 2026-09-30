@@ -1,6 +1,6 @@
 /**
- * The one still camera the whole field is drawn through (design record T2, T3,
- * T6, A1, A6, A13): tilted off straight down, standing high over the ground,
+ * The one still camera the whole field is drawn through (design record T13,
+ * T6, A1, A13): tilted off straight down, standing high over the ground,
  * looking at the ground under the middle of the column and never following
  * the grave.
  */
@@ -36,27 +36,15 @@ interface VisibleGround {
   readonly nearRight: number;
 }
 
-interface Stance {
-  readonly cameraHeight: number;
-  readonly nadirX: number;
-  readonly nadirY: number;
-}
-
-interface Grave {
-  readonly x: number;
-  readonly y: number;
-  readonly size: number;
-}
-
 /**
- * Mark's two camera values, read off his phone after playing the tilted
- * prototype (T2, T3). The height is in half-lengths of the starting grave and
- * never the live one, because a camera that rose with the grave would flatten
- * the view as it grows.
+ * Mark's two camera values, read off his phone after playing tilt 13 of the
+ * tilted prototype (T13). The height is in half-lengths of the starting grave
+ * and never the live one, because a camera that rose with the grave would
+ * flatten the view as it grows.
  */
 const CAMERA_VALUES = {
-  tiltDegrees: 32.5,
-  heightInStartingHalfLengths: 42.5,
+  tiltDegrees: 25,
+  heightInStartingHalfLengths: 13,
 };
 
 /**
@@ -65,19 +53,6 @@ const CAMERA_VALUES = {
  * the ground is beside or behind the camera and its scale runs to infinity.
  */
 const NEAREST_SHARE = 0.12;
-
-/**
- * How far a grass blade leans back off the vertical, from the prototype's
- * `BLADE_LEAN` (tilted-view `index.html:752`).
- */
-const BLADE_LEAN_DEGREES = 62;
-
-/**
- * Build 7's camera angle, `atan(1.07 / 4.95)` off straight down (#148's
- * design record R4, the prototype's `DEFAULT_TILT`, tilted-view
- * `index.html:382`): the angle grass was drawn for before the tilt.
- */
-const BUILD_7_TILT = Math.atan(1.07 / 4.95);
 
 const radiansOf = (degrees: number): number => (degrees * Math.PI) / 180;
 
@@ -164,36 +139,11 @@ const visibleGround = (camera: Camera, column: Column): VisibleGround => {
   };
 };
 
-/**
- * Where the camera stands over a grave, in that grave's half-lengths (A6),
- * which slice 3 cuts the hole with. The height is the scene camera's own, so
- * it never rises with the live grave (T3).
- */
-const stanceOverGrave = (camera: Camera, grave: Grave): Stance => {
-  const footY = camera.target.y + camera.distance * camera.rise;
-  return {
-    cameraHeight: camera.height / grave.size,
-    nadirX: (camera.target.x - grave.x) / grave.size,
-    nadirY: (footY - grave.y) / grave.size,
-  };
-};
-
-/**
- * How long a grass blade draws at this camera against build 7's length (A9).
- * Slice 2's ground painting reads it.
- */
-const bladeReach = (camera: Camera): number => {
-  const bladeLean = radiansOf(BLADE_LEAN_DEGREES);
-  return Math.cos(camera.tilt - bladeLean) / Math.cos(BUILD_7_TILT - bladeLean);
-};
-
 export {
   CAMERA_VALUES,
-  bladeReach,
   columnToGround,
   groundToColumn,
   makeCamera,
-  stanceOverGrave,
   visibleGround,
 };
-export type { Camera, Column, OnColumn, Stance, VisibleGround };
+export type { Camera, Column, OnColumn, VisibleGround };

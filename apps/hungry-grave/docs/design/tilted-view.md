@@ -39,15 +39,15 @@ What the prototype taught, which the rulings below rest on:
 
 ### T2. The tilt is 32.5 degrees off straight down
 
-**Stands.** Read off his phone on 2026-09-27 after 81 swallows.
+**Superseded by T13** (the tilt is 25 degrees). Read off his phone on 2026-09-27 after 81 swallows.
 
 ### T3. The camera stands 42.50 grave half-lengths up, measured off the starting grave size, never the live grave
 
-**Stands.** Read off the same screenshot. Measured off the starting size because a camera that rose with the live grave would flatten the view as the grave grows. The grave size of 48.0 in his shot is growth from swallowing, not a ruling.
+**Superseded by T13** (the height is 13 half-lengths); what stood is that it is measured off the starting size, never the live grave. Read off the same screenshot. Measured off the starting size because a camera that rose with the live grave would flatten the view as the grave grows. The grave size of 48.0 in his shot is growth from swallowing, not a ruling.
 
 ### T4. The hole is cut by the shared scene camera, so it is a flat dark opening
 
-**Stands, amended by T10.** He chose `shared` over the prototype's `own` camera, which kept build 7's low camera for the hole and showed its walls. Under T10 the camera's stance is taken over the ground point under the grave's placed point (A23).
+**Superseded by T13** (the hole has its own camera); it stood amended by T10 until then. He chose `shared` over the prototype's `own` camera, which kept build 7's low camera for the hole and showed its walls. Under T10 the camera's stance is taken over the ground point under the grave's placed point (A23).
 
 ### T5. Every other value stays at build 7's
 
@@ -113,6 +113,24 @@ What it rules: the field is 540 wide on every device and as tall as the run's st
 
 What it supersedes: A1's "one fixed shape on every device", and T10's "that part should still stay 540 by 760". ADR 0003's "one fixed 540 by 760 unit field that the renderer scales to any screen" is now wrong; it is not edited on this branch and goes to the branch close's ADR pass (the handoff, "For Mark's read").
 
+### T13. The camera is 25 degrees and 13 up, the hole has its own camera, and the ground is a night-tinted photo (tilt 13)
+
+**New, 2026-09-29, supersedes T2, T3 and T4, and A6; amends A9, A10 and A23.** Mark played tilt 13 of the prototype on his phone and sent his screenshot of its settings: tilt 25.0 degrees, camera 13.00, hole own, rows tilt 9, ground pinhole, texture real, light night, column phone. His words: "these are the settings we should start with and we can see where we can go from there. Let's code it to this and then we will figure it out from there in future iterations, once I get the art for all of this stuff."
+
+The evidence he judged from is tilt 8's rejection (T10: a projection with no vanishing point read flat) and tilts 11 to 13, which put the prototype's camera, hole and ground on knobs and the photographed ground beside the painted one.
+
+What it rules, as slice E builds it:
+
+- The scene camera stands at 25 degrees, 13 starting half-lengths up (351 field units), in `CAMERA_VALUES`. On the 760 column the ground under the top and bottom rows is -392.923505 and 667.666150, the play layer's stretch 1.395513 and its scale 0.542465 at the top row and 1.457535 at the bottom; on the 1168 column -1586.772525 and 962.339561, stretch 2.182459, scale 0.296840 to 1.703160. The horizon is 830.54 column units above the middle row. The play layer's rows (T11), the ground's pinhole and the phone column are unchanged, and the tilt is still drawing only (T10).
+- The hole is cut by its own camera, the prototype's `ownHole`: the scene's tilt, build 7's height 4.95 half-lengths (`HOLE_CAMERA_HEIGHT`), aimed straight over the grave, so its nadir is 4.95 tan 25 degrees, 2.308 half-lengths back, and never off to one side. Where the grave stands on the screen no longer changes which walls show, so the hole is baked again only for its size. A swallowed body's fall keeps build 7's setback of 1.07 on the same height (decision 7): toward the hole's nadir it would leave the mouth by the near lip before the dark takes it.
+- The ground is Poly Haven's Forest Ground 01 (CC0), its diffuse map at 1024 square, one tile to 512 field units, repeating plainly, linear and mipmapped, under the prototype's Night: a plain 0xb8c4d8 multiply on the ground mesh and nothing else. It replaces the painted ground (R8's port and its grass blades). The photo is a placeholder until Mark's art for the ground arrives. The scroll keeps A22's stretch.
+
+What it supersedes: T2's 32.5 degrees and T3's 42.5 half-lengths, and every figure the record derives from them ("Values are data" and the play layer tables are at those values; slice E's note carries the new ones); T4's shared hole and A6's scene camera for the hole; A10's re-bake on a move and A23's stance under the grave's placed point; A9's baked ground. What stood: the camera measured off the starting size and never the live grave (T3), the view still and the grave moving inside it (T6), the play layer and its rows (T10, T11, A18), and the hole's dark, faces and painters (R4).
+
+What it could not have known: tilt 8 was rejected in part for losing "the left and right visibility change of the inside walls", and the hole's own camera shows the two side walls equally wherever the grave stands. That is what tilt 13 showed him, and it is his ruling; it is named here for his read with the art.
+
+To reverse: `CAMERA_VALUES` back to 32.5 and 42.5, the hole's view back to the scene camera's stance over the ground under the grave, and the ground back to the painted bake.
+
 ## The correction, and what it replaces
 
 What changed: the plan of `d521b3555e` made the sim field the trapezoid the pinhole camera sees (A2), spread spawns across its far row (A4), held the grave's drawn lip in the sim (A5), and converted keys and the harness hand onto the glass (A11). Slice 4 landed the steering conversion and the deploy of it showed Mark what it did to play: the tilt reached the physics. All of that is withdrawn: nothing in `src/game` or `src/tape` changes on this branch, and slice 4's conversion is taken back out (slice 14).
@@ -145,7 +163,7 @@ What the plan could not have known: that "Mobs fill the whole screen" (T8) and "
 
 ### A6. The hole's camera is the true scene camera, off the starting size
 
-**Stands.** The prototype's `shared` mode cut the hole with the live grave's size (`belowGround`, prototype `index.html:776-784` in tilt 6), while its scene camera used the starting size. The build cuts the hole from the camera that draws the ground: 1147.5 field units up, 42.5 half-lengths of the starting grave and 17 of a ceiling grave. At the starting size nothing differs from what Mark played; at size 48 a wall's deepest drawn point sits at 0.909 of the rim's distance from where the walls converge instead of 0.947, and at the ceiling at 0.876.
+**Superseded by T13** (the hole is cut by its own camera, in the grave's own half-lengths). The prototype's `shared` mode cut the hole with the live grave's size (`belowGround`, prototype `index.html:776-784` in tilt 6), while its scene camera used the starting size. The build cuts the hole from the camera that draws the ground: 1147.5 field units up, 42.5 half-lengths of the starting grave and 17 of a ceiling grave. At the starting size nothing differs from what Mark played; at size 48 a wall's deepest drawn point sits at 0.909 of the rim's distance from where the walls converge instead of 0.947, and at the ceiling at 0.876.
 
 To reverse: cut the hole with the camera's height in the live grave's half-lengths.
 
@@ -165,11 +183,11 @@ Under T10 these rules are evaluated at the ground point under a play thing's pla
 
 ### A9. The ground is a screen-laid mesh over today's baked ground, and there is no haze
 
-**Stands, amended by A22 (its scroll rate).** The prototype's tilt 2 answer, a grid laid on the screen whose vertices ask the camera which ground they show, sampling #148's baked ground with repeat on both axes (`groundMesh.ts`, `BackgroundRenderer.ts`). No haze: the smallest scale on the column is 0.822. Grass blades draw 1.3485 times build 7's length.
+**Stands in part, amended by A22 (its scroll rate) and T13 (the photo replaces the baked ground, and the grass blades went with it).** What stands is the screen-laid mesh and no haze. The prototype's tilt 2 answer, a grid laid on the screen whose vertices ask the camera which ground they show, sampling #148's baked ground with repeat on both axes (`groundMesh.ts`, `BackgroundRenderer.ts`). No haze: the smallest scale on the column is 0.822. Grass blades draw 1.3485 times build 7's length.
 
 ### A10. The hole is baked for the near edge's scale and baked again when the grave moves a step
 
-**Stands, amended by A23 (the step is measured in ground units).** Baked at the nearest row's scale (1.178), so moving up and down never forces a bake for resolution. Baked again when the ground point under the grave has moved more than 4.75 ground units from where it was baked (`STANCE_REBAKE_STEP`), which keeps a stale bake's two side walls within one CSS pixel of each other at the ceiling on the nearest row (the derivation is in `graveDrawingValues.ts`'s JSDoc on the constant).
+**Stands in part, amended by T13.** The bake at the nearest row's scale stands; the re-bake when the grave moves a step is gone, because the hole's own camera stands the same over every spot (it was amended by A23 before that). Baked at the nearest row's scale (1.178), so moving up and down never forces a bake for resolution. Baked again when the ground point under the grave has moved more than 4.75 ground units from where it was baked (`STANCE_REBAKE_STEP`), which keeps a stale bake's two side walls within one CSS pixel of each other at the ceiling on the nearest row (the derivation is in `graveDrawingValues.ts`'s JSDoc on the constant).
 
 ### A11. Steering converts on the glass, around input models that do not change
 
@@ -239,7 +257,7 @@ To reverse: `GROUND_SPEED` back to `SCROLL_SPEED`, and every patch and corpse sl
 
 ### A23. The grave draws as tilt 7 drew a grave at its spot on the glass
 
-**New, amends T4 and A10.** The grave's pit and lip are the perspective mesh through the projected corners of a ground rectangle sized to cover the grave's hitbox (A29), centred on the ground point under its placed point; the hole's stance is taken over that same ground point (tilt 9's `aimHoleCamera`); the falls are placed in the grave's frame there (A29). The re-bake step is measured between the ground points under the grave, in ground units, because A10's one-pixel bound is derived in ground units at the stance: measured in field units, a step of 4.75 is up to 5.82 ground units at the top of the column (1 / 0.822 across, 1.224 along), past the bound's 4.79.
+**Stands in part, amended by T13.** The mesh through the projected corners of the ground rectangle stands; the hole's stance over the ground point under the grave is superseded by the hole's own camera. It was new, amending T4 and A10. The grave's pit and lip are the perspective mesh through the projected corners of a ground rectangle sized to cover the grave's hitbox (A29), centred on the ground point under its placed point; the hole's stance is taken over that same ground point (tilt 9's `aimHoleCamera`); the falls are placed in the grave's frame there (A29). The re-bake step is measured between the ground points under the grave, in ground units, because A10's one-pixel bound is derived in ground units at the stance: measured in field units, a step of 4.75 is up to 5.82 ground units at the top of the column (1 / 0.822 across, 1.224 along), past the bound's 4.79.
 
 To reverse: the grave's ground rectangle and stance at the field point itself, which is the pinhole's placement and puts the grave where the bodies are not.
 

@@ -1478,8 +1478,8 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
 
   it('a mob stands on its footprint where the play layer puts its feet', () => {
     // A7, A19: a shambler of half-height 11 at field (270, 380) has its feet
-    // on column row 323.093772 and its centre on row 312.386873, at scale
-    // 0.973355 (the design record's play layer bullets). Off the middle
+    // on column row 214.950544 and its centre on row 206.136533, at scale
+    // 0.801274 (the design record's play layer bullets). Off the middle
     // column only x changes, to the field x (T10).
     const { layers, renderer } = attached();
     const state = createRun(1);
@@ -1493,9 +1493,9 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
     ] as const) {
       const sprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(mob));
       expect(sprite.position.x).toBeCloseTo(x, 9);
-      expect(sprite.position.y).toBeCloseTo(312.386873, 5);
-      expect(sprite.scale.x).toBeCloseTo(0.973355, 5);
-      expect(sprite.scale.y).toBeCloseTo(0.973355, 5);
+      expect(sprite.position.y).toBeCloseTo(206.136533, 5);
+      expect(sprite.scale.x).toBeCloseTo(0.801274, 5);
+      expect(sprite.scale.y).toBeCloseTo(0.801274, 5);
     }
   });
 
@@ -1539,8 +1539,8 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
   });
 
   it("a corpse lies at its play point at the camera's size for its row, foreshortened down the column, and its teeter turns it inside that foreshortening", () => {
-    // A19, A7: a lying thing at the grave's start row draws 1.084074 across
-    // and 0.991168 down on row 559.555815 (the record's play layer bullets).
+    // A19, A7: a lying thing at the grave's start row draws 1.089848 across
+    // and 1.076483 down on row 454.621805 (the record's play layer bullets).
     // A corpse teetering over the rim turns inside that, so the turn
     // foreshortens along the screen's vertical and never along its own axis.
     const { layers, renderer } = attached();
@@ -1558,19 +1558,19 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
     const placement = layers.layer('corpses').children[slot] as Container;
     expect(placement).not.toBe(drawing);
     expect(placement.position.x).toBeCloseTo(256.5, 9);
-    expect(placement.position.y).toBeCloseTo(559.555815, 5);
-    expect(placement.scale.x).toBeCloseTo(1.084074, 5);
-    expect(placement.scale.y).toBeCloseTo(0.991168, 5);
+    expect(placement.position.y).toBeCloseTo(454.621805, 5);
+    expect(placement.scale.x).toBeCloseTo(1.089848, 5);
+    expect(placement.scale.y).toBeCloseTo(1.076483, 5);
     expect(placement.rotation).toBe(0);
 
     const turn = drawing.rotation;
     expect(turn).not.toBe(0);
     const drawn = drawing.getGlobalTransform();
     const expected = [
-      1.084074 * Math.cos(turn),
-      0.991168 * Math.sin(turn),
-      -1.084074 * Math.sin(turn),
-      0.991168 * Math.cos(turn),
+      1.089848 * Math.cos(turn),
+      1.076483 * Math.sin(turn),
+      -1.089848 * Math.sin(turn),
+      1.076483 * Math.cos(turn),
     ];
     [drawn.a, drawn.b, drawn.c, drawn.d].forEach((value, at) =>
       expect(value).toBeCloseTo(expected[at] ?? NaN, 5),
@@ -1579,8 +1579,8 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
 
   it("a shot draws at its play point, at scale one near the top and at the play layer's stretch along near the bottom, never smaller than its hitbox's image", () => {
     // A21: mob fire draws at the largest of the camera's scale, one, and the
-    // rows per field unit along: 1.213640 at field y 608, 1.432881 at 760,
-    // one at field y 100, where it draws on row 72.678500 (the record's play
+    // rows per field unit along: 1.502246 at field y 608, 2.686877 at 760,
+    // one at field y 100, where it draws on row 40.569279 (the record's play
     // layer table).
     const { layers, renderer } = attached();
     const state = createRun(1);
@@ -1588,27 +1588,27 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
     renderer.sync(state);
     const sprite = layers.layer('mobFire').children[0] as Graphics;
     expect(sprite.position.x).toBeCloseTo(270, 9);
-    expect(sprite.position.y).toBeCloseTo(559.555815, 5);
-    expect(sprite.scale.x).toBeCloseTo(1.21364, 5);
-    expect(sprite.scale.y).toBeCloseTo(1.21364, 5);
+    expect(sprite.position.y).toBeCloseTo(454.621805, 5);
+    expect(sprite.scale.x).toBeCloseTo(1.502246, 5);
+    expect(sprite.scale.y).toBeCloseTo(1.502246, 5);
 
     shot.y = 760;
     renderer.sync(state);
-    expect(sprite.scale.x).toBeCloseTo(1.432881, 5);
-    expect(sprite.scale.y).toBeCloseTo(1.432881, 5);
+    expect(sprite.scale.x).toBeCloseTo(2.686877, 5);
+    expect(sprite.scale.y).toBeCloseTo(2.686877, 5);
 
     shot.x = 100;
     shot.y = 100;
     renderer.sync(state);
     expect(sprite.position.x).toBeCloseTo(100, 9);
-    expect(sprite.position.y).toBeCloseTo(72.6785, 5);
+    expect(sprite.position.y).toBeCloseTo(40.569279, 5);
     expect(sprite.scale.x).toBe(1);
     expect(sprite.scale.y).toBe(1);
   });
 
   it("the ghoul's wedge points the way it moves on the play layer, and a ghoul moving straight down points straight down at every x", () => {
     // A7, T10: the wedge follows the way the body goes on the screen. A body
-    // moving (3, 4) at field y 608 heads 1.017264 radians (the record's play
+    // moving (3, 4) at field y 608 heads 1.107747 radians (the record's play
     // layer bullets); straight down heads straight down at any x. The wedge is
     // drawn pointing down its own y.
     const { layers, renderer } = attached();
@@ -1625,7 +1625,7 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
     expect(MOB_TYPES.ghoul.motion).toBe('chases');
     renderer.sync(state);
     const sprite = spriteAt(layers, 'mobBodies', state.mobs.indexOf(ghoul));
-    expect(Math.abs(sprite.rotation - (1.017264 - Math.PI / 2))).toBeLessThan(
+    expect(Math.abs(sprite.rotation - (1.107747 - Math.PI / 2))).toBeLessThan(
       CLOSE,
     );
     for (const down of downers) {

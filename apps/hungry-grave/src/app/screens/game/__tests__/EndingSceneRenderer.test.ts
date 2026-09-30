@@ -62,8 +62,7 @@ function parked(): Grave {
 }
 
 function attached(
-  holeView: () => GraveView = () =>
-    holeViewOver(SHORTEST_SCENE.camera, parked()),
+  holeView: () => GraveView = () => holeViewOver(SHORTEST_SCENE.camera),
 ): {
   layers: FieldLayers;
   falls: Container;
@@ -187,11 +186,10 @@ describe("the Undertaker's ending scene on screen", () => {
 
   it('the falling Undertaker is drawn with the view the walls on screen were cut with, read from the screen each frame', () => {
     // Tilted view T4: the walls on screen are the grave renderer's last bake,
-    // whose stance can trail the live grave's by up to a step, so he goes down
-    // between those walls only if he is drawn with that same view. The screen
-    // hands it in as it does to the falls, and it is read on every frame
-    // because the hole can be baked again while he falls.
-    const live = holeViewOver(SHORTEST_SCENE.camera, parked());
+    // so he goes down between those walls only if he is drawn with that same
+    // view. The screen hands it in as it does to the falls, and it is read on
+    // every frame because the hole can be baked again while he falls.
+    const live = holeViewOver(SHORTEST_SCENE.camera);
     let baked: GraveView = { ...live, nadirX: live.nadirX + 0.4 };
     const { falls, renderer } = attached(() => baked);
     const midFall = FALLING + ENDING_BEATS.fall / 2;
@@ -317,7 +315,7 @@ describe("the Undertaker's ending scene on screen", () => {
             : FIELD_WIDTH / 2;
       grave.y = height - 160;
       const { layers, falls, renderer } = attached(() =>
-        holeViewOver(scene.camera, grave),
+        holeViewOver(scene.camera),
       );
       renderer.useScene(scene);
       renderer.begin(KILLED, grave);
@@ -380,7 +378,7 @@ describe("the Undertaker's ending scene on screen", () => {
             ? FIELD_WIDTH - halfWidth
             : FIELD_WIDTH / 2;
       grave.y = height - 160;
-      const view = holeViewOver(scene.camera, grave);
+      const view = holeViewOver(scene.camera);
       const { layers, falls, renderer } = attached(() => view);
       renderer.useScene(scene);
       renderer.begin(KILLED, grave);

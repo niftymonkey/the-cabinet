@@ -159,9 +159,10 @@ const STAND_IN_GROUND = [
 ] as const;
 
 /**
- * Every colour the ground's painters draw with (`groundPainting.ts`), which is
- * the whole field a sprite crosses. The two grass rows are the tufts, which are
- * the prototype's own `COLOR.moss` and `COLOR.mossDark`.
+ * Every colour the prototype's ground painters draw with (build 7's
+ * `paintGround`), the ground a sprite's readability is measured against. The
+ * two grass rows are the tufts, which are the prototype's own `COLOR.moss` and
+ * `COLOR.mossDark`.
  */
 const GROUND_COLOURS = [
   'groundNight',
@@ -1081,7 +1082,6 @@ describe('the source scan over the modules that draw during a run (ADR 0014)', (
 const GROUND_MODULES = [
   join(APP, 'screens', 'game', 'BackgroundRenderer.ts'),
   join(APP, 'screens', 'game', 'groundDressing.ts'),
-  join(APP, 'screens', 'game', 'groundPainting.ts'),
 ];
 
 /** Every PALETTE entry a module names, read out of its source. */

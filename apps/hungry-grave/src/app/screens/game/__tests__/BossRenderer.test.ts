@@ -308,7 +308,7 @@ describe('the boss on the play layer (tilted view A7, A19)', () => {
     // A7, A19: upright at the camera's scale for its row, its feet on the near
     // edge of its footprint. A Banshee at field (173, 96) of half-height 40
     // has its feet at field (173, 136), which the play layer draws at column
-    // (173, 100.338061) at scale 0.869053, so its centre is on row 65.575961;
+    // (173, 57.022711) at scale 0.611122, so its centre is on row 32.577822;
     // worked independently in double precision.
     const { layers, renderer } = attached();
     const { run, boss } = runWith('banshee');
@@ -318,8 +318,8 @@ describe('the boss on the play layer (tilted view A7, A19)', () => {
     renderer.sync(run);
     const body = bossSprite(layers);
     expect(body.position.x).toBeCloseTo(173, 9);
-    expect(body.position.y).toBeCloseTo(65.575961, 5);
-    expect(body.scale.x).toBeCloseTo(0.869053, 5);
-    expect(body.scale.y).toBeCloseTo(0.869053, 5);
+    expect(body.position.y).toBeCloseTo(32.577822, 5);
+    expect(body.scale.x).toBeCloseTo(0.611122, 5);
+    expect(body.scale.y).toBeCloseTo(0.611122, 5);
   });
 });

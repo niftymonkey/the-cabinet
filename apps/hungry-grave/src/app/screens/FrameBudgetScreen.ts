@@ -13,7 +13,6 @@ import { capsFor } from '../../game/caps';
 import { CORPSE_HALF_EXTENT } from '../../game/corpses';
 import type { Execution } from '../../game/execution';
 import { createExecution, executeTick } from '../../game/execution';
-import type { Grave } from '../../game/grave';
 import { graveWidth } from '../../game/grave';
 import type { RunState } from '../../game/run';
 import { createRun } from '../../game/run';
@@ -31,7 +30,6 @@ import { FallRenderer } from './game/FallRenderer';
 import { holeViewOver } from './game/GraveRenderer';
 import { FieldRenderer } from './game/FieldRenderer';
 import { FieldLayers } from './game/layering';
-import { groundUnderPlay } from './game/playLayer';
 import type { Scene } from './game/scene';
 import { sceneFor } from './game/scene';
 
@@ -121,22 +119,11 @@ class FrameBudgetScreen extends Container {
    * into every row, and what this column is for is the falls' own cost. The
    * renderer takes the container it draws into for exactly that reason (design
    * record R5). With no grave to read a cut from, it is handed the view a hole
-   * over the measured run's grave would be cut with: the scene camera's stance
-   * over the ground under the grave's play point (tilted view A23).
+   * over the measured run's grave would be cut with: the hole's own camera
+   * under the measured scene's tilt (tilted view T13).
    */
   private readonly falls = new FallRenderer({
-    holeView: () => {
-      const grave = this.measuredGrave();
-      const under = groundUnderPlay(
-        this.measuredScene.playLayer,
-        grave.x,
-        grave.y,
-      );
-      return holeViewOver(this.measuredScene.camera, {
-        ...under,
-        size: grave.size,
-      });
-    },
+    holeView: () => holeViewOver(this.measuredScene.camera),
   });
 
   // The scene of the field every run of this showing stands on, read off the stage when it opens.
@@ -264,13 +251,6 @@ class FrameBudgetScreen extends Container {
     for (let born = already; born < through; born++) {
       this.falls.swallowed(measuring.run, overTheRim);
     }
-  }
-
-  // The grave of the run being measured; the falls are synced only while one is, so asking with none is a bug.
-  private measuredGrave(): Grave {
-    const measuring = this.current;
-    if (measuring === null) throw new Error('no field is being measured');
-    return measuring.run.grave;
   }
 
   /** The next field standing and its run fresh, or null once every field is measured. */

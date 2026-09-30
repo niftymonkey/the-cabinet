@@ -262,7 +262,7 @@ describe('sprites follow their slots (plan 6.19)', () => {
     // At the play layer's point for field (120, 340), worked independently
     // in double precision (tilted view A18).
     expect(spriteAt(layers, 'storm', 3).position.x).toBeCloseTo(120, 9);
-    expect(spriteAt(layers, 'storm', 3).position.y).toBeCloseTo(274.365346, 5);
+    expect(spriteAt(layers, 'storm', 3).position.y).toBeCloseTo(175.963273, 5);
     expect(spriteAt(layers, 'storm', 2).visible).toBe(false);
 
     skullSlot(state, 3).alive = false;
@@ -456,9 +456,9 @@ describe('the momentary effects (plan 6.19)', () => {
     renderer.sync(state);
     const splash = spriteAt(layers, 'belchEruption', 1);
     expect(splash.position.x).toBeCloseTo(270, 5);
-    expect(splash.position.y).toBeCloseTo(527.244856, 5);
-    expect(splash.scale.x).toBeCloseTo(1.068945, 5);
-    expect(splash.scale.y).toBeCloseTo(0.963696, 5);
+    expect(splash.position.y).toBeCloseTo(415.80075, 5);
+    expect(splash.scale.x).toBeCloseTo(1.043106, 5);
+    expect(splash.scale.y).toBeCloseTo(0.986126, 5);
 
     const eruption = spriteAt(layers, 'belchEruption', 0);
     state.tick += ERUPTION_TICKS - 1;
@@ -718,12 +718,12 @@ describe('the arrival mark', () => {
     // Its own size on the column is the camera's scale where it stands.
     expect(scales[0]).toBeCloseTo(mouth(state).scale, 6);
     const largest = Math.max(...scales);
-    expect(largest).toBeGreaterThan(2);
+    expect(largest).toBeGreaterThan(1.8);
     // The swell peaks at the middle of the beat, and on the column the mark
     // also shrinks as the ground under it gets farther, so the drawn size
-    // peaks one tick earlier: tick 33 of 68, worked independently on the play
-    // layer in double precision (2.192737 against 2.192459 at tick 34).
-    expect(scales.indexOf(largest)).toBe(TERRITORY_OPENING_TICKS / 2 - 1);
+    // peaks two ticks earlier: tick 32 of 68, worked independently on the play
+    // layer in double precision (1.878677 against 1.878265 at tick 33).
+    expect(scales.indexOf(largest)).toBe(TERRITORY_OPENING_TICKS / 2 - 2);
     expect(scales[scales.length - 1]).toBeLessThan(1.1);
   });
 
@@ -913,8 +913,8 @@ describe("a stripped line's expression blowing up (record R7)", () => {
 
 describe('the storm on the play layer (tilted view A7, A19)', () => {
   it("a skull and a wisp draw at their play points at the camera's size for their row, and a skull's drawn x is its field x at every row", () => {
-    // A19, T10: field (100, 100) draws at (100, 72.678500) at scale 0.856101
-    // and field (400, 700) at (400, 676.868170) at 1.139004 (the record's
+    // A19, T10: field (100, 100) draws at (100, 40.569279) at scale 0.591312
+    // and field (400, 700) at (400, 617.733641) at 1.286241 (the record's
     // play layer table); a skull flying straight up the field flies straight
     // up the screen.
     const { layers, renderer } = attached();
@@ -924,14 +924,14 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     renderer.sync(state);
     const skull = spriteAt(layers, 'storm', 0);
     expect(skull.position.x).toBeCloseTo(100, 9);
-    expect(skull.position.y).toBeCloseTo(72.6785, 5);
-    expect(skull.scale.x).toBeCloseTo(0.856101, 5);
-    expect(skull.scale.y).toBeCloseTo(0.856101, 5);
+    expect(skull.position.y).toBeCloseTo(40.569279, 5);
+    expect(skull.scale.x).toBeCloseTo(0.591312, 5);
+    expect(skull.scale.y).toBeCloseTo(0.591312, 5);
     const wisp = spriteAt(layers, 'storm', SKULL_CAP + TERRITORY_CAP);
     expect(wisp.position.x).toBeCloseTo(400, 9);
-    expect(wisp.position.y).toBeCloseTo(676.86817, 5);
-    expect(wisp.scale.x).toBeCloseTo(1.139004, 5);
-    expect(wisp.scale.y).toBeCloseTo(1.139004, 5);
+    expect(wisp.position.y).toBeCloseTo(617.733641, 5);
+    expect(wisp.scale.x).toBeCloseTo(1.286241, 5);
+    expect(wisp.scale.y).toBeCloseTo(1.286241, 5);
 
     for (const y of [760, 380, 0]) {
       putSkull(state, 1, 20, y);
@@ -946,8 +946,8 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     // A7's last rule at the play point (A19). Halfway through the beat the
     // mark is halfway along the field from the mouth (270, 581) to the patch
     // (200, 300), at (235, 440.5), lifted by its full rise, which the ceiling
-    // holds at 90 field units. Field (235, 440.5) draws on row 372.679496 at
-    // scale 0.996572, worked independently in double precision.
+    // holds at 90 field units. Field (235, 440.5) draws on row 257.729828 at
+    // scale 0.852782, worked independently in double precision.
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = patchSlot(state, 0);
@@ -969,7 +969,7 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
       SKULL_CAP + TERRITORY_CAP + WISP_CAP,
     );
     expect(mark.position.x).toBeCloseTo(235, 9);
-    expect(mark.position.y).toBeCloseTo(372.679496 - 90 * 0.996572, 4);
+    expect(mark.position.y).toBeCloseTo(257.729828 - 90 * 0.852782, 4);
   });
 
   it('a Territory patch is drawn as the exact image of its sim circle, at the left edge, the middle and the right edge', () => {
@@ -1086,7 +1086,7 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     // A20: stroke widths keep their look at the pinhole's scale at the
     // shape's centre, because the node no longer carries that scale.
     // PATCH_STROKE is 2 field units; the patch at field (200, 300), where the
-    // camera's scale is 0.933378 (worked independently in double precision).
+    // camera's scale is 0.721194 (worked independently in double precision).
     const { layers, renderer } = attached();
     const state = quietRun();
     const patch = patchSlot(state, 0);
@@ -1100,6 +1100,6 @@ describe('the storm on the play layer (tilted view A7, A19)', () => {
     patch.struck.clear();
     renderer.sync(state);
     const [width] = strokeWidths(spriteAt(layers, 'storm', SKULL_CAP));
-    expect(width).toBeCloseTo(2 * 0.933378, 5);
+    expect(width).toBeCloseTo(2 * 0.721194, 5);
   });
 });

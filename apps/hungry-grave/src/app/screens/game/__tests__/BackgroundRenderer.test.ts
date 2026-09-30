@@ -4,15 +4,11 @@
  * the ground the run drew.
  */
 
-import type { Container, Renderer, Sprite } from 'pixi.js';
+import type { Container, Sprite } from 'pixi.js';
 import { Mesh, Texture, TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import {
-  FIELD_WIDTH,
-  SHORTEST_FIELD_HEIGHT,
-  fieldOfHeight,
-} from '../../../../game/field';
+import { FIELD_WIDTH, fieldOfHeight } from '../../../../game/field';
 import { advanceTerritory } from '../../../../game/lines/territory';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
@@ -20,7 +16,7 @@ import type { SetPiece } from '../../../../game/stage/setPiece';
 import { SECTIONS } from '../../../../game/stage/stage';
 import { SET_PIECE_HALF_WIDTH } from '../../../../game/stage/waves';
 import { SCROLL_SPEED } from '../../../../game/tuning';
-import { PALETTE } from '../../../palette';
+import { PALETTE, PHOTO_TINT } from '../../../palette';
 import type { BackgroundProps } from '../BackgroundRenderer';
 import {
   BackgroundRenderer,
@@ -33,7 +29,6 @@ import { SHORTEST_FIELD } from '../../../../game/field';
 import { sceneFor } from '../scene';
 import { artAt, DRESSING_SETS, EYE_CELL_PIXELS } from '../groundDressing';
 import { groundGrid } from '../groundMesh';
-import { groundResolution } from '../groundPainting';
 import { FieldLayers, LAYER_ORDER } from '../layering';
 import { playToColumn } from '../playLayer';
 import { lyingOnPlay } from '../playPlacement';
@@ -53,48 +48,29 @@ const TALL_SCENE = sceneFor(fieldOfHeight(1168));
  * The play layer's stretch on each field, ground units along per field unit
  * along, from the design record's two play layer tables (A18, T12).
  */
-const STRETCH_760 = 1.224454;
-const STRETCH_1168 = 1.281514;
+const STRETCH_760 = 1.395512705;
+const STRETCH_1168 = 2.1824589778;
 
 /** The sim's scroll, 38 field units a second at 60 ticks a second. */
 const SCROLL_PER_TICK = 38 / 60;
 
-/** Pixi's own no-tint, which is what the ground wears now that it is painted. */
-const NO_TINT = 0xffffff;
+/** The stand-in photo's alias, under which the ground asks for it. */
+const GROUND_PHOTO_ALIAS = 'standIn/ground/forest-ground.jpg';
+
+/** The field units one tile of the photo covers across and along (tilted view T13). */
+const PHOTO_TILE = 512;
 
 /**
- * The renderer as the ground reads it, with the bake counted. Only the three
- * readings the bake takes are given: how wide the stage is in its own units,
- * how wide the page shows the canvas, and the bake itself.
+ * Every change the photo's style announces, with the wrap it announced: the
+ * sampler the GPU binds is rebuilt from an announced style.
  */
-function viewing(shown: number): {
-  view: Renderer;
-  baked: number[];
-  announced: string[];
-} {
-  const baked: number[] = [];
-  // Every change a baked texture's style announces, with the wrap it
-  // announced: the sampler the GPU binds is rebuilt from an announced style.
+function announcing(texture: Texture): string[] {
   const announced: string[] = [];
-  const view = {
-    screen: { width: FIELD_WIDTH },
-    canvas: { getBoundingClientRect: () => ({ width: shown }) },
-    generateTexture: (options: { resolution: number }): Texture => {
-      baked.push(options.resolution);
-      const texture = new Texture({
-        source: new TextureSource({
-          width: FIELD_WIDTH,
-          height: SHORTEST_FIELD_HEIGHT,
-        }),
-      });
-      const style = texture.source.style;
-      style.on('change', () =>
-        announced.push(`${style.addressModeU} ${style.addressModeV}`),
-      );
-      return texture;
-    },
-  } as unknown as Renderer;
-  return { view, baked, announced };
+  const style = texture.source.style;
+  style.on('change', () =>
+    announced.push(`${style.addressModeU} ${style.addressModeV}`),
+  );
+  return announced;
 }
 
 function groundOf(layers: FieldLayers): Mesh {
@@ -106,10 +82,10 @@ function groundOf(layers: FieldLayers): Mesh {
  * "Values are data"), worked independently of the camera module.
  */
 const SEEN = {
-  top: -168.0816,
-  bottom: 762.5033,
-  farLeft: -58.4389,
-  farRight: 598.4389,
+  top: -392.9235,
+  bottom: 667.6662,
+  farLeft: -227.7284,
+  farRight: 767.7284,
 };
 
 /** The record's numbers are given to four places. */
@@ -124,15 +100,11 @@ function footOnGround(sprite: Sprite): { x: number; y: number; half: number } {
   return { x: foot.x, y: foot.y, half: sprite.width / scale / 2 };
 }
 
-/** The ground's texture row under one grid vertex, in field units of a picture one field tall. */
-function groundRowAt(
-  layers: FieldLayers,
-  vertex: number,
-  height = SHORTEST_FIELD_HEIGHT,
-): number {
+/** The ground's texture row under one grid vertex, in field units of the photo's tile. */
+function groundRowAt(layers: FieldLayers, vertex: number): number {
   const v = groundOf(layers).geometry.uvs[vertex * 2 + 1];
   if (v === undefined) throw new Error(`no ground vertex ${vertex}`);
-  return v * height;
+  return v * PHOTO_TILE;
 }
 
 /** The renderer attached and handed a run's scene. */
@@ -147,43 +119,23 @@ function attachedOn(scene: Scene): {
 
 /**
  * How far the ground has scrolled, in ground units, at each of these rising
- * ticks since tick 0, read off the texture row under one vertex. The picture
- * repeats every field height, so each reading is unwrapped to the first
- * repeat at or past the one before, which holds while no two samples are a
- * whole repeat apart; it is measured against tick 0 each time, so rounding is
- * never added up.
+ * ticks since tick 0, read off the texture row under one vertex. The photo
+ * repeats every tile, so each reading is unwrapped to the first repeat at or
+ * past the one before, which holds while no two samples are a whole repeat
+ * apart; it is measured against tick 0 each time, so rounding is never added
+ * up.
  */
 function scrolledAt(scene: Scene, ticks: readonly number[]): number[] {
   const { layers, renderer } = attachedOn(scene);
-  const height = scene.field.height;
   renderer.sync(runInSection('procession', 0, 0));
-  const start = groundRowAt(layers, 0, height);
+  const start = groundRowAt(layers, 0);
   let last = 0;
   return ticks.map((tick) => {
     renderer.sync(runInSection('procession', tick, tick));
-    const raw = start - groundRowAt(layers, 0, height);
-    last = raw + height * Math.ceil((last - raw) / height - 1e-9);
+    const raw = start - groundRowAt(layers, 0);
+    last = raw + PHOTO_TILE * Math.ceil((last - raw) / PHOTO_TILE - 1e-9);
     return last;
   });
-}
-
-/** The renderer's own pass reaching the ground, which is where it meets a renderer. */
-function drawn(layers: FieldLayers, view: Renderer): void {
-  (groundOf(layers) as Container).onRender?.(view);
-}
-
-/**
- * One whole frame of the loop, in its order: the screen's update, which is
- * where sync runs, and then the renderer's own pass.
- */
-function frame(
-  layers: FieldLayers,
-  renderer: BackgroundRenderer,
-  view: Renderer,
-  run: RunState = runInSection('procession', 0, 0),
-): void {
-  renderer.sync(run);
-  drawn(layers, view);
 }
 
 /**
@@ -258,7 +210,7 @@ function drawnEyeWidth(): number {
 
 function dressing(layers: FieldLayers): Sprite[] {
   const children = layers.layer('ground').children as Container[];
-  // The painted ground is first and the source's two sprites are last.
+  // The ground's mesh is first and the source's two sprites are last.
   return children.slice(1, children.length - 2) as Sprite[];
 }
 
@@ -375,117 +327,82 @@ describe('the stand-in ground (module 105)', () => {
   });
 
   it('draws its pixel art nearest-neighbour, per texture and never as a default', () => {
+    // The photo under it is not pixel art and is sampled linearly (T13), which
+    // the ground photo's own test holds.
     const stub = artStub();
     const { renderer } = attached(stub);
     renderer.sync(runInSection('vigil', 3000, 3000));
-    const modes = stub.asked.map(
-      (alias) => stub.standInArt(alias)?.source.scaleMode,
-    );
+    const modes = stub.asked
+      .filter((alias) => alias !== GROUND_PHOTO_ALIAS)
+      .map((alias) => stub.standInArt(alias)?.source.scaleMode);
     expect(modes.length).toBeGreaterThan(0);
     expect([...new Set(modes)]).toEqual(['nearest']);
   });
 });
 
-describe('the ground painted from the prototype (design record R4)', () => {
-  it('the ground is the painted field and no longer a tinted tile', () => {
-    // Mark's ruling of 2026-09-21: the prototype's ground goes on the whole
-    // field. It is painted and baked here rather than laid from an imported
-    // tile wearing a palette entry, so nothing tints it.
-    const { layers, renderer } = attached();
-    const floor = groundOf(layers);
-    const { view, baked } = viewing(390);
-    expect(floor.texture).toBe(Texture.EMPTY);
-    frame(layers, renderer, view);
-    frame(layers, renderer, view);
-    expect(baked).toHaveLength(1);
-    expect(floor.texture).not.toBe(Texture.EMPTY);
-    expect(floor.tint).toBe(NO_TINT);
-  });
-
-  it('the field is baked outside the pass it is drawn in, never inside it', () => {
-    // generateTexture is renderer.render under another name
-    // (GenerateTextureSystem), so a bake inside onRender re-enters the pass
-    // that is drawing the screen. The rendered check at slice 8 caught exactly
-    // that: the ground came back carrying a photograph of the frame it was
-    // baked during, HUD and pause button and all, and it then scrolled down the
-    // field with the rest of the picture. So onRender only asks, and the bake
-    // happens in the next update, which is where the screen's own sync runs.
-    const { layers, renderer } = attached();
-    const { view, baked } = viewing(390);
-    drawn(layers, view);
-    expect(baked).toEqual([]);
+describe('the ground is the stand-in photo (tilted view T13)', () => {
+  it('the ground is the photo, laid once its bundle brings it, under the night tint', () => {
+    // T13: Mark's tilt 13 settings, texture real and light night. The photo
+    // comes through the stand-in bundle like the dressing, so the ground is
+    // empty for the frames before it lands, and it wears the prototype's
+    // Night, a plain multiply, and nothing else.
+    let answering = false;
+    const stub = artStub();
+    const { layers, renderer } = attached({
+      standInArt: (alias) => (answering ? stub.standInArt(alias) : null),
+    });
+    renderer.sync(runInSection('procession', 0, 0));
+    expect(groundOf(layers).texture).toBe(Texture.EMPTY);
+    answering = true;
     renderer.sync(runInSection('procession', 1, 1));
-    expect(baked).toHaveLength(1);
+    expect(groundOf(layers).texture).toBe(stub.standInArt(GROUND_PHOTO_ALIAS));
+    expect(groundOf(layers).tint).toBe(PHOTO_TINT.groundNight);
   });
 
-  it('the ground repaints only when the view changes what it asks for', () => {
-    // One bake a run is the shape: the picture is a function of the field,
-    // which is fixed, and of the texture density, which moves only when the
-    // viewport does. A bake a frame would rasterise some four thousand shapes
-    // every frame, which is what the prototype measured as 8 frames a second
-    // against 34.
-    const { layers, renderer } = attached();
-    const phone = viewing(390);
-    for (let each = 0; each < 3; each++) frame(layers, renderer, phone.view);
-    // The near ground is baked as sharp as it draws, at the column's nearest
-    // row's scale, 1.178 (A10's rule applied to the ground).
-    expect(phone.baked).toEqual([
-      groundResolution((390 / FIELD_WIDTH) * 1.177929, 1, {
-        width: FIELD_WIDTH,
-        height: SHORTEST_FIELD_HEIGHT,
-      }),
+  it('the photo repeats plainly, is sampled linearly and is mipmapped, and its style is announced', () => {
+    // T13, the prototype's loadGroundPhoto: the photo is seamless, so it
+    // repeats plainly rather than mirrored; it is linear and mipmapped so the
+    // far ground, packed tight, does not shimmer. WebGL2 binds a sampler built
+    // from the style and cached by its id, so the style has to announce the
+    // change (the prototype's own fix).
+    const stub = artStub();
+    const photo = stub.standInArt(GROUND_PHOTO_ALIAS);
+    if (photo === null) throw new Error('the stub answers every alias');
+    const announced = announcing(photo);
+    const { layers, renderer } = attached(stub);
+    renderer.sync(runInSection('procession', 0, 0));
+    const source = groundOf(layers).texture.source;
+    expect([source.style.addressModeU, source.style.addressModeV]).toEqual([
+      'repeat',
+      'repeat',
     ]);
-
-    const wide = viewing(1600);
-    for (let each = 0; each < 3; each++) frame(layers, renderer, wide.view);
-    expect(wide.baked).toEqual([
-      groundResolution((1600 / FIELD_WIDTH) * 1.177929, 1, {
-        width: FIELD_WIDTH,
-        height: SHORTEST_FIELD_HEIGHT,
-      }),
-    ]);
+    expect(source.scaleMode).toBe('linear');
+    expect(source.autoGenerateMipmaps).toBe(true);
+    expect(announced).toContain('repeat repeat');
   });
 
-  it('a repaint keeps the picture the ground last drew with until a frame has drawn the new one, then frees it', () => {
-    // The ground is the one mesh drawn outside the batcher, through Pixi's
-    // shared mesh shader, whose bind group holds the last texture it drew and
-    // destroys itself when that texture is destroyed; the next ground drawn
-    // through it then throws. So a spent picture is freed at the next repaint,
-    // once a frame has drawn its replacement, and never in the frame that
-    // swaps it. A repaint follows every change of the field's scale, and every
-    // run's scene (tilted view A34, A35), so this is ordinary play.
+  it('one tile of the photo covers 512 field units across and along', () => {
+    // T13, the prototype's GROUND_PHOTO_TILE: every vertex samples the ground
+    // the camera shows it over the tile's size, before any scroll.
     const { layers, renderer } = attached();
-    const phone = viewing(390);
-    frame(layers, renderer, phone.view);
-    frame(layers, renderer, phone.view);
-    const first = groundOf(layers).texture;
-
-    const wide = viewing(1600);
-    frame(layers, renderer, wide.view);
-    frame(layers, renderer, wide.view);
-    const second = groundOf(layers).texture;
-    expect(second).not.toBe(first);
-    expect(first.destroyed).toBe(false);
-
-    const mid = viewing(800);
-    frame(layers, renderer, mid.view);
-    frame(layers, renderer, mid.view);
-    expect(groundOf(layers).texture).not.toBe(second);
-    expect(first.destroyed).toBe(true);
-    expect(second.destroyed).toBe(false);
+    renderer.sync(runInSection('procession', 0, 0));
+    const grid = groundGrid(
+      SHORTEST_CAMERA,
+      SHORTEST_COLUMN,
+      { width: PHOTO_TILE, height: PHOTO_TILE },
+      0,
+    );
+    expect([...groundOf(layers).geometry.uvs]).toEqual([...grid.uvs]);
   });
 
-  it("the dressing and the Waking's source still draw over the new ground", () => {
+  it("the dressing and the Waking's source still draw over the photo", () => {
     // ADR 0049's dressing and the Waking's own source are untouched by the
     // ruling: the ground it draws on changed and the layer order did not, so
-    // the painted field stays the bottom child of the one ground layer.
+    // the ground's mesh stays the bottom child of the one ground layer.
     const { layers, renderer } = attached();
-    const { view } = viewing(390);
-    frame(layers, renderer, view);
     const run = runInSection('waking', 20000, 200);
     run.setPiece = sourceOnField({ x: 200, y: 380, open: true });
     renderer.sync(run);
-    drawn(layers, view);
     const children = layers.layer('ground').children as Container[];
     expect(groundOf(layers).texture).not.toBe(Texture.EMPTY);
     expect(children[0]).toBe(groundOf(layers));
@@ -546,9 +463,9 @@ describe("the Waking's own source", () => {
   it("the Waking's source lies at its play point", () => {
     // A7, A19: the source is a sim thing, so it lies at its play point, at the
     // camera's scale across and the scale squared times the lean down. At
-    // field (270, 380) that is row 312.386873 at scale 0.968341 (the record's
-    // play layer table), so a square texture draws 0.968341 times the lean,
-    // 0.816691, as tall as it is wide.
+    // field (270, 380) that is row 206.136533 at scale 0.790661 (the record's
+    // play layer table), so a square texture draws 0.790661 times the lean,
+    // 0.716583, as tall as it is wide.
     const { layers, renderer } = attached();
     const run = runInSection('waking', 20000, 200);
     run.setPiece = sourceOnField({ x: 270, y: 380, open: false });
@@ -557,8 +474,8 @@ describe("the Waking's own source", () => {
     const source = fromEnd(children, 1);
     expect(source.texture.frame.width).toBe(source.texture.frame.height);
     expect(source.position.x).toBeCloseTo(270, 9);
-    expect(source.position.y).toBeCloseTo(312.386873, 5);
-    expect(source.height / source.width).toBeCloseTo(0.816691, 5);
+    expect(source.position.y).toBeCloseTo(206.136533, 5);
+    expect(source.height / source.width).toBeCloseTo(0.716583, 5);
   });
 
   it('draws nothing while no source stands on the field', () => {
@@ -644,47 +561,24 @@ describe("the Waking's own source", () => {
 });
 
 describe('the ground under the tilted camera (tilted view A7, A9)', () => {
-  it('the ground is a mesh over the baked picture, repeating on both axes', () => {
-    // A grid laid on the column, each vertex sampling the ground the camera
-    // shows it, over the baked picture repeating across and down, because the
-    // far row sees 656.9 units of ground across a 540-unit picture (A9).
+  it('the ground is a mesh laid on the column over the photo', () => {
+    // A9: a grid laid on the column, each vertex sampling the ground the
+    // camera shows it, over the photo repeating across and down, because the
+    // far row sees 995.5 units of ground across 512-unit tiles.
     const { layers, renderer } = attached();
-    const { view } = viewing(390);
-    frame(layers, renderer, view);
-    frame(layers, renderer, view);
+    renderer.sync(runInSection('procession', 0, 0));
     const floor = groundOf(layers);
     expect(floor).toBeInstanceOf(Mesh);
     const grid = groundGrid(
       SHORTEST_CAMERA,
       SHORTEST_COLUMN,
-      { width: FIELD_WIDTH, height: SHORTEST_FIELD_HEIGHT },
+      { width: PHOTO_TILE, height: PHOTO_TILE },
       0,
     );
     expect([...floor.geometry.positions]).toEqual([...grid.positions]);
     expect(floor.texture).not.toBe(Texture.EMPTY);
-    const style = floor.texture.source.style;
-    expect([style.addressModeU, style.addressModeV]).toEqual([
-      'repeat',
-      'repeat',
-    ]);
   });
-
-  it("the ground's repeat reaches the sampler, so the far rows and the sides never smear the picture's edge", () => {
-    // Found by the rendered check: the top of the column and its sides showed
-    // the baked picture's last row and column smeared across them, which is a
-    // clamped sampler. WebGL2 binds a sampler built from the style and cached
-    // by its id, and setting the wrap alone leaves that id as it was, so the
-    // style has to announce the change (the prototype's own fix, tilted-view
-    // index.html:1957-1963: "set and pushed rather than left for the texture
-    // to notice").
-    const { layers, renderer } = attached();
-    const { view, announced } = viewing(390);
-    frame(layers, renderer, view);
-    frame(layers, renderer, view);
-    expect(announced).toContain('repeat repeat');
-  });
-
-  it("the ground runs at the rate a lying thing on the middle column drifts: over a number of ticks its texture moves by that many ticks of the sim's scroll times the scene's stretch, 1.224454 on the 760 field and 1.281514 on the 1168 one, in ground units", () => {
+  it("the ground runs at the rate a lying thing on the middle column drifts: over a number of ticks its texture moves by that many ticks of the sim's scroll times the scene's stretch, 1.395513 on the 760 field and 2.182459 on the 1168 one, in ground units", () => {
     // A22, T12: on the play layer a field unit along is the stretch in ground
     // units, so a patch lobbed onto the middle column stays on the ground it
     // landed on only if the ground runs that much faster than the sim's
@@ -708,19 +602,20 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
       const height = scene.field.height;
       const { layers, renderer } = attachedOn(scene);
       renderer.sync(runInSection('procession', 0, 0));
-      const from = [0, 300, 700].map((vertex) =>
-        groundRowAt(layers, vertex, height),
-      );
+      const from = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
       renderer.sync(runInSection('procession', ticks, ticks));
-      const to = [0, 300, 700].map((vertex) =>
-        groundRowAt(layers, vertex, height),
-      );
-      to.forEach((row, at) =>
-        expect((from[at] ?? NaN) - row, `${height}`).toBeCloseTo(
-          patchFell * stretch,
-          4,
-        ),
-      );
+      const to = [0, 300, 700].map((vertex) => groundRowAt(layers, vertex));
+      // The mesh keeps its texture rows as float32, each rounded to 2^-24 of
+      // its size, and the far vertices sample ground several tiles away, so
+      // each move is read to that grid.
+      to.forEach((row, at) => {
+        const start = from[at] ?? NaN;
+        const float32Grid = (Math.abs(start) + Math.abs(row)) * 2 ** -24;
+        expect(
+          Math.abs(start - row - patchFell * stretch),
+          `${height} vertex ${at}`,
+        ).toBeLessThanOrEqual(float32Grid + 1e-9);
+      });
     }
   });
 
@@ -847,7 +742,7 @@ describe('the ground under the tilted camera (tilted view A7, A9)', () => {
     const eye = shown('crowd', 'standIn/ground/little-eyes.png');
     const foot = footOnGround(eye);
     const { scale } = groundToColumn(SHORTEST_CAMERA, foot.x, foot.y);
-    expect(eye.scale.y / eye.scale.x).toBeCloseTo(scale * 0.843391, 5);
+    expect(eye.scale.y / eye.scale.x).toBeCloseTo(scale * 0.906308, 5);
   });
 
   it('keeps every placement inside the ground the camera sees', () => {

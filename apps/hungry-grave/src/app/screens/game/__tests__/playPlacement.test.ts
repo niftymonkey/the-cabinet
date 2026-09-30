@@ -42,10 +42,10 @@ type FrameCase = readonly [GraveFrame, readonly [number, number], ...unknown[]];
 
 // The design record's frame offsets (A24): a grave, a body's offset from it, and where the frame draws it.
 const FRAME_CASES = [
-  [{ x: 270, y: 608, size: 27 }, [13.5, -27], [0.461223, -0.986044]],
-  [{ x: 270, y: 608, size: 27 }, [0, 27], [0, 1.014357]],
-  [{ x: 40, y: 700, size: 27 }, [13.5, -27], [0.43898, -0.985347]],
-  [{ x: 270, y: 100, size: 48 }, [-24, -48], [-0.5, -0.980517]],
+  [{ x: 270, y: 608, size: 27 }, [13.5, -27], [0.45878, -0.957111]],
+  [{ x: 270, y: 608, size: 27 }, [0, 27], [0, 1.046913]],
+  [{ x: 40, y: 700, size: 27 }, [13.5, -27], [0.38873, -0.949771]],
+  [{ x: 270, y: 100, size: 48 }, [-24, -48], [-0.5, -0.958568]],
 ] as const;
 
 // Offsets from a size 27 grave to the corners and edges of its hitbox.
@@ -140,41 +140,41 @@ const outsideBy = (
   );
 
 describe('where play things draw on the play layer (tilted view A19)', () => {
-  it("a lying thing at the grave's start draws at (270, 559.555815), 1.084074 across and 0.991168 down", () => {
+  it("a lying thing at the grave's start draws at (270, 454.621805), 1.089848 across and 1.076483 down", () => {
     // A19, A7: tilt 7's look for the ground under it, the scale across and the
     // scale squared times the lean down.
     const at = lyingOnPlay(LAYER, 270, 608);
     expectNear(at.x, 270, CLOSE);
-    expectNear(at.y, 559.555815, CLOSE);
-    expectNear(at.scaleX, 1.084074, CLOSE);
-    expectNear(at.scaleY, 0.991168, CLOSE);
+    expectNear(at.y, 454.621805, CLOSE);
+    expectNear(at.scaleX, 1.089848, CLOSE);
+    expectNear(at.scaleY, 1.076483, CLOSE);
   });
-  it('a standing thing of half-height 11 at field (270, 380) has its feet on column row 323.093772 and its centre on row 312.386873, at scale 0.973355 on both axes', () => {
+  it('a standing thing of half-height 11 at field (270, 380) has its feet on column row 214.950544 and its centre on row 206.136533, at scale 0.801274 on both axes', () => {
     // A7, A19: its feet on the near edge of its footprint, upright.
     const at = standingOnPlay(LAYER, 270, 380, 11);
     expectNear(at.x, 270, CLOSE);
-    expectNear(at.y, 312.386873, CLOSE);
-    expectNear(at.y + 11 * at.scaleY, 323.093772, CLOSE);
-    expectNear(at.scaleX, 0.973355, CLOSE);
-    expectNear(at.scaleY, 0.973355, CLOSE);
+    expectNear(at.y, 206.136533, CLOSE);
+    expectNear(at.y + 11 * at.scaleY, 214.950544, CLOSE);
+    expectNear(at.scaleX, 0.801274, CLOSE);
+    expectNear(at.scaleY, 0.801274, CLOSE);
   });
   it('an airborne thing draws at its play point at the scale for its row, on both axes', () => {
     // A7, A19: skulls, wisps and scatters; the design record's table gives
-    // field (100, 100) at (100, 72.678500) at scale 0.856101.
+    // field (100, 100) at (100, 40.569279) at scale 0.591312.
     const at = airborneOnPlay(LAYER, 100, 100);
     expectNear(at.x, 100, CLOSE);
-    expectNear(at.y, 72.6785, CLOSE);
-    expectNear(at.scaleX, 0.856101, CLOSE);
-    expectNear(at.scaleY, 0.856101, CLOSE);
+    expectNear(at.y, 40.569279, CLOSE);
+    expectNear(at.scaleX, 0.591312, CLOSE);
+    expectNear(at.scaleY, 0.591312, CLOSE);
   });
-  it('mob fire draws at scale one at field y 0, 190 and 380, at 1.213640 at 608 and 1.432881 at 760, one scale on both axes', () => {
+  it('mob fire draws at scale one at field y 0, 190 and 380, at 1.502246 at 608 and 2.686877 at 760, one scale on both axes', () => {
     // A21: never smaller than its hitbox's image on either axis.
     for (const [y, scale] of [
       [0, 1],
       [190, 1],
       [380, 1],
-      [608, 1.21364],
-      [760, 1.432881],
+      [608, 1.502246],
+      [760, 2.686877],
     ] as const) {
       const at = hostileFireOnPlay(LAYER, 400, y);
       expect(at.x).toBe(400);
@@ -191,21 +191,21 @@ describe('where play things draw on the play layer (tilted view A19)', () => {
       expectNear(headingOnPlay(LAYER, y, 0, 5), 1.570796, CLOSE);
     }
   });
-  it('a body moving (3, 4) at field y 608 heads 1.017264 radians on the column', () => {
+  it('a body moving (3, 4) at field y 608 heads 1.107747 radians on the column', () => {
     // A7: a heading follows the way the body moves on the screen, atan2 of
     // down over across.
-    expectNear(headingOnPlay(LAYER, 608, 3, 4), 1.017264, CLOSE);
+    expectNear(headingOnPlay(LAYER, 608, 3, 4), 1.107747, CLOSE);
   });
-  it('a lift of 10 field units straight up at field (270, 100) is 10 times 0.856101 straight up the column', () => {
+  it('a lift of 10 field units straight up at field (270, 100) is 10 times 0.591312 straight up the column', () => {
     // A7's last bullet at the play point (A19).
     const lift = liftOnPlay(LAYER, 270, 100, 0, -10);
     expectNear(lift.x, 0, CLOSE);
-    expectNear(lift.y, -8.56101, 1e-5);
+    expectNear(lift.y, -5.91312, 1e-5);
   });
 });
 
 describe("the grave's frame on the play layer (tilted view A24, A29)", () => {
-  it("a body at offset (13.5, -27) from a grave at (270, 608) of size 27 lands at (0.461223, -0.986044) in the grave's frame, and the record's three other cases land where it says", () => {
+  it("a body at offset (13.5, -27) from a grave at (270, 608) of size 27 lands at (0.458780, -0.957111) in the grave's frame, and the record's three other cases land where it says", () => {
     // A24: a swallowed body goes over the rim from where it was drawn.
     for (const [grave, offset, frame] of FRAME_CASES) {
       const at = graveFrameOffset(LAYER, grave, offset[0], offset[1]);
@@ -221,29 +221,29 @@ describe("the grave's frame on the play layer (tilted view A24, A29)", () => {
     // A24: the Undertaker's haul ends where the frame draws his rim hinge.
     expectFrameRoundTrips(SHORT, FRAME_CASES);
   });
-  it('a velocity of (1, 2) field units per tick at a grave at field y 608 of size 27 is (0.034165, 0.074074) grave units per tick in the frame', () => {
+  it('a velocity of (1, 2) field units per tick at a grave at field y 608 of size 27 is (0.033984, 0.074074) grave units per tick in the frame', () => {
     // A24: a fall's velocity is carried by the play layer's local mapping.
     const v = graveFrameVelocity(LAYER, { x: 270, y: 608, size: 27 }, 1, 2);
-    expectNear(v.x, 0.034165, CLOSE);
+    expectNear(v.x, 0.033984, CLOSE);
     expectNear(v.y, 0.074074, CLOSE);
   });
-  it("the grave's frame is 1.084074 across and 1.213640 along at field y 608, and 1 across and 0.756871 along at field y 100", () => {
+  it("the grave's frame is 1.089848 across and 1.502246 along at field y 608, and 1 across and 0.442224 along at field y 100", () => {
     // A29: an offset in the frame draws no smaller than the hitbox's image.
     const near = graveFrameOnPlay(LAYER, 270, 608);
     expectNear(near.x, 270, CLOSE);
-    expectNear(near.y, 559.555815, CLOSE);
-    expectNear(near.scaleX, 1.084074, CLOSE);
-    expectNear(near.scaleY, 1.21364, CLOSE);
+    expectNear(near.y, 454.621805, CLOSE);
+    expectNear(near.scaleX, 1.089848, CLOSE);
+    expectNear(near.scaleY, 1.502246, CLOSE);
     const far = graveFrameOnPlay(LAYER, 270, 100);
     expectNear(far.scaleX, 1, CLOSE);
-    expectNear(far.scaleY, 0.756871, CLOSE);
+    expectNear(far.scaleY, 0.442224, CLOSE);
   });
-  it("the grave's ground rectangle covers its hitbox along exactly: size 27 at (270, 608) has half extents 13.5 and 33.060253, its ends on rows 527.244788 and 592.794441; size 48 at (270, 100) is 24 times 1.191296 across", () => {
+  it("the grave's ground rectangle covers its hitbox along exactly: size 27 at (270, 608) has half extents 13.5 and 37.678843, its ends on rows 415.800750 and 497.085264; size 48 at (270, 100) is 24 times 1.764251 across", () => {
     // A29: along, the drawn rim lies on the hitbox's rows; across, it is
     // widened by one over the scale at its far edge.
     const start = graveOnGround(LAYER, { x: 270, y: 608, size: 27 }, 13.5, 27);
     expectNear(start.halfAcross, 13.5, CLOSE);
-    expectNear(start.halfAlong, 33.060253, CLOSE);
+    expectNear(start.halfAlong, 37.678843, CLOSE);
     const { camera } = LAYER;
     const farEnd = groundToColumn(
       camera,
@@ -255,15 +255,14 @@ describe("the grave's frame on the play layer (tilted view A24, A29)", () => {
       start.centre.x,
       start.centre.y + start.halfAlong,
     );
-    // The ends lie exactly on the hitbox's rows, field y 581 and 635. The
-    // record's 527.244788 and 592.794441 are 7e-5 and 8e-5 off an independent
-    // double-precision working (slice B's note), so they are read at 1e-4.
+    // The ends lie exactly on the hitbox's rows, field y 581 and 635, read
+    // against an independent double-precision working (slice E's note).
     expectNear(farEnd.y, playToColumn(LAYER, 270, 581).y, EXACT);
     expectNear(nearEnd.y, playToColumn(LAYER, 270, 635).y, EXACT);
-    expectNear(farEnd.y, 527.244788, 1e-4);
-    expectNear(nearEnd.y, 592.794441, 1e-4);
+    expectNear(farEnd.y, 415.80075, CLOSE);
+    expectNear(nearEnd.y, 497.085264, CLOSE);
     const grown = graveOnGround(LAYER, { x: 270, y: 100, size: 48 }, 24, 48);
-    expectNear(grown.halfAcross, 24 * 1.191296, 1e-5);
+    expectNear(grown.halfAcross, 24 * 1.764251, 1e-5);
   });
   it("the four corners of a grave's hitbox, drawn by the play layer, lie inside its drawn opening at the left edge, the centre and the right edge, at the start size and the ceiling, on both fields", () => {
     // A29 as ruled after slice B: a hit must never look like a miss, so the
@@ -351,14 +350,14 @@ describe("the grave's frame on the play layer (tilted view A24, A29)", () => {
       }
     }
   });
-  it("placements on the 1168 field: mob fire at field y 1016 draws at scale 1.453931, the grave's frame at 1016 is 1.159834 across and 1.453931 along, and the frame's relations hold for graves of size 27 at (40, 1016), (270, 1016) and (500, 1016)", () => {
+  it("placements on the 1168 field: mob fire at field y 1016 draws at scale 2.195630, the grave's frame at 1016 is 1.053583 across and 2.195630 along, and the frame's relations hold for graves of size 27 at (40, 1016), (270, 1016) and (500, 1016)", () => {
     // A21, A29, A24 on a tall phone's field (T12).
     const fire = hostileFireOnPlay(TALL.playLayer, 270, 1016);
-    expectNear(fire.scaleX, 1.453931, CLOSE);
-    expectNear(fire.scaleY, 1.453931, CLOSE);
+    expectNear(fire.scaleX, 2.19563, CLOSE);
+    expectNear(fire.scaleY, 2.19563, CLOSE);
     const frame = graveFrameOnPlay(TALL.playLayer, 270, 1016);
-    expectNear(frame.scaleX, 1.159834, CLOSE);
-    expectNear(frame.scaleY, 1.453931, CLOSE);
+    expectNear(frame.scaleX, 1.053583, CLOSE);
+    expectNear(frame.scaleY, 2.19563, CLOSE);
     const tallCases = [40, 270, 500].flatMap((x) =>
       FRAME_OFFSETS.map(
         (offset) => [{ x, y: 1016, size: 27 }, offset] as const,

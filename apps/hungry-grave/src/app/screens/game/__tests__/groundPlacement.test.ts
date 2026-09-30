@@ -25,24 +25,24 @@ const expectNear = (actual: number, expected: number, tolerance: number) =>
   ).toBeLessThanOrEqual(tolerance);
 
 describe('where things draw under the camera (tilted view A7)', () => {
-  it('a lying thing on the middle row draws at its own point at scale one across and the lean, 0.843391, down', () => {
+  it('a lying thing on the middle row draws at its own point at scale one across and the lean, 0.906308, down', () => {
     // A7: a lying thing foreshortens with the ground, the scale squared times
     // the lean down the column, and the scale is one on the middle row.
     const at = lyingAt(SHORTEST_CAMERA, 100, 380);
     expectNear(at.x, 100, CLOSE);
     expectNear(at.y, 380, CLOSE);
     expectNear(at.scaleX, 1, CLOSE);
-    expectNear(at.scaleY, 0.843391, CLOSE);
+    expectNear(at.scaleY, 0.906308, CLOSE);
   });
 
-  it("a lying thing at the grave's start, ground (270, 608), draws at (270, 591.320185), 1.098947 across and 1.018552 down", () => {
+  it("a lying thing at the grave's start, ground (270, 608), draws at (270, 655.077721), 1.331205 across and 1.606074 down", () => {
     // A7: the scale squared times the lean, which is how fast the ground's
     // image changes down the column there, not the scale times the lean.
     const at = lyingAt(SHORTEST_CAMERA, 270, 608);
     expectNear(at.x, 270, CLOSE);
-    expectNear(at.y, 591.320185, CLOSE);
-    expectNear(at.scaleX, 1.098947, CLOSE);
-    expectNear(at.scaleY, 1.018552, CLOSE);
+    expectNear(at.y, 655.077721, CLOSE);
+    expectNear(at.scaleX, 1.331205, CLOSE);
+    expectNear(at.scaleY, 1.606074, CLOSE);
   });
 
   it("a standing thing's feet sit on the near edge of its footprint: a mob of half-height 11 at ground (270, 380) has its drawing's centre 11 times the scale above the column point of ground (270, 391)", () => {

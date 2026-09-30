@@ -16,8 +16,8 @@ import type { GraveDark } from './graveProjection';
  * The dark under the hole, in the grave's own half-lengths (the prototype's
  * build 7, which Mark played to his final values, design record R4).
  *
- * The camera the hole is cut with is the scene's own (tilted view T4), so this
- * is the dark alone. The grave has no bottom, so `darkDepth` is where the moon
+ * The camera the hole is cut with is `HOLE_CAMERA_HEIGHT` below, so this is
+ * the dark alone. The grave has no bottom, so `darkDepth` is where the moon
  * stops reaching the walls rather than where they end.
  */
 const GRAVE_DARK: GraveDark = {
@@ -26,21 +26,15 @@ const GRAVE_DARK: GraveDark = {
 };
 
 /**
- * How far the ground under the grave's placed point has to move, across or
- * along, from where the hole was last baked before it is baked again, in ground
- * units, between the ground points under the grave's placed point (tilted view
- * A10, A23). Growth alone never bakes through it; the size has its own step.
- *
- * The move changes the camera's stance over that ground, and so which walls
- * show. A bake kept over a move of m draws a centred grave's two side walls
- * 2 m D / (H + D) ground units apart, with D the dark depth and H the camera's
- * height in half-lengths. At the ceiling (H 17, D 2.4), on the nearest row a
- * grave stands on, that is 1 CSS pixel of a 390-wide phone at m = 4.79; the
- * step sits under it, and a smaller grave has a smaller D / (H + D). Counted
- * in field units the step would pass that bound: a field unit is up to 1.216
- * ground units across and 1.224 along at the top of the column.
+ * How high the hole's own camera stands, in the grave's own half-lengths:
+ * build 7's height (design record R4), taken at the scene's tilt and aimed
+ * straight over the grave (tilted view T13, the prototype's `ownHole`). The
+ * scene camera stands 13 starting half-lengths up and would cut a thin flat
+ * hole; this one keeps the walls reading the way build 7 drew them. The rim
+ * lands where the scene draws it either way, because the opening is laid on
+ * the play layer and the camera only paints inside it.
  */
-const STANCE_REBAKE_STEP = 4.75;
+const HOLE_CAMERA_HEIGHT = 4.95;
 
 /**
  * The cut face's layers, each starting a share of the way down to the dark.
@@ -165,17 +159,16 @@ interface FallCamera {
 
 /**
  * The camera a falling body's path is drawn through, in the grave's own
- * half-lengths: build 7's hole camera, 4.95 up and 1.07 back (design record R4),
- * which carries a body about a third of the way to the middle of the dark by
- * the dark depth (Mark's decision 7).
+ * half-lengths: the hole's own height and build 7's setback of 1.07 (design
+ * record R4), which carries a body about a third of the way to the middle of
+ * the dark by the dark depth (Mark's decision 7).
  *
- * The scene camera stands 42.5 starting half-lengths up with its nadir some 25
- * down the screen, so through it depth moves a body only 5% of the way, and
- * toward a point past the near lip: by the dark a body has left the mouth and
- * draws on the ground. So the path keeps build 7's height and setback, and
- * stands back toward the scene camera's nadir, which is where its dark lies.
+ * The hole's own camera stands at the scene's tilt, so its nadir is
+ * 4.95 tan(25 degrees), 2.308 half-lengths back, past the near lip: through it
+ * a body falling from the near rim leaves the mouth before the dark takes it.
+ * So the path keeps build 7's setback, straight back toward the hole's nadir.
  */
-const FALL_CAMERA: FallCamera = { height: 4.95, setback: 1.07 };
+const FALL_CAMERA: FallCamera = { height: HOLE_CAMERA_HEIGHT, setback: 1.07 };
 
 /**
  * The smallest a body folds to on its way in, as a share of its own size. Food
@@ -316,10 +309,10 @@ export {
   FALL_TILT,
   FALL_TIP_SECONDS,
   GRAVE_DARK,
+  HOLE_CAMERA_HEIGHT,
   HOLE_REBUILD_STEP,
   NOTCHES,
   SOIL,
-  STANCE_REBAKE_STEP,
   TEETER_DARKEN,
   TEETER_SHAKE,
   TEETER_START,

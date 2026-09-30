@@ -461,6 +461,21 @@ const MOB_FIRE = {
   },
 } as const satisfies Record<FireEmitter, FireSprite>;
 
+/**
+ * Tints multiplied over a photograph rather than colours drawn, so they sit
+ * outside PALETTE's band: what reaches the screen is the photo's own texel
+ * times the tint, never the tint itself.
+ *
+ * `groundNight` is the prototype's Night on the photographed ground, a mild
+ * cool multiply light enough that the grass and earth still read (tilted view
+ * T13). Over the stand-in photo it measures luma 13.20 to 75.78, 62.28 at the
+ * 99.9th percentile, with 0.016% of texels over FIELD_LUMA_CEILING and none
+ * at MOB_FIRE_BAND_MIN, before the mipmaps average the far ground down.
+ */
+const PHOTO_TINT = {
+  groundNight: 0xb8c4d8,
+} as const;
+
 export {
   MOB_FIRE_BAND_MIN,
   FIELD_LUMA_CEILING,
@@ -470,5 +485,6 @@ export {
   SPRITE_OUTLINE,
   CORPSE_TIERS,
   MOB_FIRE,
+  PHOTO_TINT,
 };
 export type { PaletteEntry, FireEmitter, FireSprite };

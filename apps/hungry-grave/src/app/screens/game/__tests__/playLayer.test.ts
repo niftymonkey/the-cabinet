@@ -192,17 +192,17 @@ const expectCirclesHold = (
 };
 
 describe('the play layer on the 760 field (tilted view A18)', () => {
-  it("the 760 field's play layer reads the field's top as the ground under the top row and stretches it 1.224454 along: top -168.081604", () => {
+  it("the 760 field's play layer reads the field's top as the ground under the top row and stretches it 1.395513 along: top -392.923505", () => {
     // A18: field y reads as the ground y top + stretch * y, the ground the
     // column's centre shows from the top row to the bottom row.
-    expectNear(SHORT.playLayer.top, -168.081604, CLOSE);
-    expectNear(SHORT.playLayer.stretch, 1.224454, CLOSE);
+    expectNear(SHORT.playLayer.top, -392.923505, CLOSE);
+    expectNear(SHORT.playLayer.stretch, 1.395513, CLOSE);
     expect(SHORT.playLayer.camera).toBe(SHORT.camera);
   });
-  it("the field's top row and bottom row are the column's: field (0, 0) draws at (0, 0) at scale 0.822071, and field (540, 760) at (540, 760) at scale 1.177929", () => {
+  it("the field's top row and bottom row are the column's: field (0, 0) draws at (0, 0) at scale 0.542465, and field (540, 760) at (540, 760) at scale 1.457535", () => {
     // A18, T10: the 540 by 760 field is the viewport, top row to bottom row.
-    expectDrawsAt(SHORT, [0, 0], [0, 0], 0.822071);
-    expectDrawsAt(SHORT, [540, 760], [540, 760], 1.177929);
+    expectDrawsAt(SHORT, [0, 0], [0, 0], 0.542465);
+    expectDrawsAt(SHORT, [540, 760], [540, 760], 1.457535);
   });
   it('across, a field unit is a column unit at every row: field x 0, 135, 270, 405 and 540 draw at those column x at field y 0, 190, 380, 608 and 760', () => {
     // T10: straight down the field is straight down the glass.
@@ -212,46 +212,46 @@ describe('the play layer on the 760 field (tilted view A18)', () => {
       }
     }
   });
-  it("the grave's start, field (270, 608), draws at (270, 559.555815) at scale 1.084074", () => {
+  it("the grave's start, field (270, 608), draws at (270, 454.621805) at scale 1.089848", () => {
     // A18, the design record's play layer table.
-    expectDrawsAt(SHORT, [270, 608], [270, 559.555815], 1.084074);
+    expectDrawsAt(SHORT, [270, 608], [270, 454.621805], 1.089848);
   });
-  it('field (100, 100) draws at (100, 72.678500) at scale 0.856101, and field (400, 700) at (400, 676.868170) at scale 1.139004', () => {
+  it('field (100, 100) draws at (100, 40.569279) at scale 0.591312, and field (400, 700) at (400, 617.733641) at scale 1.286241', () => {
     // A18, A19, the design record's play layer table.
-    expectDrawsAt(SHORT, [100, 100], [100, 72.6785], 0.856101);
-    expectDrawsAt(SHORT, [400, 700], [400, 676.86817], 1.139004);
+    expectDrawsAt(SHORT, [100, 100], [100, 40.569279], 0.591312);
+    expectDrawsAt(SHORT, [400, 700], [400, 617.733641], 1.286241);
   });
   it("a play thing sits on the camera's own row: for field y 0, 100, 380, 608 and 760, the row groundToColumn gives the ground y under it on the column's centre", () => {
     // T11 (A28 ruled): the play layer's rows are the camera's own rows.
     expectOnCameraRows(SHORT, [0, 100, 380, 608, 760]);
   });
-  it('column to play is the exact inverse of play to column: every point of a 9 by 9 grid over the column comes back within 1e-9, and column (123, 456) is field (123, 518.678147)', () => {
+  it('column to play is the exact inverse of play to column: every point of a 9 by 9 grid over the column comes back within 1e-9, and column (123, 456) is field (123, 608.916028)', () => {
     // A18: the mapping is a fraction of two linear functions of field y, so it
     // is exact both ways; slice C's drag goes through the inverse (T9).
     expectInverseOnGrid(SHORT);
     const field = columnToPlay(SHORT.playLayer, 123, 456);
     expectNear(field?.x ?? Number.NaN, 123, CLOSE);
-    expectNear(field?.y ?? Number.NaN, 518.678147, CLOSE);
+    expectNear(field?.y ?? Number.NaN, 608.916028, CLOSE);
   });
-  it('a column point above the horizon has no field point: column (270, -1756) is null and (270, -1755) is not', () => {
-    // The design record: the horizon is column row -1755.68 on the 760 column.
-    expect(columnToPlay(SHORT.playLayer, 270, -1756)).toBeNull();
-    expect(columnToPlay(SHORT.playLayer, 270, -1755)).not.toBeNull();
+  it('a column point above the horizon has no field point: column (270, -451) is null and (270, -450) is not', () => {
+    // The design record: the horizon is column row -450.54 on the 760 column.
+    expect(columnToPlay(SHORT.playLayer, 270, -451)).toBeNull();
+    expect(columnToPlay(SHORT.playLayer, 270, -450)).not.toBeNull();
   });
-  it('the ground under a play thing is the ground the camera shows where it draws: field (0, 608) is over ground (20.939582, 576.386319), (540, 608) over (519.060418, 576.386319), (270, 380) over (270, 297.210848)', () => {
+  it('the ground under a play thing is the ground the camera shows where it draws: field (0, 608) is over ground (22.258959, 455.548219), (540, 608) over (517.741041, 455.548219), (270, 380) over (270, 137.371323)', () => {
     // A23: the grave's hole is cut from the ground under its placed point.
     for (const [field, ground] of [
       [
         [0, 608],
-        [20.939582, 576.386319],
+        [22.258959, 455.548219],
       ],
       [
         [540, 608],
-        [519.060418, 576.386319],
+        [517.741041, 455.548219],
       ],
       [
         [270, 380],
-        [270, 297.210848],
+        [270, 137.371323],
       ],
     ] as const) {
       const under = groundUnderPlay(SHORT.playLayer, field[0], field[1]);
@@ -259,13 +259,13 @@ describe('the play layer on the 760 field (tilted view A18)', () => {
       expectNear(under.y, ground[1], CLOSE);
     }
   });
-  it('rows per field unit along: 0.697895 at field y 0, 0.968341 at 380, 1.213640 at 608, 1.432881 at 760', () => {
+  it('rows per field unit along: 0.372179 at field y 0, 0.790661 at 380, 1.502246 at 608, 2.686877 at 760', () => {
     // A18: the rows spread toward the bottom of the column.
     expectRowsAlong(SHORT, [
-      [0, 0.697895],
-      [380, 0.968341],
-      [608, 1.21364],
-      [760, 1.432881],
+      [0, 0.372179],
+      [380, 0.790661],
+      [608, 1.502246],
+      [760, 2.686877],
     ]);
   });
   it('a traced outline has no step longer than OUTLINE_STEP, begins where the outline begins, and closes when asked to', () => {
@@ -293,33 +293,33 @@ describe('the play layer on the 760 field (tilted view A18)', () => {
 });
 
 describe('the play layer on the 1168 field (tilted view T12)', () => {
-  it("the 1168 field's play layer reads its top as the ground under the top row, -369.054371, and stretches it 1.281514 along; field (0, 0) draws at (0, 0) at scale 0.726551 and field (540, 1168) at (540, 1168) at scale 1.273449", () => {
+  it("the 1168 field's play layer reads its top as the ground under the top row, -1586.772525, and stretches it 2.182459 along; field (0, 0) draws at (0, 0) at scale 0.296840 and field (540, 1168) at (540, 1168) at scale 1.703160", () => {
     // A18, T12: the design record's second play layer table.
-    expectNear(TALL.playLayer.top, -369.054371, CLOSE);
-    expectNear(TALL.playLayer.stretch, 1.281514, CLOSE);
-    expectDrawsAt(TALL, [0, 0], [0, 0], 0.726551);
-    expectDrawsAt(TALL, [540, 1168], [540, 1168], 1.273449);
+    expectNear(TALL.playLayer.top, -1586.772525, CLOSE);
+    expectNear(TALL.playLayer.stretch, 2.182459, CLOSE);
+    expectDrawsAt(TALL, [0, 0], [0, 0], 0.29684);
+    expectDrawsAt(TALL, [540, 1168], [540, 1168], 1.70316);
   });
-  it("the grave's start on the 1168 field, (270, 1016), draws at (270, 925.353867) at scale 1.159834; field (100, 100) at (100, 59.231661) at 0.754285; field (400, 1108) at (400, 1066.751116) at 1.226041", () => {
+  it("the grave's start on the 1168 field, (270, 1016), draws at (270, 628.502491) at scale 1.053583; field (100, 100) at (100, 18.754649) at 0.319422; field (400, 1108) at (400, 891.125518) at 1.369792", () => {
     // A18, T12: the design record's second play layer table.
-    expectDrawsAt(TALL, [270, 1016], [270, 925.353867], 1.159834);
-    expectDrawsAt(TALL, [100, 100], [100, 59.231661], 0.754285);
-    expectDrawsAt(TALL, [400, 1108], [400, 1066.751116], 1.226041);
+    expectDrawsAt(TALL, [270, 1016], [270, 628.502491], 1.053583);
+    expectDrawsAt(TALL, [100, 100], [100, 18.754649], 0.319422);
+    expectDrawsAt(TALL, [400, 1108], [400, 891.125518], 1.369792);
   });
-  it('rows per field unit along on the 1168 field: 0.570538 at field y 0, 0.925226 at 584, 1.453931 at 1016, 1.752733 at 1168', () => {
+  it('rows per field unit along on the 1168 field: 0.174288 at field y 0, 0.505566 at 584, 2.195630 at 1016, 5.737630 at 1168', () => {
     // A18, T12: the design record's second play layer table.
     expectRowsAlong(TALL, [
-      [0, 0.570538],
-      [584, 0.925226],
-      [1016, 1.453931],
-      [1168, 1.752733],
+      [0, 0.174288],
+      [584, 0.505566],
+      [1016, 2.19563],
+      [1168, 5.73763],
     ]);
   });
-  it("on the 1168 field column (123, 700) is field (123, 845.491370), and the camera's rows, the exact inverse, the traced outline and the traced circles hold there as on the 760 field", () => {
+  it("on the 1168 field column (123, 700) is field (123, 1046.103834), and the camera's rows, the exact inverse, the traced outline and the traced circles hold there as on the 760 field", () => {
     // A18, T12: the play layer is the same function on every shape.
     const field = columnToPlay(TALL.playLayer, 123, 700);
     expectNear(field?.x ?? Number.NaN, 123, CLOSE);
-    expectNear(field?.y ?? Number.NaN, 845.49137, CLOSE);
+    expectNear(field?.y ?? Number.NaN, 1046.103834, CLOSE);
     expectOnCameraRows(TALL, [0, 100, 584, 1016, 1168]);
     expectInverseOnGrid(TALL);
     expectTracedSquare(TALL);
