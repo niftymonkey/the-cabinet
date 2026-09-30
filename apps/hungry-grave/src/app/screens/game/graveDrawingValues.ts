@@ -178,20 +178,9 @@ const FALL_CAMERA: FallCamera = { height: HOLE_CAMERA_HEIGHT, setback: 1.07 };
 const FALL_FOLD_FLOOR = 0.3;
 
 /**
- * The share of itself a piece of food must have over the mouth before it starts
- * to lean in (design record R5, the prototype's figure).
- *
- * The teeter is the tell for the swallow rule: without it a corpse lying 40%
- * across the mouth tells the player nothing and a sliver left out reads as a
- * missed swallow. It starts above zero so that food merely brushing the rim
- * stands still, and it runs to the run's own tip threshold, which is read off
- * the run and never from here.
- */
-const TEETER_START = 0.12;
-
-/**
- * How far a body leans toward the mouth at the threshold, in radians, and the
- * tremble it carries there: how far it shakes and how many times a second.
+ * How far a body leans toward the mouth at the rim, where the pull is whole, in
+ * radians, and the tremble it carries there: how far it shakes and how many
+ * times a second.
  *
  * The prototype leaned a body four ways at once (a nudge, a squash, a shake and
  * a darkening) on bodies 20 to 44 units long. A corpse here is 14 units, about
@@ -204,7 +193,7 @@ const TEETER_TILT = 0.35;
 const TEETER_SHAKE = { radians: 0.1, hertz: 4.5 } as const;
 
 /**
- * How much of its own brightness a body keeps at the threshold. It multiplies
+ * How much of its own brightness a body keeps at the rim. It multiplies
  * into the freshness tint rather than replacing it, so a body about to go in is
  * still a body about to rot.
  */
@@ -315,7 +304,6 @@ export {
   SOIL,
   TEETER_DARKEN,
   TEETER_SHAKE,
-  TEETER_START,
   TEETER_TILT,
   TREAD,
 };

@@ -29,18 +29,14 @@ const OFFER_SIZE = 3;
 /**
  * How far apart the bodies stand, in field units. An initial data row.
  *
- * Derived against the swallow rule (design record R1). A body is 28 wide, so
- * two of them 90 apart leave a gap of 62 between their facing edges, and each
- * one needs the tip threshold's share of its own width over the mouth: at the
- * record's 0.55 that is 15.4. A mouth that tipped both at once would therefore
- * have to span 15.4 + 62 + 15.4, which is 92.8, and the widest mouth in the
- * game is 67.5 at the size ceiling. So no grave can ever tip two options on one
- * tick, and three bodies still span a third of the field's width, which makes
- * choosing a real move.
- *
- * The same holds for a mouth narrower than a body, where the share is measured
- * against the mouth's own width instead: two of them would need a mouth wider
- * than 62 plus its own width over again, which no width satisfies.
+ * A body is 28 wide, so two of them 90 apart leave a gap of 62 between their
+ * facing edges. Under first touch (design record R10) any overlap is a swallow,
+ * and the widest mouth, 67.5 at the size ceiling, spans that gap: a grave that
+ * stands between two options touches both on one tick. ADR 0034's one take then
+ * rests on the tie-break: the body whose centre is nearest the grave's goes in,
+ * the lower entity id wins a dead heat, and the take vanishes the others. Below
+ * a mouth 62 wide no grave can touch two. Three bodies still span a third of
+ * the field's width, which makes choosing a real move.
  */
 const OFFER_SPACING = 90;
 

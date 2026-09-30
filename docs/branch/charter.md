@@ -4,7 +4,7 @@ How this branch runs is the `branch-runbook` skill at `.claude/skills/branch-run
 
 ## Goal
 
-The game is seen from one still, tilted viewpoint: the ground and the grave's hole through Mark's pinhole camera (tilt 32.5 degrees, camera 42.50 starting grave half-lengths up, the shared hole camera), and everything that moves on a play layer that is straight across the screen, on the camera's rows down it and at the camera's size for its row, as tilt 9 of the prototype draws it. The tilt is drawing only: nothing about how the game plays changes (Mark, 2026-09-27, design record T10), and the weapons behave right, which is his condition. The branch covers #159. It is one step: six slices landed before the correction, two dropped, the rename undone as slice 9, and four slices A to D after it (the follow-along list).
+The game is seen from one still, tilted viewpoint: the ground and the grave's hole through Mark's pinhole camera (tilt 32.5 degrees, camera 42.50 starting grave half-lengths up, the shared hole camera), and everything that moves on a play layer that is straight across the screen, on the camera's rows down it and at the camera's size for its row, as tilt 9 of the prototype draws it. The tilt is drawing only: nothing about how the game plays changes (Mark, 2026-09-27, design record T10), and the weapons behave right, which is his condition. The swallow rule changed to first touch on Mark's ruling of 2026-09-29 (R10 in `apps/hungry-grave/docs/design/grave-in-the-ground.md`), a separate ruling made from his play of this build and not part of the tilt. The branch covers #159. It is one step: six slices landed before the correction, two dropped, the rename undone as slice 9, and four slices A to D after it (the follow-along list).
 
 ## The branch
 

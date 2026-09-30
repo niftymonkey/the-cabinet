@@ -99,26 +99,19 @@ describe('resolving a partial tuning record', () => {
     ).not.toThrow();
   });
 
-  it('rejects a record whose tip threshold is zero, naming the row', () => {
-    // Design record R1's own bound: the share is never below zero, so at zero
-    // every piece of food anywhere on the field tips on the same tick, the one
-    // the run starts on included. At or below zero rather than below, because
-    // zero is the first reading that does it.
-    expect(() => resolveTuning({ swallow: { tipThreshold: 0 } })).toThrow(
-      /swallow\.tipThreshold/,
-    );
+  it('rejects a record whose tip threshold is below zero, naming the row', () => {
+    // Design record R1's own bound, moved by the first-touch ruling of
+    // 2026-09-29: the share is never below zero, so below zero is no reading
+    // at all.
     expect(() => resolveTuning({ swallow: { tipThreshold: -0.1 } })).toThrow(
       /swallow\.tipThreshold/,
     );
-    // The whole of the rest of the range is a candidate, both ends included: a
-    // threshold near zero is the old first-touch rule and a threshold of one
-    // asks for the whole reachable body, and neither is a defect.
-    expect(() =>
-      resolveTuning({ swallow: { tipThreshold: 0.001 } }),
-    ).not.toThrow();
+    // The whole of the rest of the range is a candidate, both ends included:
+    // zero is first touch, because food with no share over the mouth is never
+    // swallowed, and one asks for the whole reachable body.
+    expect(() => resolveTuning({ swallow: { tipThreshold: 0 } })).not.toThrow();
     expect(() => resolveTuning({ swallow: { tipThreshold: 1 } })).not.toThrow();
   });
-
   it('rejects a record whose tip threshold is above one, naming the row', () => {
     // The other end of R1's bound: the share can never exceed one, because the
     // most of the food that could be over the mouth is the divisor, so above

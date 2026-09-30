@@ -30,6 +30,7 @@ import { graveHitbox } from '../grave';
 import type { Mob } from '../mobs';
 import { MOB_TYPES, spawnMob } from '../mobs';
 import { openOffer } from '../offer';
+import { pullNearness } from '../pull';
 import type { RunState } from '../run';
 import { createRun } from '../run';
 import { PROCESSION_WAVES } from '../stage/waves';
@@ -437,5 +438,58 @@ describe('the pull (grave-in-the-ground R3)', () => {
     expect(next.kind).toBe('feast');
     expect(next.vx).toBe(0);
     expect(next.vy).toBe(0);
+  });
+});
+
+describe("the pull's nearness, which the teeter draws (grave-in-the-ground R3, R5 under R10)", () => {
+  it('reads one at the rim, seven eighths halfway out, and nothing at the reach', () => {
+    // R3's out-cubic at reach 24: 1 - (gap / 24)^3, so 1 at a gap of 0,
+    // 1 - (12 / 24)^3 = 0.875 at 12, and 0 at 24 and beyond.
+    const nearnessAt = (gap: number): number => {
+      const state = quietRun();
+      const corpse = corpseAt(
+        state,
+        leftOfTheRim(state, gap, CORPSE_HALF_EXTENT),
+        state.grave.y,
+      );
+      return pullNearness(corpse, state);
+    };
+    expect(nearnessAt(0)).toBe(1);
+    expect(nearnessAt(12)).toBeCloseTo(0.875, 12);
+    expect(nearnessAt(24)).toBe(0);
+    expect(nearnessAt(30)).toBe(0);
+  });
+
+  it('reads nothing for food the pull never moves: an option, dead food, and any food under a pull switched off', () => {
+    // R3: the options of a live offer are never pulled, and a strength of
+    // zero turns the pull off. A reading that said otherwise would draw a tug
+    // that is not there.
+    const offered = quietRun();
+    openOffer(offered, offered.grave.x, offered.grave.y - 200);
+    const optionId = requireDefined(offered.offer?.bodyIds[0], 'no option');
+    const option = requireDefined(
+      offered.corpses.find((body) => body.id === optionId),
+      'no option body',
+    );
+    option.x = leftOfTheRim(offered, 0, POWER_UP_HALF_EXTENT);
+    option.y = offered.grave.y;
+    expect(pullNearness(option, offered)).toBe(0);
+
+    const dead = quietRun();
+    const gone = corpseAt(
+      dead,
+      leftOfTheRim(dead, 0, CORPSE_HALF_EXTENT),
+      dead.grave.y,
+    );
+    gone.alive = false;
+    expect(pullNearness(gone, dead)).toBe(0);
+
+    const off = quietRun({ swallow: { pullStrength: 0 } });
+    const unpulled = corpseAt(
+      off,
+      leftOfTheRim(off, 0, CORPSE_HALF_EXTENT),
+      off.grave.y,
+    );
+    expect(pullNearness(unpulled, off)).toBe(0);
   });
 });

@@ -401,8 +401,15 @@ const REACHES_VICTORY_FROM_THE_CEILING: number[] = [];
  * mechanism 202 joined by, one tune earlier and from the other direction: what
  * gets a birthright run past her is living long enough for its own stream to
  * finish her. Neither seed wins, which the set below still says.
+ *
+ * Re-measured for first touch (design record R10, Mark's ruling of
+ * 2026-09-29), and 101 went out on the mechanism it came in by, run the other
+ * way. A ceiling grave takes every corpse it touches again, so it grows back
+ * faster between her rings and spends her fight as the bigger target that
+ * takes more of them: 101 is still in her section when the budget ends, at 51
+ * kills where it passed her at 118. 404 still passes her, and no seed wins.
  */
-const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [101, 404];
+const PASSES_THE_BANSHEE_FROM_THE_CEILING: number[] = [404];
 
 /**
  * The seeds that reach victory from the size ceiling on a maxed build, and it

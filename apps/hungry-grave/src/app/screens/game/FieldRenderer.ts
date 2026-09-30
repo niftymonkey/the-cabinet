@@ -3,13 +3,11 @@ import { Container, Graphics } from 'pixi.js';
 import type { Caps } from '../../../game/caps';
 import { TICK_HZ } from '../../../game/clock';
 import type { Corpse } from '../../../game/corpses';
-import { corpseHitbox } from '../../../game/corpses';
 import { SHORTEST_FIELD } from '../../../game/field';
-import { graveHitbox } from '../../../game/grave';
 import type { FireKind } from '../../../game/mobFire';
 import { MOB_TYPES } from '../../../game/mobs';
+import { pullNearness } from '../../../game/pull';
 import type { RunState } from '../../../game/run';
-import { shareOverMouth } from '../../../game/tip';
 import { INVULNERABLE_TICKS } from '../../../game/tuning';
 import { PALETTE } from '../../palette';
 import {
@@ -22,7 +20,6 @@ import {
   ENDING_FIELD_FADE,
   TEETER_DARKEN,
   TEETER_SHAKE,
-  TEETER_START,
   TEETER_TILT,
 } from './graveDrawingValues';
 import type { FieldLayers } from './layering';
@@ -118,28 +115,6 @@ const requireSlot = <T>(
 // How far through a fade of this length the ending has come, from nothing to whole.
 const shareBy = (progress: number, length: number): number =>
   Math.max(0, Math.min(1, progress / length));
-
-/**
- * How far into the teeter a piece of food is, from nothing at the teeter's own
- * start to the whole of it at the run's tip threshold (design record R5).
- *
- * It asks the rules' own question through the rules' own function, so the tell
- * and the swallow can never answer differently, and it reads the threshold off
- * the run because that is a tuning row (ADR 0064).
- */
-const leanOf = (corpse: Corpse, run: RunState): number => {
-  const threshold = run.conditions.tuning.swallow.tipThreshold;
-  // A record may put the threshold at or below the teeter's start, which
-  // leaves no span to lean through: food under the threshold stands straight.
-  const span = threshold - TEETER_START;
-  if (span <= 0) return 0;
-  const share = shareOverMouth(
-    corpseHitbox(corpse),
-    graveHitbox(run.grave),
-    run.field,
-  );
-  return Math.max(0, Math.min(1, (share - TEETER_START) / span));
-};
 
 /**
  * How far over a leaning body is turned this frame: the lean toward the mouth's
@@ -477,10 +452,11 @@ class FieldRenderer {
       placement.position.set(at.x, at.y);
       placement.scale.set(at.scaleX, at.scaleY);
       // The teeter, on every live piece of food and on every frame (design
-      // record R5). A lean of zero is written as deliberately as a full one:
-      // a body the grave slid out from under has to stand back up, and a
-      // recycled slot must not inherit the last body's lean.
-      const lean = leanOf(corpse, run);
+      // record R5), is the pull's own nearness (R10), so the tell and the tug
+      // can never answer differently. A lean of zero is written as deliberately
+      // as a full one: a body the grave moved away from has to stand back up,
+      // and a recycled slot must not inherit the last body's lean.
+      const lean = pullNearness(corpse, run);
       sprite.rotation = teeterTurn(corpse, run, lean);
       // Steady-bright always means treasure (ADR 0004), so a power-up never takes
       // the freshness tint and never flickers. The teeter's darkening multiplies

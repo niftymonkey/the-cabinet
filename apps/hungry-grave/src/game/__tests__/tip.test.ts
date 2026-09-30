@@ -72,7 +72,7 @@ describe('the share of food over the mouth (design record R1)', () => {
   it('is zero when the food shares only an edge with the mouth', () => {
     // The same half-open convention `overlaps` states: two boxes sharing
     // exactly an edge do not overlap, so a corpse resting against the rim is
-    // not over it. R1's sliver rule would read as a swallow at zero width
+    // not over it, and the first-touch rule would read a swallow at zero width
     // otherwise.
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
     const touchingLeftRim = mouth.x - CORPSE_HALF_EXTENT;
@@ -88,8 +88,7 @@ describe('the share of food over the mouth (design record R1)', () => {
 
   it('is one half when a corpse lies half across the side of the mouth', () => {
     // Centred on the rim: 7 of its 14 across, full height over, so 98 against
-    // a most of 196. This is the sliver rule's own middle, and it is under the
-    // 0.55 threshold.
+    // a most of 196.
     const mouth = mouthAt(MID_X, MID_Y, SIZE_START);
 
     expect(

@@ -115,15 +115,19 @@ interface CoveredFood {
   readonly id: number;
 }
 
+// A share of zero is never over the mouth, so a threshold of 0 is first touch.
+const isOverTheMouth = (share: number, threshold: number): boolean =>
+  share > 0 && share >= threshold;
+
 /**
  * Every piece of food the grave is under as this pass begins, read once so a
  * swallow that grows and shoves the grave cannot change what the pass sees.
  *
- * Under is most of it over the mouth and no longer the first touch of two boxes
- * (design record R1): food goes in on the tick its share reaches the run's own
- * threshold, so a sliver over the edge lies there and can still rot away or
- * ride off the bottom. The threshold is read off the run rather than compiled
- * in, because it is a tuning row (ADR 0064).
+ * Under is some of it over the mouth by area and at least the run's own
+ * threshold of it (design record R1, and the first-touch ruling of 2026-09-29
+ * that set the threshold to 0). Two boxes sharing only an edge share no area,
+ * so food resting against the rim is not under. The threshold is read off the
+ * run rather than compiled in, because it is a tuning row (ADR 0064).
  */
 const coveredFood = (state: RunState): CoveredFood[] => {
   const mouth = graveHitbox(state.grave);
@@ -132,7 +136,10 @@ const coveredFood = (state: RunState): CoveredFood[] => {
     .filter(
       (corpse) =>
         corpse.alive &&
-        shareOverMouth(corpseHitbox(corpse), mouth, state.field) >= threshold,
+        isOverTheMouth(
+          shareOverMouth(corpseHitbox(corpse), mouth, state.field),
+          threshold,
+        ),
     )
     .map((body) => ({ body, id: body.id }));
 };

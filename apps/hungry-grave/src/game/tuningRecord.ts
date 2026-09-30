@@ -216,7 +216,8 @@ type SwallowTuning = {
   /**
    * The share of a piece of food that has to be over the grave's mouth before
    * it is swallowed, from 0 to 1. Food goes in on the tick its share reaches
-   * this.
+   * this, and never while its share is zero, so 0 is first touch: any positive
+   * overlap of the food and the mouth.
    *
    * The share is the area the food and the mouth share, over the most of the
    * food that could ever be over this mouth, counting only the part of the food
@@ -225,15 +226,11 @@ type SwallowTuning = {
    * it at all: a power-up is 28 wide against a mouth 27 wide at the start and
    * 18 at the floor, and ADR 0003 rules that size never gates a swallow.
    *
-   * It is Mark's own value, sent after 403 swallows on prototype build 6 with a
-   * natural fall in it: "most of the body", where an earlier build with hands
-   * hauling bodies in had wanted a low threshold and a long strong pull. It is
-   * a starting value all the same, and what it gets read against is the food
-   * ledger's swallowed against lost, before and after this step
-   * (`docs/design/grave-in-the-ground.md`, "Values are data").
-   *
-   * Near zero is the old first-touch rule, which is what the game did before
-   * this step and what made a corpse vanish at the first pixel of contact.
+   * It is 0 on Mark's ruling of 2026-09-29, after playing the tilted build: "if
+   * you touch that thing, it should fall in." It had been 0.55, his value after
+   * 403 swallows on prototype build 6, and in the real game a corpse moved
+   * quickly across near the rim was pulled along without going in
+   * (`docs/design/grave-in-the-ground.md`, decision 3 and its supersession).
    */
   tipThreshold: number;
   /**
@@ -384,7 +381,7 @@ const DEFAULT_TUNING: TuningRecord = {
     mealAtMaxedInKills: 1,
   },
   swallow: {
-    tipThreshold: 0.55,
+    tipThreshold: 0,
     pullReach: 24,
     pullStrength: 125,
     pullResponse: 4.6,
@@ -454,18 +451,17 @@ const refuseZeroBossHealthRate = (score: ScoreTuning): void => {
  * The swallow's own bound, and it is the one row of the group (design record
  * R1's closing paragraph).
  *
- * Both ends turn the one verb of collection off, in opposite directions. The
- * share `tip.ts` computes is never below zero, so a threshold at or below zero
- * tips every piece of food on the field at once, on the run's very first tick;
- * and the share is never above one, so a threshold above one leaves nothing
- * that can ever be swallowed. Neither is a candidate anybody could read a
- * figure off, and a record comes from a document, so it is rejected here rather
+ * Both ends are readings. At 0 the rule is first touch, because food with no
+ * share over the mouth is never swallowed whatever the threshold; at 1 it asks
+ * for the whole reachable body. Below 0 is no reading at all, and the share is
+ * never above one, so a threshold above one leaves nothing that can ever be
+ * swallowed. A record comes from a document, so either is rejected here rather
  * than repaired.
  */
 const refuseUnplayableTipThreshold = (swallow: SwallowTuning): void => {
-  if (swallow.tipThreshold > 0 && swallow.tipThreshold <= 1) return;
+  if (swallow.tipThreshold >= 0 && swallow.tipThreshold <= 1) return;
   throw new Error(
-    `swallow.tipThreshold is written as ${swallow.tipThreshold}, outside the 0 to 1 a share can take: at or below 0 every piece of food tips at once, and above 1 nothing can ever be swallowed`,
+    `swallow.tipThreshold is written as ${swallow.tipThreshold}, outside the 0 to 1 a share can take: below 0 is no share at all, and above 1 nothing can ever be swallowed`,
   );
 };
 

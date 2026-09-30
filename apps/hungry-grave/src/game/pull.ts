@@ -93,6 +93,23 @@ const catchUpShare = (response: number): number => {
 };
 
 /**
+ * How strongly the pull draws this food this tick, from nothing at the reach
+ * and beyond to one at the rim.
+ *
+ * It is the pull's own reading, so the teeter that draws it (design record R5
+ * under R10) and the pull can never disagree: nothing for dead food, for an
+ * option of a live offer, and for a pull switched off by a strength or a reach
+ * of zero (R3's reversal line).
+ */
+const pullNearness = (corpse: Corpse, state: RunState): number => {
+  const tuning = state.conditions.tuning.swallow;
+  if (!corpse.alive || tuning.pullStrength <= 0) return 0;
+  if (state.offer?.bodyIds.includes(corpse.id)) return 0;
+  const gap = gapBetween(corpseHitbox(corpse), graveHitbox(state.grave));
+  return nearnessAt(gap, tuning.pullReach);
+};
+
+/**
  * The grave's tug on the food near its rim, once a tick (design record R3).
  *
  * Out of the reach the wanted velocity is zero, so the same line is the
@@ -129,4 +146,4 @@ const pullFood = (state: RunState): void => {
   }
 };
 
-export { pullFood };
+export { pullFood, pullNearness };

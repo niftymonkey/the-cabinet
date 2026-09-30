@@ -31,6 +31,7 @@ import {
   MOB_TYPES,
   spawnMob,
 } from '../../../../game/mobs';
+import { openOffer } from '../../../../game/offer';
 import type { RunState } from '../../../../game/run';
 import { createRun } from '../../../../game/run';
 import { INVULNERABLE_TICKS } from '../../../../game/tuning';
@@ -41,12 +42,13 @@ import {
   POWER_UP_DRAW_HALF_EXTENT,
   freshnessBrightness,
   freshnessTint,
+  greyTint,
   SPRITE_STROKE,
 } from '../foodSprite';
 import {
   ENDING_FIELD_FADE,
+  TEETER_DARKEN,
   TEETER_SHAKE,
-  TEETER_START,
   TEETER_TILT,
 } from '../graveDrawingValues';
 import { FieldLayers } from '../layering';
@@ -1264,21 +1266,21 @@ describe('a fallen rung on the field (ADR 0055)', () => {
 });
 
 /**
- * The teeter: the tell for the swallow rule (design record R5). A corpse lying
- * across the mouth leans in, shakes and darkens, more as it nears the
- * threshold, and stands back up when the grave slides out from under it.
+ * The teeter: the tell for the pull (design record R5, and R10's first-touch
+ * ruling of 2026-09-29). Food inside the pull's reach leans toward the mouth,
+ * shakes and darkens, more as it nears the rim, and stands back up when the
+ * grave moves off. Food over the mouth is swallowed on that tick, so it never
+ * teeters.
  */
-describe('the teeter (grave-in-the-ground R5)', () => {
+describe('the teeter (grave-in-the-ground R5 under R10)', () => {
+  const REACH = DEFAULT_TUNING.swallow.pullReach;
+
   /**
-   * A corpse lying across the left rim with exactly this share of itself over
-   * the mouth.
-   *
-   * A corpse is 14 field units square and the mouth is 27 across at the start
-   * size, so the most of this body that could ever be over this mouth is the
-   * body itself: overlapping the full height and a share of the width makes the
-   * share that share exactly (`shareOverMouth`, design record R1).
+   * A corpse lying level with the grave, left of the mouth, with exactly this
+   * gap between its right edge and the mouth's left edge. Level, so the gap is
+   * the whole of the distance the pull reads (`pull.ts`, design record R3).
    */
-  function lyingOver(state: RunState, share: number) {
+  function lyingOut(state: RunState, gap: number) {
     const dead = put(state, 'shambler', 60, 100);
     dead.alive = false;
     leaveCorpse(state, dead);
@@ -1286,8 +1288,8 @@ describe('the teeter (grave-in-the-ground R5)', () => {
     corpse.x =
       state.grave.x -
       graveWidth(state.grave.size) / 2 -
-      CORPSE_HALF_EXTENT +
-      CORPSE_HALF_EXTENT * 2 * share;
+      CORPSE_HALF_EXTENT -
+      gap;
     corpse.y = state.grave.y;
     return corpse;
   }
@@ -1297,63 +1299,93 @@ describe('the teeter (grave-in-the-ground R5)', () => {
     return spriteAt(layers, 'corpses', slot);
   }
 
-  it('leaves a corpse with nothing over the mouth standing straight', () => {
-    // A lean of zero is written every frame, not skipped: a sprite left leaning
-    // would stay leaning for as long as that slot lives.
+  function runWithSwallow(
+    swallow: Partial<typeof DEFAULT_TUNING.swallow>,
+  ): RunState {
+    return createRun(1, {
+      tuning: {
+        ...DEFAULT_TUNING,
+        swallow: { ...DEFAULT_TUNING.swallow, ...swallow },
+      },
+    });
+  }
+
+  it("stands a corpse at or beyond the pull's reach straight, at its own freshness", () => {
+    // Out of reach the pull does nothing, so neither does its tell. A lean of
+    // zero is written every frame, not skipped: a sprite left leaning would
+    // stay leaning for as long as that slot lives.
+    const { layers, renderer } = attached();
+    for (const gap of [REACH, REACH + 10]) {
+      const state = createRun(1);
+      const corpse = lyingOut(state, gap);
+      renderer.sync(state);
+      const sprite = corpseSprite(layers, state);
+      expect(sprite.rotation).toBe(0);
+      expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));
+    }
+  });
+
+  it('leans a corpse further the nearer it lies to the rim', () => {
+    // The teeter reads the pull, and the pull grows toward the rim (R3), so
+    // the lean does too: the player sees which body is about to arrive.
+    const { layers, renderer } = attached();
+    const leanAt = (gap: number): number => {
+      const state = createRun(1);
+      lyingOut(state, gap);
+      renderer.sync(state);
+      return Math.abs(corpseSprite(layers, state).rotation);
+    };
+    expect(leanAt(18)).toBeGreaterThan(0);
+    expect(leanAt(12)).toBeGreaterThan(leanAt(18));
+    expect(leanAt(6)).toBeGreaterThan(leanAt(12));
+    expect(leanAt(0)).toBeGreaterThan(leanAt(6));
+  });
+
+  it('leans a corpse at the rim by the full tilt', () => {
+    // At the rim the pull is whole, so the body is at the teeter's own tilt,
+    // trembling by the shake.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const corpse = lyingOver(state, 0);
+    lyingOut(state, 0);
     renderer.sync(state);
-    const sprite = corpseSprite(layers, state);
-    expect(sprite.rotation).toBe(0);
-    expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));
+    const lean = Math.abs(corpseSprite(layers, state).rotation);
+    expect(lean).toBeGreaterThanOrEqual(TEETER_TILT - TEETER_SHAKE.radians);
+    expect(lean).toBeLessThanOrEqual(TEETER_TILT + TEETER_SHAKE.radians);
   });
 
-  it('leans a corpse further the closer its share is to the threshold', () => {
-    // R5: it leans "more as it nears the threshold", which is what tells the
-    // player that a sliver left out is a swallow that has not happened yet
-    // rather than one that was missed.
+  it("leans a corpse by the pull's own nearness: seven eighths of the full lean halfway out", () => {
+    // R3's pull is the prototype's out-cubic ease, one at the rim and nothing
+    // at the reach, so halfway out it is 1 - (1/2)^3 of its whole. The tell
+    // asks the pull's own question, so it reads that same figure. The tick and
+    // the body's id are the same in both runs, so the tremble's phase cancels.
     const { layers, renderer } = attached();
-    const leanAt = (share: number): number => {
+    const turnAt = (gap: number): number => {
       const state = createRun(1);
-      lyingOver(state, share);
+      lyingOut(state, gap);
       renderer.sync(state);
-      return Math.abs(corpseSprite(layers, state).rotation);
+      return corpseSprite(layers, state).rotation;
     };
-    expect(leanAt(TEETER_START)).toBeCloseTo(0, 6);
-    expect(leanAt(0.25)).toBeGreaterThan(leanAt(TEETER_START));
-    expect(leanAt(0.4)).toBeGreaterThan(leanAt(0.25));
-    expect(leanAt(0.5)).toBeGreaterThan(leanAt(0.4));
+    expect(turnAt(REACH / 2) / turnAt(0)).toBeCloseTo(7 / 8, 9);
   });
 
-  it('leans a corpse at the threshold by the full tilt', () => {
-    // At the threshold the body is at the teeter's own tilt, trembling by the
-    // shake, and it goes no further however much of it is over the mouth.
+  it('darkens a corpse by its nearness, not at all at the reach and by the full darkening at the rim', () => {
+    // The darkening multiplies into the freshness tint rather than replacing
+    // it, so a body about to go in is still a body about to rot.
     const { layers, renderer } = attached();
-    const leanAt = (share: number): number => {
-      const state = createRun(1);
-      lyingOver(state, share);
-      renderer.sync(state);
-      return Math.abs(corpseSprite(layers, state).rotation);
-    };
-    const threshold = DEFAULT_TUNING.swallow.tipThreshold;
-    expect(leanAt(threshold)).toBeGreaterThanOrEqual(
-      TEETER_TILT - TEETER_SHAKE.radians,
-    );
-    expect(leanAt(threshold)).toBeLessThanOrEqual(
-      TEETER_TILT + TEETER_SHAKE.radians,
-    );
-    expect(leanAt(0.95)).toBeLessThanOrEqual(
-      TEETER_TILT + TEETER_SHAKE.radians,
+    const state = createRun(1);
+    const corpse = lyingOut(state, 0);
+    renderer.sync(state);
+    expect(corpseSprite(layers, state).tint).toBe(
+      greyTint(freshnessBrightness(corpse, state.tick) * TEETER_DARKEN),
     );
   });
 
-  it('stands a corpse back up when the grave slides out from under it', () => {
+  it('stands a corpse back up when the grave moves out of reach of it', () => {
     // The lean is computed from the run each frame and nothing is held, so a
     // grave steered away leaves the body upright on the very next frame.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const corpse = lyingOver(state, 0.5);
+    const corpse = lyingOut(state, 4);
     renderer.sync(state);
     const sprite = corpseSprite(layers, state);
     expect(sprite.rotation).not.toBe(0);
@@ -1364,43 +1396,68 @@ describe('the teeter (grave-in-the-ground R5)', () => {
     expect(sprite.tint).toBe(freshnessTint(corpse, state.tick));
   });
 
-  it("reads the threshold off the run's own tuning record", () => {
-    // R1: the threshold is a tuning row, so a run under a record that moves it
-    // teeters on that record's own figure rather than on a compiled constant.
+  it("reads the pull's reach off the run's own tuning record", () => {
+    // The reach is a tuning row (ADR 0064), so a run under a record that moves
+    // it teeters on that record's own figure rather than on a compiled one.
     const { layers, renderer } = attached();
-    const leanUnder = (tipThreshold: number): number => {
-      const state = createRun(1, {
-        tuning: {
-          ...DEFAULT_TUNING,
-          swallow: { ...DEFAULT_TUNING.swallow, tipThreshold },
-        },
-      });
-      lyingOver(state, 0.5);
+    const leanUnder = (pullReach: number): number => {
+      const state = runWithSwallow({ pullReach });
+      lyingOut(state, 20);
       renderer.sync(state);
       return Math.abs(corpseSprite(layers, state).rotation);
     };
-    expect(leanUnder(0.5)).toBeGreaterThan(leanUnder(0.9));
+    expect(leanUnder(16)).toBe(0);
+    expect(leanUnder(24)).toBeGreaterThan(0);
+    expect(leanUnder(48)).toBeGreaterThan(leanUnder(24));
   });
 
-  it('stands every corpse straight under a threshold at or below where the teeter starts', () => {
-    // A tuning record may put the threshold anywhere above zero (R1's bounds),
-    // the teeter's start included. There is then no span to lean through: food
-    // below the threshold stands straight, and food at it is swallowed before
-    // it is drawn. The lean is never not-a-number and never full for a sliver.
+  it("stands every corpse straight when the run's pull is switched off", () => {
+    // R3's reversal line: strength zero turns the pull off, and a reach of
+    // zero reads the same. A tell for a pull that is not there would lie.
     const { layers, renderer } = attached();
-    const rotationUnder = (tipThreshold: number, share: number): number => {
-      const state = createRun(1, {
-        tuning: {
-          ...DEFAULT_TUNING,
-          swallow: { ...DEFAULT_TUNING.swallow, tipThreshold },
-        },
-      });
-      lyingOver(state, share);
+    const rotationUnder = (
+      swallow: Partial<typeof DEFAULT_TUNING.swallow>,
+    ): number => {
+      const state = runWithSwallow(swallow);
+      lyingOut(state, 0);
       renderer.sync(state);
       return corpseSprite(layers, state).rotation;
     };
-    expect(rotationUnder(TEETER_START, 0.05)).toBe(0);
-    expect(rotationUnder(0.1, 0.05)).toBe(0);
+    expect(rotationUnder({ pullStrength: 0 })).toBe(0);
+    expect(rotationUnder({ pullReach: 0 })).toBe(0);
+  });
+
+  it("stands an offer's option straight at the rim, where a lone power-up leans", () => {
+    // R3: the pull never moves the option bodies of an offer (ADR 0034), so
+    // the tell never leans one; a power-up that is not an option is pulled and
+    // leans at the same spot.
+    const { layers, renderer } = attached();
+    const atTheRim = (state: RunState, body: { x: number; y: number }) => {
+      body.x =
+        state.grave.x - graveWidth(state.grave.size) / 2 - POWER_UP_HALF_EXTENT;
+      body.y = state.grave.y;
+    };
+    const treasureRotation = (state: RunState, id: number): number => {
+      const slot = state.corpses.findIndex((each) => each.id === id);
+      return drawingsIn(layers, 'treasure')[slot]!.rotation;
+    };
+
+    const offered = createRun(1);
+    openOffer(offered, offered.grave.x, offered.grave.y - 200);
+    const optionId = offered.offer!.bodyIds[0]!;
+    atTheRim(
+      offered,
+      offered.corpses.find((each) => each.id === optionId)!,
+    );
+    renderer.sync(offered);
+    expect(treasureRotation(offered, optionId)).toBe(0);
+
+    const lone = createRun(1);
+    spawnPowerUp(lone, 0, 0, 'wisps');
+    const powerUp = lone.corpses.find((each) => each.alive)!;
+    atTheRim(lone, powerUp);
+    renderer.sync(lone);
+    expect(treasureRotation(lone, powerUp.id)).not.toBe(0);
   });
 
   it("keeps a leaning corpse's freshness tint under the teeter's darkening", () => {
@@ -1408,13 +1465,13 @@ describe('the teeter (grave-in-the-ground R5)', () => {
     // replacing it, so a body about to go in is still a body about to rot.
     const { layers, renderer } = attached();
     const state = createRun(1);
-    const corpse = lyingOver(state, DEFAULT_TUNING.swallow.tipThreshold);
+    const corpse = lyingOut(state, 0);
     corpse.freshness = 0.5;
     renderer.sync(state);
     const draining = corpseSprite(layers, state).tint;
 
     const fresh = createRun(1);
-    lyingOver(fresh, DEFAULT_TUNING.swallow.tipThreshold);
+    lyingOut(fresh, 0);
     renderer.sync(fresh);
     const full = corpseSprite(layers, fresh).tint;
 
@@ -1541,7 +1598,7 @@ describe('the field on the play layer (tilted view A7, A8, A19)', () => {
   it("a corpse lies at its play point at the camera's size for its row, foreshortened down the column, and its teeter turns it inside that foreshortening", () => {
     // A19, A7: a lying thing at the grave's start row draws 1.089848 across
     // and 1.076483 down on row 454.621805 (the record's play layer bullets).
-    // A corpse teetering over the rim turns inside that, so the turn
+    // A corpse teetering at the rim turns inside that, so the turn
     // foreshortens along the screen's vertical and never along its own axis.
     const { layers, renderer } = attached();
     const state = createRun(1);

@@ -546,8 +546,15 @@ describe('the hand is one policy under its row (ADR 0053)', () => {
  * smaller target for the whole of every run and meets each later wave at a
  * different size and a different tick. Which waves a lane passes through is
  * what decides whether it crosses a carrier, and that is every entry above.
+ *
+ * Re-measured for first touch (design record R10, Mark's ruling of
+ * 2026-09-29), and 404 left it, so 202 alone is never paid. The hand takes
+ * every corpse it touches again rather than only the ones it ends a tick
+ * mostly over, so it grows faster and meets the later waves at a different
+ * size and a different tick; on 404 that lane now crosses carriers, opening two
+ * offers where it opened none.
  */
-const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
+const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202];
 
 /**
  * The seeds where an offer stands and the hand never reaches it, which is a
@@ -589,8 +596,14 @@ const NEVER_PAID_AT_THE_BIRTHRIGHT: readonly number[] = [202, 404];
  * is exactly the gap the swallow rule had opened, so a body it used to end the
  * tick merely touching is drawn far enough over the mouth to tip. An empty set
  * still has teeth, because it is written as an equality.
+ *
+ * Re-measured for first touch (design record R10, Mark's ruling of
+ * 2026-09-29), and 505 came in. Touching an option is a take again, so this is
+ * not reach: 505 is a different run from its first swallow on, it is paid one
+ * offer where it was paid two, and it seals at tick 19164 with that offer
+ * standing untaken.
  */
-const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
+const STOOD_BUT_NEVER_REACHED: readonly number[] = [505];
 
 /**
  * The seeds that finish above the birthright, which under the stage's authored
@@ -673,8 +686,17 @@ const STOOD_BUT_NEVER_REACHED: readonly number[] = [];
  * paid at all under this hand (the set above), so there is no rung on its lane
  * to catch, and the cause of that is the same smaller grave meeting different
  * waves. 303 still catches and still outlasts the stage's budget.
+ *
+ * Re-measured for first touch (design record R10, Mark's ruling of
+ * 2026-09-29), and 101 and 404 came in. A fallen rung or an option the grave
+ * touches is taken on that tick, and the hand grows faster on every corpse it
+ * touches, so the runs last longer and take more of what they are paid: 101
+ * takes four of its seven offers and outlasts the stage's budget holding
+ * Territory, 404 takes both of its two and outlasts it holding a skull rung,
+ * and 303 takes all ten of its offers and ends with four lines above the
+ * birthright where it ended with one.
  */
-const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [303];
+const ENDS_ABOVE_THE_BIRTHRIGHT: readonly number[] = [101, 303, 404];
 
 const linesAboveBirthright = (state: RunState): readonly string[] =>
   WEAPON_LINES.filter(
