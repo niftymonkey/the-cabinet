@@ -4,14 +4,13 @@ Read the branch charter first: `docs/branch/charter.md`. Then this file. Every r
 
 ## Where the branch stands
 
-**Every planned slice has landed and Mark has played the build (2026-09-29, desktop, the live deploy of `6f46b115d9`).** Tip `32c375abbd`, pushed, not deployed. His read: "pretty good", with three findings. (1) Corpses touched on a fast pass trail the grave instead of going in: not a missed test, it is decision 3's 55% share (`grave-in-the-ground.md`), and he wants "if you touch that thing, it should fall in"; his ruling on the value is open (first touch recommended). (2) A fall looked left behind where the grave had been: fixed in `32c375abbd`, the fall draws on build 7's own path camera (`FALL_CAMERA`, `fall.ts`) and spends its carried way per tick; CodeRabbit clean. (3) Territory patches warp into different eggs and slide across the ground: the play layer and the pinhole ground disagree by design (A22, A28); he questioned the split itself, and tilt 11 to 13 of the prototype (a Pinhole / Flat ground pair, a real ground photo) let him judge whether a ground on the play layer's own map still reads as tilted. If flat wins, one scenery-side slice moves `groundMesh`, the scroll, dressing and far headstones onto the play layer's map and A22's stretch goes.
+**Both of Mark's 2026-09-29 rulings are built and deployed.** Tip `a352ee198d`, pushed, live at https://hungry-grave.vercel.app (`dpl_X1Nt4X4L3PkYFJ4acpLu49UZufRc`). Slice E `d3048996d5`: camera 25 degrees and 13 half-lengths up, the hole on its own build 7 camera, the forest-ground photo under a night tint (T13 in the design record; `slice-E-note.md`). Slice F `a352ee198d`: food falls in on first touch (R10 in `grave-in-the-ground.md`), the teeter is the pull's lean, the bot and harness seeds re-pinned (`slice-F-note.md`). The fall fix `32c375abbd` came first. Every commit had its own CodeRabbit review; findings that were not fixed are in the slice notes' open items.
 
 ## What is left, in order
 
-1. Mark's swallow ruling: `tipThreshold` to the value he picks, a design-record note that decision 3 is superseded on his play of 2026-09-29, spec test, review, commit.
-2. Mark's ground ruling from tilt 13: if flat, the scenery slice above; if pinhole, a shape rule for traced areas is a design conversation.
-3. Deploy, then his confirming play on iPhone and desktop against "For Mark's next play" below.
-4. The tip review, then the close: the three gates once on the built result, "For the close" worked through, `end-of-the-branch.md`, the glossary entries and the ADR 0003 amendment on his yes.
+1. Mark's confirming play of the deploy on iPhone and desktop, coached line by line: "For Mark's next play" below, plus a touched corpse going in on a fast pass, the fall heading into the dark, the camera and ground against tilt 13, the mirror-image side walls, the grave starting mid-screen on a tall phone.
+2. Fixes from his read, each to a small agent, one review per commit.
+3. The tip review, then the close: the three gates once on the built result, "For the close" worked through, `end-of-the-branch.md`, the glossary entries (Camera, Play layer, and the Swallow entry's "most of it" now wrong under first touch) and the ADR 0003 amendment on his yes.
 
 ## For Mark's read
 
